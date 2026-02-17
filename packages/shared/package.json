@@ -1,0 +1,11 @@
+{
+  "name": "@synk-ai/shared",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "echo 'shared build placeholder'",
+    "lint": "echo 'shared lint placeholder'",
+    "typecheck": "echo 'shared typecheck placeholder'",
+    "test": "echo 'shared test placeholder'"
+  }
+}

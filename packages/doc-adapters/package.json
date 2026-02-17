@@ -1,0 +1,11 @@
+{
+  "name": "@synk-ai/doc-adapters",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "echo 'doc-adapters build placeholder'",
+    "lint": "echo 'doc-adapters lint placeholder'",
+    "typecheck": "echo 'doc-adapters typecheck placeholder'",
+    "test": "echo 'doc-adapters test placeholder'"
+  }
+}
