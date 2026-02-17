@@ -1,11 +1,11 @@
 {
-  "name": "@synk-ai/db",
-  "version": "0.0.0",
-  "private": true,
-  "scripts": {
-    "build": "echo 'db build placeholder'",
-    "lint": "echo 'db lint placeholder'",
-    "typecheck": "echo 'db typecheck placeholder'",
-    "test": "echo 'db test placeholder'"
-  }
+	"name": "@synk-ai/db",
+	"version": "0.0.0",
+	"private": true,
+	"scripts": {
+		"build": "echo 'db build placeholder'",
+		"lint": "biome check .",
+		"typecheck": "tsc --noEmit",
+		"test": "echo 'db test placeholder'"
+	}
 }

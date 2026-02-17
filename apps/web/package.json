@@ -1,12 +1,12 @@
 {
-  "name": "@synk-ai/web",
-  "version": "0.0.0",
-  "private": true,
-  "scripts": {
-    "dev": "echo 'web dev placeholder'",
-    "build": "echo 'web build placeholder'",
-    "lint": "echo 'web lint placeholder'",
-    "typecheck": "echo 'web typecheck placeholder'",
-    "test": "echo 'web test placeholder'"
-  }
+	"name": "@synk-ai/web",
+	"version": "0.0.0",
+	"private": true,
+	"scripts": {
+		"dev": "echo 'web dev placeholder'",
+		"build": "echo 'web build placeholder'",
+		"lint": "biome check .",
+		"typecheck": "tsc --noEmit",
+		"test": "echo 'web test placeholder'"
+	}
 }

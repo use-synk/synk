@@ -1,11 +1,11 @@
 {
-  "name": "@synk-ai/github",
-  "version": "0.0.0",
-  "private": true,
-  "scripts": {
-    "build": "echo 'github build placeholder'",
-    "lint": "echo 'github lint placeholder'",
-    "typecheck": "echo 'github typecheck placeholder'",
-    "test": "echo 'github test placeholder'"
-  }
+	"name": "@synk-ai/github",
+	"version": "0.0.0",
+	"private": true,
+	"scripts": {
+		"build": "echo 'github build placeholder'",
+		"lint": "biome check .",
+		"typecheck": "tsc --noEmit",
+		"test": "echo 'github test placeholder'"
+	}
 }
