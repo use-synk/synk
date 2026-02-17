@@ -1,12 +1,12 @@
 {
-  "name": "@synk-ai/worker",
-  "version": "0.0.0",
-  "private": true,
-  "scripts": {
-    "dev": "echo 'worker dev placeholder'",
-    "build": "echo 'worker build placeholder'",
-    "lint": "echo 'worker lint placeholder'",
-    "typecheck": "echo 'worker typecheck placeholder'",
-    "test": "echo 'worker test placeholder'"
-  }
+	"name": "@synk-ai/worker",
+	"version": "0.0.0",
+	"private": true,
+	"scripts": {
+		"dev": "echo 'worker dev placeholder'",
+		"build": "echo 'worker build placeholder'",
+		"lint": "biome check .",
+		"typecheck": "tsc --noEmit",
+		"test": "echo 'worker test placeholder'"
+	}
 }

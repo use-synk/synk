@@ -1,11 +1,11 @@
 {
-  "name": "@synk-ai/ai",
-  "version": "0.0.0",
-  "private": true,
-  "scripts": {
-    "build": "echo 'ai build placeholder'",
-    "lint": "echo 'ai lint placeholder'",
-    "typecheck": "echo 'ai typecheck placeholder'",
-    "test": "echo 'ai test placeholder'"
-  }
+	"name": "@synk-ai/ai",
+	"version": "0.0.0",
+	"private": true,
+	"scripts": {
+		"build": "echo 'ai build placeholder'",
+		"lint": "biome check .",
+		"typecheck": "tsc --noEmit",
+		"test": "echo 'ai test placeholder'"
+	}
 }
