@@ -1,5 +1,10 @@
 {
-  "name": "@synk-ai/config",
-  "version": "0.0.0",
-  "private": true
+	"name": "@synk-ai/config",
+	"version": "0.0.0",
+	"private": true,
+	"exports": {
+		"./tsconfig.base.json": "./tsconfig.base.json",
+		"./biome.json": "./biome.json"
+	}
 }
+
