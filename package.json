@@ -1,21 +1,23 @@
 {
-  "name": "synk-ai",
-  "private": true,
-  "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev",
-    "lint": "turbo run lint",
-    "typecheck": "turbo run typecheck",
-    "test": "turbo run test",
-    "docker:up": "docker compose up -d",
-    "docker:down": "docker compose down"
-  },
-  "devDependencies": {
-    "turbo": "^2.8.9",
-    "typescript": "5.9.2"
-  },
-  "packageManager": "pnpm@10.28.1",
-  "engines": {
-    "node": ">=22"
-  }
+	"name": "synk-ai",
+	"private": true,
+	"scripts": {
+		"build": "turbo run build",
+		"dev": "turbo run dev",
+		"lint": "turbo run lint",
+		"format": "biome format --write .",
+		"typecheck": "turbo run typecheck",
+		"test": "turbo run test",
+		"docker:up": "docker compose up -d",
+		"docker:down": "docker compose down"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^1.9.4",
+		"turbo": "^2.8.9",
+		"typescript": "5.9.2"
+	},
+	"packageManager": "pnpm@10.28.1",
+	"engines": {
+		"node": ">=22"
+	}
 }
