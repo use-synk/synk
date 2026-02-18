@@ -5,7 +5,9 @@
 		"rootDir": "src",
 		"declaration": true,
 		"declarationMap": true,
-		"sourceMap": true
+		"sourceMap": true,
+		"types": ["node"]
 	},
-	"files": []
+	"include": ["src/**/*.ts"],
+	"exclude": ["node_modules", "dist", "coverage", "src/__tests__"]
 }
