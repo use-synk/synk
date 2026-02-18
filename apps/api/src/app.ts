@@ -20,20 +20,27 @@ type AppOptions = {
 export const createApp = (options: AppOptions): Hono<AppEnv> => {
 	const { env, logger, db, enqueueAnalyzeChanges } = options;
 	const app = new Hono<AppEnv>();
+	const webhookOptions: {
+		db: WebhookDatabase;
+		webhookSecret: string;
+		enqueueAnalyzeChanges: AnalyzeChangesEnqueuer;
+		installationOrganizationId?: string;
+	} = {
+		db,
+		webhookSecret: env.GITHUB_WEBHOOK_SECRET,
+		enqueueAnalyzeChanges,
+	};
+
+	if (env.GITHUB_WEBHOOK_ORGANIZATION_ID !== undefined) {
+		webhookOptions.installationOrganizationId = env.GITHUB_WEBHOOK_ORGANIZATION_ID;
+	}
 
 	app.use(cors({ origin: env.CORS_ORIGIN }));
 	app.use(requestIdMiddleware);
 	app.use(createLoggingMiddleware({ logger }));
 
 	app.route("/health", createHealthRoute(env.GIT_SHA));
-	app.route(
-		"/api/webhooks",
-		createGitHubWebhookRoute({
-			db,
-			webhookSecret: env.GITHUB_WEBHOOK_SECRET,
-			enqueueAnalyzeChanges,
-		}),
-	);
+	app.route("/api/webhooks", createGitHubWebhookRoute(webhookOptions));
 
 	app.notFound((c) => c.json({ error: { code: "NOT_FOUND", message: "Resource not found" } }, 404));
 	app.onError(createErrorHandler(logger));

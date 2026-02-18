@@ -9,6 +9,7 @@ export const apiEnvironmentSchema = sharedEnvironmentSchema.extend({
 	GIT_SHA: z.string().default("unknown"),
 	REDIS_URL: z.string().min(1),
 	GITHUB_WEBHOOK_SECRET: z.string().min(1),
+	GITHUB_WEBHOOK_ORGANIZATION_ID: z.string().min(1).optional(),
 });
 
 export type ApiEnvironment = z.infer<typeof apiEnvironmentSchema>;

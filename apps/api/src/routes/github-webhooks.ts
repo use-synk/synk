@@ -5,6 +5,7 @@ import type { AnalyzeChangesEnqueuer } from "../queues/analyze-changes.js";
 import type { AppEnv } from "../types.js";
 
 const GITHUB_SIGNATURE_PREFIX = "sha256=";
+const GITHUB_DELETED_REF_SHA = "0000000000000000000000000000000000000000";
 const PROVIDER_GITHUB = "github" as const;
 const INSTALLATION_ACTIVE = "active" as const;
 const INSTALLATION_SUSPENDED = "suspended" as const;
@@ -99,14 +100,18 @@ type ActiveRepository = {
 };
 
 export type WebhookDatabase = {
-	organization: {
-		upsert(args: {
-			where: { id: string };
-			create: { id: string; name: string; slug: string; createdAt: Date };
-			update: { name: string; slug: string };
-		}): Promise<{ id: string }>;
-	};
 	providerInstallation: {
+		findUnique(args: {
+			where: {
+				provider_providerInstallationId: {
+					provider: "github" | "gitlab" | "bitbucket";
+					providerInstallationId: string;
+				};
+			};
+			select: {
+				organizationId: true;
+			};
+		}): Promise<{ organizationId: string } | null>;
 		upsert(args: {
 			where: {
 				provider_providerInstallationId: {
@@ -180,6 +185,7 @@ export type WebhookDatabase = {
 type RouteOptions = {
 	db: WebhookDatabase;
 	webhookSecret: string;
+	installationOrganizationId?: string;
 	enqueueAnalyzeChanges: AnalyzeChangesEnqueuer;
 };
 
@@ -200,27 +206,15 @@ const getProviderRepositoryId = (repository?: GitHubRepositoryPayload): string |
 	return String(repository.id);
 };
 
-const organizationIdentityFromAccount = (
+const installationIdentityFromAccount = (
 	account: GitHubAccountPayload | undefined,
 	providerInstallationId: string,
-): {
-	id: string;
-	slug: string;
-	name: string;
-	accountId: string;
-	accountLogin: string;
-	accountType: string;
-} => {
+): { accountId: string; accountLogin: string; accountType: string } => {
 	const accountId = account?.id !== undefined ? String(account.id) : providerInstallationId;
 	const accountLogin = account?.login?.trim() ? account.login.trim() : `github-${accountId}`;
 	const accountType = account?.type?.trim() ? account.type.trim() : "User";
-	const safeSlug = accountLogin.toLowerCase().replace(/[^a-z0-9-]/g, "-");
-	const slug = `github-${safeSlug}-${accountId}`;
 
 	return {
-		id: `github-org-${accountId}`,
-		slug,
-		name: accountLogin,
 		accountId,
 		accountLogin,
 		accountType,
@@ -320,24 +314,26 @@ const handleInstallationEvent = async (
 		return;
 	}
 
-	const organizationIdentity = organizationIdentityFromAccount(
+	const existingInstallation = await options.db.providerInstallation.findUnique({
+		where: {
+			provider_providerInstallationId: {
+				provider: PROVIDER_GITHUB,
+				providerInstallationId,
+			},
+		},
+		select: {
+			organizationId: true,
+		},
+	});
+	const organizationId = existingInstallation?.organizationId ?? options.installationOrganizationId;
+	if (organizationId === undefined) {
+		return;
+	}
+
+	const installationIdentity = installationIdentityFromAccount(
 		payload.account,
 		providerInstallationId,
 	);
-
-	await options.db.organization.upsert({
-		where: { id: organizationIdentity.id },
-		create: {
-			id: organizationIdentity.id,
-			name: organizationIdentity.name,
-			slug: organizationIdentity.slug,
-			createdAt: new Date(),
-		},
-		update: {
-			name: organizationIdentity.name,
-			slug: organizationIdentity.slug,
-		},
-	});
 
 	const status = payload.action === "suspend" ? INSTALLATION_SUSPENDED : INSTALLATION_ACTIVE;
 
@@ -349,19 +345,19 @@ const handleInstallationEvent = async (
 			},
 		},
 		create: {
-			organizationId: organizationIdentity.id,
+			organizationId,
 			provider: PROVIDER_GITHUB,
 			providerInstallationId,
-			providerAccountId: organizationIdentity.accountId,
-			accountLogin: organizationIdentity.accountLogin,
-			accountType: organizationIdentity.accountType,
+			providerAccountId: installationIdentity.accountId,
+			accountLogin: installationIdentity.accountLogin,
+			accountType: installationIdentity.accountType,
 			status,
 			deletedAt: null,
 		},
 		update: {
-			providerAccountId: organizationIdentity.accountId,
-			accountLogin: organizationIdentity.accountLogin,
-			accountType: organizationIdentity.accountType,
+			providerAccountId: installationIdentity.accountId,
+			accountLogin: installationIdentity.accountLogin,
+			accountType: installationIdentity.accountType,
 			status,
 			deletedAt: null,
 		},
@@ -378,7 +374,8 @@ const handlePushEvent = async (payload: PushEventPayload, options: RouteOptions)
 		providerInstallationId === null ||
 		providerRepositoryId === null ||
 		ref === undefined ||
-		commitSha === undefined
+		commitSha === undefined ||
+		commitSha === GITHUB_DELETED_REF_SHA
 	) {
 		return;
 	}

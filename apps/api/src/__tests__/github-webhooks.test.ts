@@ -24,10 +24,8 @@ const createSignature = (body: string): string =>
 
 const createMockDatabase = (): WebhookDatabase => {
 	return {
-		organization: {
-			upsert: vi.fn(async () => ({ id: "github-org-9876" })),
-		},
 		providerInstallation: {
+			findUnique: vi.fn(async () => null),
 			upsert: vi.fn(async () => ({})),
 			updateMany: vi.fn(async () => ({ count: 1 })),
 		},
@@ -58,6 +56,7 @@ const makeApp = (db: WebhookDatabase, enqueueAnalyzeChanges: AnalyzeChangesEnque
 			GIT_SHA: "test",
 			REDIS_URL: "redis://localhost:6379",
 			GITHUB_WEBHOOK_SECRET: WEBHOOK_SECRET,
+			GITHUB_WEBHOOK_ORGANIZATION_ID: "org-default",
 		},
 	});
 };
@@ -121,7 +120,7 @@ describe("POST /api/webhooks/github", () => {
 		);
 
 		expect(response.status).toBe(200);
-		expect(db.organization.upsert).toHaveBeenCalledOnce();
+		expect(db.providerInstallation.findUnique).toHaveBeenCalledOnce();
 		expect(db.providerInstallation.upsert).toHaveBeenCalledOnce();
 		expect(enqueueMock).not.toHaveBeenCalled();
 	});
@@ -147,6 +146,17 @@ describe("POST /api/webhooks/github", () => {
 		const app = makeApp(db, enqueueAnalyzeChanges);
 		const payload = readFixture("push-main.json");
 		payload.ref = "refs/heads/feature-x";
+
+		const response = await dispatchWebhook(app, "push", payload);
+
+		expect(response.status).toBe(200);
+		expect(enqueueMock).not.toHaveBeenCalled();
+	});
+
+	it("does not enqueue push events for deleted branches", async () => {
+		const app = makeApp(db, enqueueAnalyzeChanges);
+		const payload = readFixture("push-main.json");
+		payload.after = "0000000000000000000000000000000000000000";
 
 		const response = await dispatchWebhook(app, "push", payload);
 
@@ -264,6 +274,35 @@ describe("POST /api/webhooks/github", () => {
 		const response = await dispatchWebhook(app, "push", readFixture("push-main.json"));
 
 		expect(response.status).toBe(200);
+		expect(enqueueMock).not.toHaveBeenCalled();
+	});
+
+	it("ignores installation create events without a resolvable organization", async () => {
+		const logger = createLogger("silent", false);
+		const app = createApp({
+			logger,
+			db,
+			enqueueAnalyzeChanges,
+			env: {
+				NODE_ENV: "test",
+				PORT: 3000,
+				HOST: "127.0.0.1",
+				CORS_ORIGIN: "*",
+				LOG_LEVEL: "silent",
+				GIT_SHA: "test",
+				REDIS_URL: "redis://localhost:6379",
+				GITHUB_WEBHOOK_SECRET: WEBHOOK_SECRET,
+			},
+		});
+
+		const response = await dispatchWebhook(
+			app,
+			"installation",
+			readFixture("installation-created.json"),
+		);
+
+		expect(response.status).toBe(200);
+		expect(db.providerInstallation.upsert).not.toHaveBeenCalled();
 		expect(enqueueMock).not.toHaveBeenCalled();
 	});
 });
