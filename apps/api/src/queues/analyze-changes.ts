@@ -1,6 +1,8 @@
 import { Queue } from "bullmq";
 
 export const ANALYZE_CHANGES_QUEUE_NAME = "analyze-changes";
+const REMOVE_COMPLETED_JOBS = { count: 1000 } as const;
+const REMOVE_FAILED_JOBS = { age: 24 * 60 * 60 } as const;
 
 export type AnalyzeChangesJobPayload = {
 	installationId: string;
@@ -18,6 +20,10 @@ export type AnalyzeChangesEnqueuer = (payload: AnalyzeChangesJobPayload) => Prom
 export const createAnalyzeChangesQueue = (redisUrl: string): Queue<AnalyzeChangesJobPayload> =>
 	new Queue<AnalyzeChangesJobPayload>(ANALYZE_CHANGES_QUEUE_NAME, {
 		connection: { url: redisUrl },
+		defaultJobOptions: {
+			removeOnComplete: REMOVE_COMPLETED_JOBS,
+			removeOnFail: REMOVE_FAILED_JOBS,
+		},
 	});
 
 export const createAnalyzeChangesEnqueuer = (
