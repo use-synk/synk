@@ -52,8 +52,10 @@ const startWorker = async (): Promise<void> => {
 
 		logger.info({ signal }, "shutting down worker gracefully");
 		const timeout = setTimeout(() => {
-			logger.error("forced shutdown: timeout exceeded");
-			process.exit(1);
+			logger.warn(
+				{ timeoutMs: SHUTDOWN_TIMEOUT_MS },
+				"worker shutdown is still waiting for active jobs",
+			);
 		}, SHUTDOWN_TIMEOUT_MS);
 		timeout.unref();
 
@@ -81,11 +83,11 @@ const startWorker = async (): Promise<void> => {
 	try {
 		await queueEvents.waitUntilReady();
 		await worker.waitUntilReady();
-		await worker.run();
 		logger.info(
 			{ queue: "analyze-changes", concurrency: env.WORKER_CONCURRENCY },
 			"worker started",
 		);
+		await worker.run();
 	} catch (error) {
 		logger.error({ err: error }, "worker failed to start");
 		await shutdown("STARTUP_FAILURE");
