@@ -26,6 +26,9 @@ importers:
       '@synk-ai/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@synk-ai/github':
+        specifier: workspace:*
+        version: link:../../packages/github
       '@synk-ai/shared':
         specifier: workspace:*
         version: link:../../packages/shared

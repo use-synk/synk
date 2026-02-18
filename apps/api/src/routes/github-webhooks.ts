@@ -44,6 +44,29 @@ const installationEventSchema = z.object({
 		.optional(),
 });
 
+const repositoryPayloadSchema = z.object({
+	id: z.number().int().optional(),
+	name: z.string().optional(),
+	full_name: z.string().optional(),
+	default_branch: z.string().optional(),
+	owner: z
+		.object({
+			login: z.string().optional(),
+		})
+		.optional(),
+});
+
+const installationRepositoriesEventSchema = z.object({
+	action: z.string().optional(),
+	installation: z
+		.object({
+			id: z.number().int().optional(),
+		})
+		.optional(),
+	repositories_added: z.array(repositoryPayloadSchema).optional(),
+	repositories_removed: z.array(repositoryPayloadSchema).optional(),
+});
+
 const pushEventSchema = z.object({
 	ref: z.string().optional(),
 	after: z.string().optional(),
@@ -91,12 +114,35 @@ const pullRequestEventSchema = z.object({
 });
 
 type InstallationEventPayload = z.infer<typeof installationEventSchema>;
+type InstallationRepositoriesEventPayload = z.infer<typeof installationRepositoriesEventSchema>;
 type PushEventPayload = z.infer<typeof pushEventSchema>;
 type PullRequestEventPayload = z.infer<typeof pullRequestEventSchema>;
 
 type ActiveRepository = {
 	id: string;
 	installationId: string;
+	defaultBranch: string;
+};
+
+export type GitHubInstallationRepository = {
+	id: number;
+	name: string;
+	full_name: string;
+	default_branch: string;
+	owner: {
+		login: string;
+	};
+};
+
+export type ListInstallationRepositories = (
+	installationId: number,
+) => Promise<readonly GitHubInstallationRepository[]>;
+
+type PersistableRepository = {
+	providerRepositoryId: string;
+	ownerLogin: string;
+	name: string;
+	fullName: string;
 	defaultBranch: string;
 };
 
@@ -110,9 +156,10 @@ export type WebhookDatabase = {
 				};
 			};
 			select: {
+				id: true;
 				organizationId: true;
 			};
-		}): Promise<{ organizationId: string } | null>;
+		}): Promise<{ id: string; organizationId: string } | null>;
 		upsert(args: {
 			where: {
 				provider_providerInstallationId: {
@@ -137,7 +184,7 @@ export type WebhookDatabase = {
 				status: "active" | "suspended" | "deleted";
 				deletedAt: Date | null;
 			};
-		}): Promise<unknown>;
+		}): Promise<{ id: string }>;
 		updateMany(args: {
 			where: {
 				provider: "github" | "gitlab" | "bitbucket";
@@ -150,6 +197,36 @@ export type WebhookDatabase = {
 		}): Promise<{ count: number }>;
 	};
 	providerRepository: {
+		upsert(args: {
+			where: {
+				provider_providerRepositoryId: {
+					provider: "github" | "gitlab" | "bitbucket";
+					providerRepositoryId: string;
+				};
+			};
+			create: {
+				installationId: string;
+				provider: "github" | "gitlab" | "bitbucket";
+				providerRepositoryId: string;
+				ownerLogin: string;
+				name: string;
+				fullName: string;
+				defaultBranch: string;
+				status: "active" | "archived" | "removed";
+				isActive: boolean;
+				lastSyncedAt: Date | null;
+			};
+			update: {
+				installationId: string;
+				ownerLogin: string;
+				name: string;
+				fullName: string;
+				defaultBranch: string;
+				status: "active" | "archived" | "removed";
+				isActive: boolean;
+				lastSyncedAt: Date | null;
+			};
+		}): Promise<unknown>;
 		findFirst(args: {
 			where: {
 				provider: "github" | "gitlab" | "bitbucket";
@@ -174,6 +251,9 @@ export type WebhookDatabase = {
 					provider: "github" | "gitlab" | "bitbucket";
 					providerInstallationId: string;
 				};
+				providerRepositoryId?: {
+					in: string[];
+				};
 			};
 			data: {
 				status: "active" | "archived" | "removed";
@@ -188,6 +268,7 @@ type RouteOptions = {
 	webhookSecret: string;
 	installationOrganizationId?: string;
 	enqueueAnalyzeChanges: AnalyzeChangesEnqueuer;
+	listInstallationRepositories: ListInstallationRepositories;
 };
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
@@ -205,6 +286,122 @@ const getProviderRepositoryId = (repository?: GitHubRepositoryPayload): string |
 		return null;
 	}
 	return String(repository.id);
+};
+
+const toPersistableRepository = (
+	repository: z.infer<typeof repositoryPayloadSchema>,
+): PersistableRepository | null => {
+	const providerRepositoryId = repository.id !== undefined ? String(repository.id) : null;
+	const ownerLogin = repository.owner?.login?.trim() ? repository.owner.login.trim() : null;
+	const name = repository.name?.trim() ? repository.name.trim() : null;
+	const fullName = repository.full_name?.trim() ? repository.full_name.trim() : null;
+	const defaultBranch = repository.default_branch?.trim() ? repository.default_branch.trim() : null;
+
+	if (
+		providerRepositoryId === null ||
+		ownerLogin === null ||
+		name === null ||
+		fullName === null ||
+		defaultBranch === null
+	) {
+		return null;
+	}
+
+	return {
+		providerRepositoryId,
+		ownerLogin,
+		name,
+		fullName,
+		defaultBranch,
+	};
+};
+
+const upsertRepository = async (
+	db: Pick<WebhookDatabase, "providerRepository">,
+	installationId: string,
+	repository: PersistableRepository,
+): Promise<void> => {
+	await db.providerRepository.upsert({
+		where: {
+			provider_providerRepositoryId: {
+				provider: PROVIDER_GITHUB,
+				providerRepositoryId: repository.providerRepositoryId,
+			},
+		},
+		create: {
+			installationId,
+			provider: PROVIDER_GITHUB,
+			providerRepositoryId: repository.providerRepositoryId,
+			ownerLogin: repository.ownerLogin,
+			name: repository.name,
+			fullName: repository.fullName,
+			defaultBranch: repository.defaultBranch,
+			status: REPOSITORY_ACTIVE,
+			isActive: true,
+			lastSyncedAt: new Date(),
+		},
+		update: {
+			installationId,
+			ownerLogin: repository.ownerLogin,
+			name: repository.name,
+			fullName: repository.fullName,
+			defaultBranch: repository.defaultBranch,
+			status: REPOSITORY_ACTIVE,
+			isActive: true,
+			lastSyncedAt: new Date(),
+		},
+	});
+};
+
+const upsertRepositories = async (
+	db: Pick<WebhookDatabase, "providerRepository">,
+	installationId: string,
+	repositories: readonly z.infer<typeof repositoryPayloadSchema>[],
+): Promise<void> => {
+	for (const repositoryPayload of repositories) {
+		const repository = toPersistableRepository(repositoryPayload);
+		if (repository !== null) {
+			await upsertRepository(db, installationId, repository);
+		}
+	}
+};
+
+const markRepositoriesAsRemoved = async (
+	db: Pick<WebhookDatabase, "providerRepository">,
+	providerInstallationId: string,
+	repositories: readonly z.infer<typeof repositoryPayloadSchema>[],
+): Promise<void> => {
+	const repositoryIds = repositories
+		.map((repository) => toPersistableRepository(repository)?.providerRepositoryId)
+		.filter((repositoryId): repositoryId is string => repositoryId !== undefined);
+	if (repositoryIds.length === 0) {
+		return;
+	}
+
+	await db.providerRepository.updateMany({
+		where: {
+			installation: {
+				provider: PROVIDER_GITHUB,
+				providerInstallationId,
+			},
+			providerRepositoryId: {
+				in: repositoryIds,
+			},
+		},
+		data: {
+			status: REPOSITORY_REMOVED,
+			isActive: false,
+		},
+	});
+};
+
+const syncInstallationRepositories = async (
+	options: RouteOptions,
+	installationId: string,
+	providerInstallationNumericId: number,
+): Promise<void> => {
+	const repositories = await options.listInstallationRepositories(providerInstallationNumericId);
+	await upsertRepositories(options.db, installationId, repositories);
 };
 
 const installationIdentityFromAccount = (
@@ -323,6 +520,7 @@ const handleInstallationEvent = async (
 			},
 		},
 		select: {
+			id: true,
 			organizationId: true,
 		},
 	});
@@ -338,7 +536,7 @@ const handleInstallationEvent = async (
 
 	const status = payload.action === "suspend" ? INSTALLATION_SUSPENDED : INSTALLATION_ACTIVE;
 
-	await options.db.providerInstallation.upsert({
+	const installation = await options.db.providerInstallation.upsert({
 		where: {
 			provider_providerInstallationId: {
 				provider: PROVIDER_GITHUB,
@@ -363,6 +561,51 @@ const handleInstallationEvent = async (
 			deletedAt: null,
 		},
 	});
+
+	if (payload.action !== "created" || payload.installation?.id === undefined) {
+		return;
+	}
+
+	await syncInstallationRepositories(options, installation.id, payload.installation.id);
+};
+
+const handleInstallationRepositoriesEvent = async (
+	payload: InstallationRepositoriesEventPayload,
+	options: RouteOptions,
+): Promise<void> => {
+	const providerInstallationId = getProviderInstallationId(payload.installation);
+	if (providerInstallationId === null) {
+		return;
+	}
+
+	const installation = await options.db.providerInstallation.findUnique({
+		where: {
+			provider_providerInstallationId: {
+				provider: PROVIDER_GITHUB,
+				providerInstallationId,
+			},
+		},
+		select: {
+			id: true,
+			organizationId: true,
+		},
+	});
+	if (installation === null) {
+		return;
+	}
+
+	if (payload.action === "added") {
+		await upsertRepositories(options.db, installation.id, payload.repositories_added ?? []);
+		return;
+	}
+
+	if (payload.action === "removed") {
+		await markRepositoriesAsRemoved(
+			options.db,
+			providerInstallationId,
+			payload.repositories_removed ?? [],
+		);
+	}
 };
 
 const handlePushEvent = async (payload: PushEventPayload, options: RouteOptions): Promise<void> => {
@@ -498,6 +741,14 @@ export const createGitHubWebhookRoute = (options: RouteOptions): Hono<AppEnv> =>
 			const parsed = pullRequestEventSchema.safeParse(payload);
 			if (parsed.success) {
 				await handlePullRequestEvent(parsed.data, options);
+			}
+			return c.json({ status: "ok" }, 200);
+		}
+
+		if (eventType === "installation_repositories") {
+			const parsed = installationRepositoriesEventSchema.safeParse(payload);
+			if (parsed.success) {
+				await handleInstallationRepositoriesEvent(parsed.data, options);
 			}
 			return c.json({ status: "ok" }, 200);
 		}

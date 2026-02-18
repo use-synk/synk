@@ -1,7 +1,8 @@
-import { parseEnvironment, sharedEnvironmentSchema } from "@synk-ai/shared";
+import { githubEnvironmentSchema } from "@synk-ai/github";
+import { parseEnvironment } from "@synk-ai/shared";
 import { z } from "zod";
 
-export const apiEnvironmentSchema = sharedEnvironmentSchema.extend({
+export const apiEnvironmentSchema = githubEnvironmentSchema.extend({
 	PORT: z.coerce.number().int().min(1).max(65535).default(3000),
 	HOST: z.string().default("0.0.0.0"),
 	CORS_ORIGIN: z.string().default("*"),
