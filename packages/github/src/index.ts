@@ -5,6 +5,15 @@ export {
 	type GitHubAppCredentials,
 } from "./auth.js";
 export {
+	DEFAULT_DIFF_IGNORE_PATTERNS,
+	fetchPRDiff,
+	fetchPushDiff,
+	filterDiff,
+	type DiffFile,
+	type FetchPRDiffRequest,
+	type FetchPushDiffRequest,
+} from "./diff.js";
+export {
 	githubCredentialsEnvironmentSchema,
 	githubEnvironmentSchema,
 	parseGitHubCredentialsEnvironment,
