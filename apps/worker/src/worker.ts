@@ -44,7 +44,7 @@ const startWorker = async (): Promise<void> => {
 
 	let isShuttingDown = false;
 
-	const shutdown = async (signal: string): Promise<void> => {
+	const shutdown = async (signal: string, exitCode = 0): Promise<void> => {
 		if (isShuttingDown) {
 			return;
 		}
@@ -64,7 +64,7 @@ const startWorker = async (): Promise<void> => {
 			await queueEvents.close();
 			clearTimeout(timeout);
 			logger.info("worker shutdown complete");
-			process.exit(0);
+			process.exit(exitCode);
 		} catch (error) {
 			clearTimeout(timeout);
 			logger.error({ err: error }, "worker shutdown failed");
@@ -90,7 +90,7 @@ const startWorker = async (): Promise<void> => {
 		await worker.run();
 	} catch (error) {
 		logger.error({ err: error }, "worker failed to start");
-		await shutdown("STARTUP_FAILURE");
+		await shutdown("STARTUP_FAILURE", 1);
 	}
 };
 
