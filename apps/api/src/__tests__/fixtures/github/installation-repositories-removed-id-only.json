@@ -1,0 +1,12 @@
+{
+	"action": "removed",
+	"installation": {
+		"id": 12345
+	},
+	"repositories_added": [],
+	"repositories_removed": [
+		{
+			"id": 67890
+		}
+	]
+}

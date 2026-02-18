@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { Hono } from "hono";
+import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 import type { AnalyzeChangesEnqueuer } from "../queues/analyze-changes.js";
 import type { AppEnv } from "../types.js";
@@ -146,6 +147,11 @@ type PersistableRepository = {
 	defaultBranch: string;
 };
 
+type RepositoryHydrationResult = {
+	complete: readonly PersistableRepository[];
+	missingProviderRepositoryIds: readonly string[];
+};
+
 export type WebhookDatabase = {
 	providerInstallation: {
 		findUnique(args: {
@@ -252,7 +258,7 @@ export type WebhookDatabase = {
 					providerInstallationId: string;
 				};
 				providerRepositoryId?: {
-					in: string[];
+					in: readonly string[];
 				};
 			};
 			data: {
@@ -316,6 +322,24 @@ const toPersistableRepository = (
 	};
 };
 
+const toPersistableRepositoryFromGitHub = (
+	repository: GitHubInstallationRepository,
+): PersistableRepository => ({
+	providerRepositoryId: String(repository.id),
+	ownerLogin: repository.owner.login,
+	name: repository.name,
+	fullName: repository.full_name,
+	defaultBranch: repository.default_branch,
+});
+
+const chunkArray = <TValue>(values: readonly TValue[], size: number): readonly TValue[][] => {
+	const chunks: TValue[][] = [];
+	for (let index = 0; index < values.length; index += size) {
+		chunks.push(values.slice(index, index + size));
+	}
+	return chunks;
+};
+
 const upsertRepository = async (
 	db: Pick<WebhookDatabase, "providerRepository">,
 	installationId: string,
@@ -356,24 +380,73 @@ const upsertRepository = async (
 const upsertRepositories = async (
 	db: Pick<WebhookDatabase, "providerRepository">,
 	installationId: string,
-	repositories: readonly z.infer<typeof repositoryPayloadSchema>[],
+	repositories: readonly PersistableRepository[],
 ): Promise<void> => {
-	for (const repositoryPayload of repositories) {
-		const repository = toPersistableRepository(repositoryPayload);
-		if (repository !== null) {
-			await upsertRepository(db, installationId, repository);
+	const upsertBatchSize = 25;
+
+	for (const batch of chunkArray(repositories, upsertBatchSize)) {
+		await Promise.all(batch.map((repository) => upsertRepository(db, installationId, repository)));
+	}
+};
+
+const getRepositoryIds = (
+	repositories: readonly z.infer<typeof repositoryPayloadSchema>[],
+): readonly string[] => {
+	return repositories
+		.map((repository) => (repository.id !== undefined ? String(repository.id) : null))
+		.filter((repositoryId): repositoryId is string => repositoryId !== null);
+};
+
+const hydrateRepositories = async (
+	repositories: readonly z.infer<typeof repositoryPayloadSchema>[],
+	providerInstallationNumericId: number | undefined,
+	listInstallationRepositories: ListInstallationRepositories,
+): Promise<RepositoryHydrationResult> => {
+	const completeRepositories: PersistableRepository[] = [];
+	const repositoriesMissingDetails: string[] = [];
+
+	for (const repository of repositories) {
+		const persistableRepository = toPersistableRepository(repository);
+		if (persistableRepository !== null) {
+			completeRepositories.push(persistableRepository);
+			continue;
+		}
+
+		if (repository.id !== undefined) {
+			repositoriesMissingDetails.push(String(repository.id));
 		}
 	}
+
+	if (repositoriesMissingDetails.length === 0 || providerInstallationNumericId === undefined) {
+		return {
+			complete: completeRepositories,
+			missingProviderRepositoryIds: repositoriesMissingDetails,
+		};
+	}
+
+	const missingIds = new Set(repositoriesMissingDetails);
+	const syncedRepositories = await listInstallationRepositories(providerInstallationNumericId);
+	for (const repository of syncedRepositories) {
+		const repositoryId = String(repository.id);
+		if (!missingIds.has(repositoryId)) {
+			continue;
+		}
+
+		completeRepositories.push(toPersistableRepositoryFromGitHub(repository));
+		missingIds.delete(repositoryId);
+	}
+
+	return {
+		complete: completeRepositories,
+		missingProviderRepositoryIds: [...missingIds],
+	};
 };
 
 const markRepositoriesAsRemoved = async (
 	db: Pick<WebhookDatabase, "providerRepository">,
 	providerInstallationId: string,
-	repositories: readonly z.infer<typeof repositoryPayloadSchema>[],
+	repositoryIds: readonly string[],
 ): Promise<void> => {
-	const repositoryIds = repositories
-		.map((repository) => toPersistableRepository(repository)?.providerRepositoryId)
-		.filter((repositoryId): repositoryId is string => repositoryId !== undefined);
 	if (repositoryIds.length === 0) {
 		return;
 	}
@@ -401,7 +474,8 @@ const syncInstallationRepositories = async (
 	providerInstallationNumericId: number,
 ): Promise<void> => {
 	const repositories = await options.listInstallationRepositories(providerInstallationNumericId);
-	await upsertRepositories(options.db, installationId, repositories);
+	const persistableRepositories = repositories.map(toPersistableRepositoryFromGitHub);
+	await upsertRepositories(options.db, installationId, persistableRepositories);
 };
 
 const installationIdentityFromAccount = (
@@ -595,16 +669,24 @@ const handleInstallationRepositoriesEvent = async (
 	}
 
 	if (payload.action === "added") {
-		await upsertRepositories(options.db, installation.id, payload.repositories_added ?? []);
+		const hydratedRepositories = await hydrateRepositories(
+			payload.repositories_added ?? [],
+			payload.installation?.id,
+			options.listInstallationRepositories,
+		);
+		if (hydratedRepositories.missingProviderRepositoryIds.length > 0) {
+			throw new HTTPException(422, {
+				message: `Missing repository details for installation_repositories.added: ${hydratedRepositories.missingProviderRepositoryIds.join(",")}`,
+			});
+		}
+
+		await upsertRepositories(options.db, installation.id, hydratedRepositories.complete);
 		return;
 	}
 
 	if (payload.action === "removed") {
-		await markRepositoriesAsRemoved(
-			options.db,
-			providerInstallationId,
-			payload.repositories_removed ?? [],
-		);
+		const repositoryIds = getRepositoryIds(payload.repositories_removed ?? []);
+		await markRepositoriesAsRemoved(options.db, providerInstallationId, repositoryIds);
 	}
 };
 

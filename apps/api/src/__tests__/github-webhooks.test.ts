@@ -292,6 +292,81 @@ describe("POST /api/webhooks/github", () => {
 		);
 	});
 
+	it("deactivates repositories for removed events with id-only payload entries", async () => {
+		const app = makeApp(db, enqueueAnalyzeChanges, listInstallationRepositoriesMock);
+		db.providerInstallation.findUnique = vi.fn(async () => ({
+			id: "installation-1",
+			organizationId: "org-default",
+		}));
+
+		const response = await dispatchWebhook(
+			app,
+			"installation_repositories",
+			readFixture("installation-repositories-removed-id-only.json"),
+		);
+
+		expect(response.status).toBe(200);
+		expect(db.providerRepository.updateMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: expect.objectContaining({
+					providerRepositoryId: { in: ["67890"] },
+				}),
+			}),
+		);
+	});
+
+	it("hydrates added repositories when webhook payload omits repository details", async () => {
+		const app = makeApp(db, enqueueAnalyzeChanges, listInstallationRepositoriesMock);
+		db.providerInstallation.findUnique = vi.fn(async () => ({
+			id: "installation-1",
+			organizationId: "org-default",
+		}));
+		listInstallationRepositoriesMock.mockResolvedValue([
+			{
+				id: 67890,
+				name: "docs",
+				full_name: "acme/docs",
+				default_branch: "main",
+				owner: { login: "acme" },
+			},
+		]);
+
+		const response = await dispatchWebhook(
+			app,
+			"installation_repositories",
+			readFixture("installation-repositories-added-partial.json"),
+		);
+
+		expect(response.status).toBe(200);
+		expect(listInstallationRepositoriesMock).toHaveBeenCalledWith(12345);
+		expect(db.providerRepository.upsert).toHaveBeenCalledWith(
+			expect.objectContaining({
+				create: expect.objectContaining({
+					providerRepositoryId: "67890",
+					fullName: "acme/docs",
+				}),
+			}),
+		);
+	});
+
+	it("returns 422 when added repository details cannot be resolved", async () => {
+		const app = makeApp(db, enqueueAnalyzeChanges, listInstallationRepositoriesMock);
+		db.providerInstallation.findUnique = vi.fn(async () => ({
+			id: "installation-1",
+			organizationId: "org-default",
+		}));
+		listInstallationRepositoriesMock.mockResolvedValue([]);
+
+		const response = await dispatchWebhook(
+			app,
+			"installation_repositories",
+			readFixture("installation-repositories-added-partial.json"),
+		);
+
+		expect(response.status).toBe(422);
+		expect(db.providerRepository.upsert).not.toHaveBeenCalled();
+	});
+
 	it("handles replayed installation_repositories.added events idempotently", async () => {
 		const app = makeApp(db, enqueueAnalyzeChanges, listInstallationRepositoriesMock);
 		db.providerInstallation.findUnique = vi.fn(async () => ({
