@@ -12,3 +12,4 @@ export {
 	type RunStatus,
 	type TriggerType,
 } from "./schemas.js";
+export { ANALYZE_CHANGES_QUEUE_NAME, type AnalyzeChangesJobPayload } from "./queue.js";

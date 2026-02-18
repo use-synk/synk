@@ -1,19 +1,10 @@
+import { ANALYZE_CHANGES_QUEUE_NAME, type AnalyzeChangesJobPayload } from "@synk-ai/shared";
 import { Queue } from "bullmq";
 
-export const ANALYZE_CHANGES_QUEUE_NAME = "analyze-changes";
+export { ANALYZE_CHANGES_QUEUE_NAME };
+
 const REMOVE_COMPLETED_JOBS = { count: 1000 } as const;
 const REMOVE_FAILED_JOBS = { age: 24 * 60 * 60 } as const;
-
-export type AnalyzeChangesJobPayload = {
-	installationId: string;
-	repositoryId: string;
-	trigger: {
-		type: "push" | "merge";
-		ref: string;
-		commitSha: string;
-		prNumber?: number;
-	};
-};
 
 export type AnalyzeChangesEnqueuer = (payload: AnalyzeChangesJobPayload) => Promise<void>;
 
