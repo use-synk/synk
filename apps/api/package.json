@@ -8,19 +8,23 @@
 		"build": "tsc",
 		"lint": "biome check .",
 		"typecheck": "tsc --noEmit",
-		"test": "echo 'api test placeholder'"
+		"test": "vitest run --coverage"
 	},
 	"dependencies": {
 		"@hono/node-server": "^1.13.7",
+		"@synk-ai/db": "workspace:*",
 		"@synk-ai/shared": "workspace:*",
+		"bullmq": "^5.58.5",
 		"hono": "^4.7.4",
 		"pino": "^9.7.0",
 		"zod": "^4.3.6"
 	},
 	"devDependencies": {
+		"@vitest/coverage-v8": "^3.0.0",
 		"@types/node": "^22.17.2",
 		"pino-pretty": "^13.0.0",
 		"tsx": "^4.20.5",
-		"typescript": "5.9.2"
+		"typescript": "5.9.2",
+		"vitest": "^3.0.0"
 	}
 }
