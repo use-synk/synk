@@ -13,6 +13,7 @@
 	"dependencies": {
 		"@hono/node-server": "^1.13.7",
 		"@synk-ai/db": "workspace:*",
+		"@synk-ai/github": "workspace:*",
 		"@synk-ai/shared": "workspace:*",
 		"bullmq": "^5.58.5",
 		"hono": "^4.7.4",
