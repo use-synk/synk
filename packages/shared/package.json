@@ -2,10 +2,25 @@
 	"name": "@synk-ai/shared",
 	"version": "0.0.0",
 	"private": true,
+	"type": "module",
+	"files": ["dist", "src"],
+	"exports": {
+		".": {
+			"types": "./src/index.ts",
+			"default": "./dist/index.js"
+		}
+	},
 	"scripts": {
-		"build": "echo 'shared build placeholder'",
+		"build": "tsc -p tsconfig.json",
 		"lint": "biome check .",
 		"typecheck": "tsc --noEmit",
 		"test": "echo 'shared test placeholder'"
+	},
+	"dependencies": {
+		"zod": "^4.3.6"
+	},
+	"devDependencies": {
+		"@types/node": "^22.17.2",
+		"typescript": "5.9.2"
 	}
 }

@@ -1,5 +1,8 @@
 import "dotenv/config";
+import { databaseEnvironmentSchema, parseEnvironment } from "@synk-ai/shared";
 import { defineConfig } from "prisma/config";
+
+const environment = parseEnvironment(databaseEnvironmentSchema);
 
 export default defineConfig({
 	schema: "./schemas",
@@ -8,6 +11,6 @@ export default defineConfig({
 		path: "prisma/migrations",
 	},
 	datasource: {
-		url: process.env.DATABASE_URL ?? "",
+		url: environment.DATABASE_URL,
 	},
 });

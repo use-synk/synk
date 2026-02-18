@@ -49,6 +49,9 @@ importers:
       '@prisma/client':
         specifier: ^7.4.0
         version: 7.4.0(prisma@7.4.0(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.2))(typescript@5.9.2)
+      '@synk-ai/shared':
+        specifier: workspace:*
+        version: link:../shared
       dotenv:
         specifier: ^17.3.1
         version: 17.3.1
@@ -76,7 +79,18 @@ importers:
 
   packages/github: {}
 
-  packages/shared: {}
+  packages/shared:
+    dependencies:
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
+    devDependencies:
+      '@types/node':
+        specifier: ^22.17.2
+        version: 22.19.11
+      typescript:
+        specifier: 5.9.2
+        version: 5.9.2
 
 packages:
 

@@ -5,7 +5,13 @@
 		"rootDir": "src",
 		"declaration": true,
 		"declarationMap": true,
-		"sourceMap": true
+		"sourceMap": true,
+		"types": ["node"],
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"target": "ES2023",
+		"strict": true,
+		"esModuleInterop": true
 	},
-	"files": []
+	"include": ["src/**/*.ts"]
 }
