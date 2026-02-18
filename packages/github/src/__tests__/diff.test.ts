@@ -60,6 +60,27 @@ describe("fetchPushDiff", () => {
 			}),
 		).resolves.toEqual([]);
 	});
+
+	it("accepts positional arguments for roadmap-compatible call sites", async () => {
+		const compareCommitsWithBasehead = vi.fn(async () => ({
+			data: { files: PUSH_COMPARE_FILES_FIXTURE },
+		}));
+		const octokit = {
+			rest: {
+				repos: { compareCommitsWithBasehead },
+				pulls: { listFiles: vi.fn() },
+			},
+		};
+
+		const files = await fetchPushDiff(octokit, "synk", "synk-ai", "base-sha", "head-sha");
+
+		expect(compareCommitsWithBasehead).toHaveBeenCalledWith({
+			owner: "synk",
+			repo: "synk-ai",
+			basehead: "base-sha...head-sha",
+		});
+		expect(files).toHaveLength(3);
+	});
 });
 
 describe("fetchPRDiff", () => {
@@ -114,6 +135,27 @@ describe("fetchPRDiff", () => {
 			patch: null,
 			previousFilename: null,
 		});
+	});
+
+	it("accepts positional arguments for roadmap-compatible call sites", async () => {
+		const listFiles = vi.fn(async () => ({ data: PR_FILES_PAGE_TWO_FIXTURE }));
+		const octokit = {
+			rest: {
+				repos: { compareCommitsWithBasehead: vi.fn() },
+				pulls: { listFiles },
+			},
+		};
+
+		const files = await fetchPRDiff(octokit, "synk", "synk-ai", 123);
+
+		expect(listFiles).toHaveBeenCalledWith({
+			owner: "synk",
+			repo: "synk-ai",
+			pull_number: 123,
+			per_page: 100,
+			page: 1,
+		});
+		expect(files).toHaveLength(2);
 	});
 });
 
@@ -179,6 +221,30 @@ describe("filterDiff", () => {
 			"dist/generated.js",
 			"assets/font.woff2",
 			"src/client.min.js",
+		]);
+	});
+
+	it("keeps a renamed file when only the previous filename matches ignore patterns", () => {
+		const result = filterDiff([
+			{
+				filename: "docs/new-doc.md",
+				status: "renamed",
+				additions: 1,
+				deletions: 1,
+				patch: null,
+				previousFilename: "dist/new-doc.md",
+			},
+		]);
+
+		expect(result).toEqual([
+			{
+				filename: "docs/new-doc.md",
+				status: "renamed",
+				additions: 1,
+				deletions: 1,
+				patch: null,
+				previousFilename: "dist/new-doc.md",
+			},
 		]);
 	});
 });

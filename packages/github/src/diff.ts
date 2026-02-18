@@ -141,9 +141,17 @@ export const DEFAULT_DIFF_IGNORE_PATTERNS: readonly string[] = [
 ];
 
 export const fetchPushDiff = async (
-	octokit: GitHubDiffOctokit,
-	request: FetchPushDiffRequest,
+	...args:
+		| readonly [octokit: GitHubDiffOctokit, request: FetchPushDiffRequest]
+		| readonly [
+				octokit: GitHubDiffOctokit,
+				owner: string,
+				repo: string,
+				before: string,
+				after: string,
+		  ]
 ): Promise<DiffFile[]> => {
+	const [octokit, request] = resolveFetchPushDiffArgs(args);
 	const comparison = await octokit.rest.repos.compareCommitsWithBasehead({
 		owner: request.owner,
 		repo: request.repo,
@@ -154,9 +162,11 @@ export const fetchPushDiff = async (
 };
 
 export const fetchPRDiff = async (
-	octokit: GitHubDiffOctokit,
-	request: FetchPRDiffRequest,
+	...args:
+		| readonly [octokit: GitHubDiffOctokit, request: FetchPRDiffRequest]
+		| readonly [octokit: GitHubDiffOctokit, owner: string, repo: string, prNumber: number]
 ): Promise<DiffFile[]> => {
+	const [octokit, request] = resolveFetchPRDiffArgs(args);
 	const files: DiffFile[] = [];
 	let page = 1;
 
@@ -181,11 +191,49 @@ export const fetchPRDiff = async (
 export const filterDiff = (
 	files: readonly DiffFile[],
 	ignorePatterns: readonly string[] = DEFAULT_DIFF_IGNORE_PATTERNS,
-): DiffFile[] =>
-	files.filter((file) => {
-		const filenameIgnored = matchesAnyPattern(file.filename, ignorePatterns);
-		const previousFilenameIgnored = file.previousFilename
-			? matchesAnyPattern(file.previousFilename, ignorePatterns)
-			: false;
-		return !filenameIgnored && !previousFilenameIgnored;
-	});
+): DiffFile[] => files.filter((file) => !matchesAnyPattern(file.filename, ignorePatterns));
+
+const resolveFetchPushDiffArgs = (
+	args:
+		| readonly [octokit: GitHubDiffOctokit, request: FetchPushDiffRequest]
+		| readonly [
+				octokit: GitHubDiffOctokit,
+				owner: string,
+				repo: string,
+				before: string,
+				after: string,
+		  ],
+): readonly [octokit: GitHubDiffOctokit, request: FetchPushDiffRequest] => {
+	if (args.length === 2) {
+		return [args[0], args[1]];
+	}
+
+	return [
+		args[0],
+		{
+			owner: args[1],
+			repo: args[2],
+			before: args[3],
+			after: args[4],
+		},
+	];
+};
+
+const resolveFetchPRDiffArgs = (
+	args:
+		| readonly [octokit: GitHubDiffOctokit, request: FetchPRDiffRequest]
+		| readonly [octokit: GitHubDiffOctokit, owner: string, repo: string, prNumber: number],
+): readonly [octokit: GitHubDiffOctokit, request: FetchPRDiffRequest] => {
+	if (args.length === 2) {
+		return [args[0], args[1]];
+	}
+
+	return [
+		args[0],
+		{
+			owner: args[1],
+			repo: args[2],
+			prNumber: args[3],
+		},
+	];
+};
