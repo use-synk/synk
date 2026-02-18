@@ -7,6 +7,9 @@ export const apiEnvironmentSchema = sharedEnvironmentSchema.extend({
 	CORS_ORIGIN: z.string().default("*"),
 	LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
 	GIT_SHA: z.string().default("unknown"),
+	REDIS_URL: z.string().min(1),
+	GITHUB_WEBHOOK_SECRET: z.string().min(1),
+	GITHUB_WEBHOOK_ORGANIZATION_ID: z.string().min(1).optional(),
 });
 
 export type ApiEnvironment = z.infer<typeof apiEnvironmentSchema>;

@@ -1,0 +1,23 @@
+{
+	"action": "closed",
+	"number": 42,
+	"installation": {
+		"id": 12345
+	},
+	"repository": {
+		"id": 54321,
+		"name": "repo",
+		"full_name": "acme/repo",
+		"default_branch": "main"
+	},
+	"pull_request": {
+		"merged": true,
+		"merge_commit_sha": "cccccccccccccccccccccccccccccccccccccccc",
+		"base": {
+			"ref": "main"
+		},
+		"head": {
+			"sha": "dddddddddddddddddddddddddddddddddddddddd"
+		}
+	}
+}

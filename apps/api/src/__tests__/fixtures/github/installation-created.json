@@ -1,0 +1,11 @@
+{
+	"action": "created",
+	"installation": {
+		"id": 12345,
+		"account": {
+			"id": 9876,
+			"login": "acme",
+			"type": "Organization"
+		}
+	}
+}

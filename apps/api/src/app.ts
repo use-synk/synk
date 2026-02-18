@@ -5,23 +5,42 @@ import type { Logger } from "./logger.js";
 import { createErrorHandler } from "./middleware/error-handler.js";
 import { createLoggingMiddleware } from "./middleware/logging.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
+import type { AnalyzeChangesEnqueuer } from "./queues/analyze-changes.js";
+import { type WebhookDatabase, createGitHubWebhookRoute } from "./routes/github-webhooks.js";
 import { createHealthRoute } from "./routes/health.js";
 import type { AppEnv } from "./types.js";
 
 type AppOptions = {
 	env: ApiEnvironment;
 	logger: Logger;
+	db: WebhookDatabase;
+	enqueueAnalyzeChanges: AnalyzeChangesEnqueuer;
 };
 
 export const createApp = (options: AppOptions): Hono<AppEnv> => {
-	const { env, logger } = options;
+	const { env, logger, db, enqueueAnalyzeChanges } = options;
 	const app = new Hono<AppEnv>();
+	const webhookOptions: {
+		db: WebhookDatabase;
+		webhookSecret: string;
+		enqueueAnalyzeChanges: AnalyzeChangesEnqueuer;
+		installationOrganizationId?: string;
+	} = {
+		db,
+		webhookSecret: env.GITHUB_WEBHOOK_SECRET,
+		enqueueAnalyzeChanges,
+	};
+
+	if (env.GITHUB_WEBHOOK_ORGANIZATION_ID !== undefined) {
+		webhookOptions.installationOrganizationId = env.GITHUB_WEBHOOK_ORGANIZATION_ID;
+	}
 
 	app.use(cors({ origin: env.CORS_ORIGIN }));
 	app.use(requestIdMiddleware);
 	app.use(createLoggingMiddleware({ logger }));
 
 	app.route("/health", createHealthRoute(env.GIT_SHA));
+	app.route("/api/webhooks", createGitHubWebhookRoute(webhookOptions));
 
 	app.notFound((c) => c.json({ error: { code: "NOT_FOUND", message: "Resource not found" } }, 404));
 	app.onError(createErrorHandler(logger));
