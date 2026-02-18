@@ -7,24 +7,25 @@
 		"dist"
 	],
 	"exports": {
-		".": {
-			"types": "./dist/index.d.ts",
-			"default": "./dist/index.js"
+		"./server": {
+			"types": "./dist/server.d.ts",
+			"default": "./dist/server.js"
 		},
-		"./schema": {
-			"types": "./dist/schema.d.ts",
-			"default": "./dist/schema.js"
+		"./client": {
+			"types": "./dist/client.d.ts",
+			"default": "./dist/client.js"
 		}
 	},
 	"scripts": {
 		"build": "tsc -p tsconfig.json",
+		"generate": "pnpm dlx @better-auth/cli generate --config src/cli.ts --output ../db/src/schemas/auth.prisma",
 		"lint": "biome check .",
 		"typecheck": "tsc --noEmit",
 		"test": "echo 'auth test placeholder'"
 	},
 	"dependencies": {
-		"better-auth": "^1.4.18",
-		"drizzle-orm": "^0.45.1"
+		"@synk-ai/db": "workspace:*",
+		"better-auth": "^1.4.18"
 	},
 	"devDependencies": {
 		"typescript": "5.9.2"

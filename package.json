@@ -9,7 +9,10 @@
 		"typecheck": "turbo run typecheck",
 		"test": "turbo run test",
 		"docker:up": "docker compose up -d",
-		"docker:down": "docker compose down"
+		"docker:down": "docker compose down",
+		"db:generate": "pnpm --filter @synk-ai/db db:generate",
+		"db:migrate": "pnpm --filter @synk-ai/db db:migrate",
+		"db:studio": "pnpm --filter @synk-ai/db db:studio"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^1.9.4",

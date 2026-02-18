@@ -30,3 +30,6 @@ coverage
 
 # Misc
 *.pem
+
+docs/
+ai/

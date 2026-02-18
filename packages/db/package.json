@@ -2,10 +2,38 @@
 	"name": "@synk-ai/db",
 	"version": "0.0.0",
 	"private": true,
+	"type": "module",
+	"files": ["dist", "src/generated/prisma"],
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		},
+		"./client": {
+			"types": "./src/generated/prisma/client.d.ts",
+			"default": "./src/generated/prisma/client.js"
+		}
+	},
 	"scripts": {
-		"build": "echo 'db build placeholder'",
+		"build": "tsc -p tsconfig.json",
 		"lint": "biome check .",
 		"typecheck": "tsc --noEmit",
-		"test": "echo 'db test placeholder'"
+		"test": "echo 'db test placeholder'",
+		"generate": "pnpm dlx prisma generate --config src/prisma.config.ts",
+		"db:migrate": "prisma migrate dev --config src/prisma.config.ts",
+		"db:studio": "prisma studio --config src/prisma.config.ts"
+	},
+	"dependencies": {
+		"@prisma/adapter-pg": "^7.4.0",
+		"@prisma/client": "^7.4.0",
+		"dotenv": "^17.3.1",
+		"pg": "^8.16.3"
+	},
+	"devDependencies": {
+		"@types/node": "^22.17.2",
+		"@types/pg": "^8.15.5",
+		"prisma": "^7.4.0",
+		"tsx": "^4.20.5",
+		"typescript": "5.9.2"
 	}
 }

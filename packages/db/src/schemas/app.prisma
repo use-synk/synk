@@ -1,0 +1,187 @@
+// App domain schema — provider-agnostic v2
+// Tenancy: every installation belongs to exactly one Organization (from auth.prisma).
+
+enum VcsProvider {
+  github
+  gitlab
+  bitbucket
+
+  @@map("vcs_provider")
+}
+
+enum InstallationStatus {
+  active
+  suspended
+  deleted
+
+  @@map("installation_status")
+}
+
+enum RepositoryStatus {
+  active
+  archived
+  removed
+
+  @@map("repository_status")
+}
+
+enum RunStatus {
+  queued
+  running
+  completed
+  skipped
+  failed
+  canceled
+
+  @@map("run_status")
+}
+
+enum RunTriggerType {
+  push
+  merge
+  manual
+
+  @@map("run_trigger_type")
+}
+
+enum AttemptStatus {
+  running
+  failed
+  completed
+
+  @@map("attempt_status")
+}
+
+enum WebhookStatus {
+  received
+  processed
+  ignored
+  failed
+
+  @@map("webhook_status")
+}
+
+model ProviderInstallation {
+  id                     String               @id @default(uuid())
+  organizationId         String
+  organization           Organization         @relation(fields: [organizationId], references: [id])
+  provider               VcsProvider
+  providerInstallationId String
+  providerAccountId      String
+  accountLogin           String
+  accountType            String
+  status                 InstallationStatus   @default(active)
+  installedAt            DateTime             @default(now())
+  deletedAt              DateTime?
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+  repositories           ProviderRepository[]
+
+  @@unique([provider, providerInstallationId])
+  @@unique([provider, providerAccountId, providerInstallationId])
+  @@unique([id, provider])
+  @@index([provider, status])
+  @@index([accountLogin])
+  @@map("provider_installations")
+}
+
+model ProviderRepository {
+  id                   String               @id @default(uuid())
+  installationId       String
+  installation         ProviderInstallation @relation(fields: [installationId], references: [id])
+  provider             VcsProvider
+  providerRepositoryId String
+  ownerLogin           String
+  name                 String
+  fullName             String
+  defaultBranch        String
+  status               RepositoryStatus     @default(active)
+  isActive             Boolean              @default(true)
+  docsConfig           Json                 @default("{}")
+  lastSyncedAt         DateTime?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  analysisRuns         AnalysisRun[]
+
+  @@unique([provider, providerRepositoryId])
+  @@unique([installationId, fullName])
+  @@unique([id, provider])
+  @@index([installationId])
+  @@index([provider, isActive])
+  @@index([provider, fullName])
+  @@map("provider_repositories")
+}
+
+model AnalysisRun {
+  id                        String              @id @default(uuid())
+  repositoryId              String
+  repository                ProviderRepository  @relation(fields: [repositoryId], references: [id])
+  provider                  VcsProvider
+  triggerType               RunTriggerType
+  triggerRef                String
+  triggerCommitSha          String
+  triggerMergeRequestNumber Int?
+  triggerMeta               Json                @default("{}")
+  status                    RunStatus
+  result                    Json                @default("{}")
+  docsAffected              Boolean?
+  docPrNumber               Int?
+  docPrUrl                  String?
+  tokenUsage                Json                @default("{}")
+  error                     String?
+  attemptCount              Int                 @default(0)
+  queuedAt                  DateTime            @default(now())
+  startedAt                 DateTime?
+  completedAt               DateTime?
+  createdAt                 DateTime            @default(now())
+  updatedAt                 DateTime            @updatedAt
+  attempts                  AnalysisRunAttempt[]
+
+  @@unique([repositoryId, triggerCommitSha, triggerType])
+  @@index([repositoryId])
+  @@index([status])
+  @@index([repositoryId, createdAt(sort: Desc)])
+  @@index([repositoryId, status, createdAt(sort: Desc)])
+  @@index([provider, triggerCommitSha])
+  @@map("analysis_runs")
+}
+
+model AnalysisRunAttempt {
+  id            String        @id @default(uuid())
+  runId         String
+  run           AnalysisRun   @relation(fields: [runId], references: [id], onDelete: Cascade)
+  attemptNumber Int
+  status        AttemptStatus
+  error         String?
+  startedAt     DateTime      @default(now())
+  finishedAt    DateTime?
+  createdAt     DateTime      @default(now())
+
+  @@unique([runId, attemptNumber])
+  @@index([runId])
+  @@index([status])
+  @@map("analysis_run_attempts")
+}
+
+// No FK relations — uses raw provider string IDs intentionally.
+// WebhookDelivery is append-only and must survive installation deletion.
+model WebhookDelivery {
+  id                     String        @id @default(uuid())
+  provider               VcsProvider
+  deliveryId             String
+  eventType              String
+  providerInstallationId String?
+  providerRepositoryId   String?
+  signatureValid         Boolean
+  payloadHash            String
+  receivedAt             DateTime      @default(now())
+  processedAt            DateTime?
+  status                 WebhookStatus @default(received)
+  error                  String?
+
+  @@unique([provider, deliveryId])
+  @@index([provider, eventType, receivedAt(sort: Desc)])
+  @@index([provider, providerInstallationId, receivedAt(sort: Desc)])
+  @@index([provider, providerRepositoryId, receivedAt(sort: Desc)])
+  @@map("webhook_deliveries")
+}
