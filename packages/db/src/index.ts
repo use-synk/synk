@@ -1,12 +1,13 @@
 import { PrismaPg } from "@prisma/adapter-pg";
+import { databaseEnvironmentSchema, parseEnvironment } from "@synk-ai/shared";
 import { Pool } from "pg";
 import { PrismaClient } from "./generated/prisma/client";
 
 const createPrismaClient = () => {
-	const connectionString = process.env.DATABASE_URL ?? "";
+	const environment = parseEnvironment(databaseEnvironmentSchema);
 
 	const pool = new Pool({
-		connectionString,
+		connectionString: environment.DATABASE_URL,
 		max: 1,
 		idleTimeoutMillis: 30000,
 		connectionTimeoutMillis: 10000,
@@ -21,7 +22,7 @@ const createPrismaClient = () => {
 
 	return new PrismaClient({
 		adapter,
-		log: process.env.NODE_ENV === "development" ? ["error", "query", "warn"] : [],
+		log: environment.NODE_ENV === "development" ? ["error", "query", "warn"] : [],
 	});
 };
 
