@@ -5,5 +5,5 @@
 		"rootDir": "src",
 		"sourceMap": true
 	},
-	"files": []
+	"include": ["src/**/*.ts"]
 }
