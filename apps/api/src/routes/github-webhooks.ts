@@ -21,6 +21,7 @@ type GitHubAccountPayload = {
 
 type GitHubInstallationPayload = {
 	id?: number | undefined;
+	account?: GitHubAccountPayload | undefined;
 };
 
 type GitHubRepositoryPayload = {
@@ -32,13 +33,13 @@ const installationEventSchema = z.object({
 	installation: z
 		.object({
 			id: z.number().int().optional(),
-		})
-		.optional(),
-	account: z
-		.object({
-			id: z.number().int().optional(),
-			login: z.string().optional(),
-			type: z.string().optional(),
+			account: z
+				.object({
+					id: z.number().int().optional(),
+					login: z.string().optional(),
+					type: z.string().optional(),
+				})
+				.optional(),
 		})
 		.optional(),
 });
@@ -331,7 +332,7 @@ const handleInstallationEvent = async (
 	}
 
 	const installationIdentity = installationIdentityFromAccount(
-		payload.account,
+		payload.installation?.account,
 		providerInstallationId,
 	);
 

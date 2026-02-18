@@ -122,6 +122,20 @@ describe("POST /api/webhooks/github", () => {
 		expect(response.status).toBe(200);
 		expect(db.providerInstallation.findUnique).toHaveBeenCalledOnce();
 		expect(db.providerInstallation.upsert).toHaveBeenCalledOnce();
+		expect(db.providerInstallation.upsert).toHaveBeenCalledWith(
+			expect.objectContaining({
+				create: expect.objectContaining({
+					providerAccountId: "9876",
+					accountLogin: "acme",
+					accountType: "Organization",
+				}),
+				update: expect.objectContaining({
+					providerAccountId: "9876",
+					accountLogin: "acme",
+					accountType: "Organization",
+				}),
+			}),
+		);
 		expect(enqueueMock).not.toHaveBeenCalled();
 	});
 
