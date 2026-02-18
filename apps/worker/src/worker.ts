@@ -36,7 +36,7 @@ const startWorker = async (): Promise<void> => {
 			{
 				err: error,
 				jobId: job?.id ?? "unknown",
-				attemptNumber: job ? job.attemptsMade + 1 : 0,
+				attemptNumber: job?.attemptsMade ?? 0,
 			},
 			"job failed",
 		);
