@@ -1,0 +1,17 @@
+{
+	"ref": "refs/heads/main",
+	"before": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+	"after": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+	"installation": {
+		"id": 12345
+	},
+	"repository": {
+		"id": 54321,
+		"name": "repo",
+		"full_name": "acme/repo",
+		"default_branch": "main",
+		"owner": {
+			"login": "acme"
+		}
+	}
+}
