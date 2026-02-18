@@ -15,7 +15,10 @@ export const createErrorHandler =
 	(err, c) => {
 		if (err instanceof HTTPException) {
 			logger.warn({ status: err.status }, err.message);
-			return c.json<ErrorResponse>({ error: { code: "HTTP_ERROR", message: err.message } }, err.status);
+			return c.json<ErrorResponse>(
+				{ error: { code: "HTTP_ERROR", message: err.message } },
+				err.status,
+			);
 		}
 
 		logger.error({ err }, "unhandled error");
