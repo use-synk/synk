@@ -9,7 +9,6 @@ export const apiEnvironmentSchema = githubEnvironmentSchema.extend({
 	LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
 	GIT_SHA: z.string().default("unknown"),
 	REDIS_URL: z.string().min(1),
-	GITHUB_WEBHOOK_SECRET: z.string().min(1),
 	GITHUB_WEBHOOK_ORGANIZATION_ID: z.string().min(1).optional(),
 });
 
