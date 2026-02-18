@@ -1,0 +1,18 @@
+{
+	"action": "added",
+	"installation": {
+		"id": 12345
+	},
+	"repositories_added": [
+		{
+			"id": 67890,
+			"name": "docs",
+			"full_name": "acme/docs",
+			"default_branch": "main",
+			"owner": {
+				"login": "acme"
+			}
+		}
+	],
+	"repositories_removed": []
+}
