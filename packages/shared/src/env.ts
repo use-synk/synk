@@ -1,8 +1,6 @@
 import { z } from "zod";
 
-export const nodeEnvironmentSchema = z
-	.enum(["development", "test", "production"])
-	.default("development");
+export const nodeEnvironmentSchema = z.enum(["development", "test", "production"]).optional();
 
 export const sharedEnvironmentSchema = z.object({
 	NODE_ENV: nodeEnvironmentSchema,
