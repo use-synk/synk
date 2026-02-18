@@ -367,6 +367,41 @@ describe("POST /api/webhooks/github", () => {
 		expect(db.providerRepository.upsert).not.toHaveBeenCalled();
 	});
 
+	it("persists resolvable repositories before returning 422 for unresolved ones", async () => {
+		const app = makeApp(db, enqueueAnalyzeChanges, listInstallationRepositoriesMock);
+		db.providerInstallation.findUnique = vi.fn(async () => ({
+			id: "installation-1",
+			organizationId: "org-default",
+		}));
+		listInstallationRepositoriesMock.mockResolvedValue([]);
+
+		const response = await dispatchWebhook(app, "installation_repositories", {
+			action: "added",
+			installation: { id: 12345 },
+			repositories_added: [
+				{
+					id: 111,
+					name: "docs",
+					full_name: "acme/docs",
+					default_branch: "main",
+					owner: { login: "acme" },
+				},
+				{ id: 222 },
+			],
+		});
+
+		expect(response.status).toBe(422);
+		expect(db.providerRepository.upsert).toHaveBeenCalledTimes(1);
+		expect(db.providerRepository.upsert).toHaveBeenCalledWith(
+			expect.objectContaining({
+				create: expect.objectContaining({
+					providerRepositoryId: "111",
+					fullName: "acme/docs",
+				}),
+			}),
+		);
+	});
+
 	it("handles replayed installation_repositories.added events idempotently", async () => {
 		const app = makeApp(db, enqueueAnalyzeChanges, listInstallationRepositoriesMock);
 		db.providerInstallation.findUnique = vi.fn(async () => ({

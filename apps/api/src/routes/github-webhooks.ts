@@ -674,13 +674,15 @@ const handleInstallationRepositoriesEvent = async (
 			payload.installation?.id,
 			options.listInstallationRepositories,
 		);
+		if (hydratedRepositories.complete.length > 0) {
+			await upsertRepositories(options.db, installation.id, hydratedRepositories.complete);
+		}
+
 		if (hydratedRepositories.missingProviderRepositoryIds.length > 0) {
 			throw new HTTPException(422, {
 				message: `Missing repository details for installation_repositories.added: ${hydratedRepositories.missingProviderRepositoryIds.join(",")}`,
 			});
 		}
-
-		await upsertRepositories(options.db, installation.id, hydratedRepositories.complete);
 		return;
 	}
 
