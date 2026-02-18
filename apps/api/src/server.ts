@@ -1,8 +1,8 @@
 import { serve } from "@hono/node-server";
 import type { ServerType } from "@hono/node-server";
-import { createApp } from "./app";
-import { parseApiEnvironment } from "./env";
-import { createLogger } from "./logger";
+import { createApp } from "./app.js";
+import { parseApiEnvironment } from "./env.js";
+import { createLogger } from "./logger.js";
 
 const SHUTDOWN_TIMEOUT_MS = 10_000;
 

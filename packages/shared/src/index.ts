@@ -3,7 +3,7 @@ export {
 	nodeEnvironmentSchema,
 	parseEnvironment,
 	sharedEnvironmentSchema,
-} from "./env";
+} from "./env.js";
 export {
 	runStatusSchema,
 	runStatusValues,
@@ -11,4 +11,4 @@ export {
 	triggerTypeValues,
 	type RunStatus,
 	type TriggerType,
-} from "./schemas";
+} from "./schemas.js";

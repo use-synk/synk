@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import type { AppEnv } from "../types";
+import type { AppEnv } from "../types.js";
 
 type HealthResponse = {
 	status: "ok";

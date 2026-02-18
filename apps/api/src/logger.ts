@@ -2,7 +2,7 @@ import pino from "pino";
 
 export type Logger = pino.Logger;
 
-export const createLogger = (level: string, isDevelopment: boolean): Logger => {
+export const createLogger = (level: pino.LevelWithSilent, isDevelopment: boolean): Logger => {
 	const options: pino.LoggerOptions = { level };
 
 	if (isDevelopment) {

@@ -1,12 +1,12 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import type { ApiEnvironment } from "./env";
-import type { Logger } from "./logger";
-import { createErrorHandler } from "./middleware/error-handler";
-import { createLoggingMiddleware } from "./middleware/logging";
-import { requestIdMiddleware } from "./middleware/request-id";
-import { createHealthRoute } from "./routes/health";
-import type { AppEnv } from "./types";
+import type { ApiEnvironment } from "./env.js";
+import type { Logger } from "./logger.js";
+import { createErrorHandler } from "./middleware/error-handler.js";
+import { createLoggingMiddleware } from "./middleware/logging.js";
+import { requestIdMiddleware } from "./middleware/request-id.js";
+import { createHealthRoute } from "./routes/health.js";
+import type { AppEnv } from "./types.js";
 
 type AppOptions = {
 	env: ApiEnvironment;
