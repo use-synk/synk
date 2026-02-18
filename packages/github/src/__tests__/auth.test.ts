@@ -18,6 +18,14 @@ const TEST_CREDENTIALS = {
 	privateKey: "-----BEGIN RSA PRIVATE KEY-----\ntest-key-data\n-----END RSA PRIVATE KEY-----",
 };
 
+const ESCAPED_CREDENTIALS = {
+	appId: 123456,
+	privateKey: "-----BEGIN RSA PRIVATE KEY-----\\nescaped-key-data\\n-----END RSA PRIVATE KEY-----",
+};
+
+const NORMALIZED_KEY =
+	"-----BEGIN RSA PRIVATE KEY-----\nescaped-key-data\n-----END RSA PRIVATE KEY-----";
+
 describe("createAppOctokit", () => {
 	beforeEach(() => {
 		MockOctokit.mockClear();
@@ -36,6 +44,16 @@ describe("createAppOctokit", () => {
 		});
 	});
 
+	it("normalizes escaped newlines in the private key before passing to Octokit", () => {
+		createAppOctokit(ESCAPED_CREDENTIALS);
+
+		expect(MockOctokit).toHaveBeenCalledWith(
+			expect.objectContaining({
+				auth: expect.objectContaining({ privateKey: NORMALIZED_KEY }),
+			}),
+		);
+	});
+
 	it("returns the constructed Octokit instance", () => {
 		const fakeInstance = {};
 		MockOctokit.mockReturnValueOnce(fakeInstance);
@@ -52,9 +70,7 @@ describe("createInstallationOctokit", () => {
 	});
 
 	it("creates an Octokit instance with the installation auth strategy", () => {
-		const installationId = 987654;
-
-		createInstallationOctokit(installationId, TEST_CREDENTIALS);
+		createInstallationOctokit(987654, TEST_CREDENTIALS);
 
 		expect(MockOctokit).toHaveBeenCalledOnce();
 		expect(MockOctokit).toHaveBeenCalledWith({
@@ -62,9 +78,19 @@ describe("createInstallationOctokit", () => {
 			auth: {
 				appId: TEST_CREDENTIALS.appId,
 				privateKey: TEST_CREDENTIALS.privateKey,
-				installationId,
+				installationId: 987654,
 			},
 		});
+	});
+
+	it("normalizes escaped newlines in the private key before passing to Octokit", () => {
+		createInstallationOctokit(1, ESCAPED_CREDENTIALS);
+
+		expect(MockOctokit).toHaveBeenCalledWith(
+			expect.objectContaining({
+				auth: expect.objectContaining({ privateKey: NORMALIZED_KEY }),
+			}),
+		);
 	});
 
 	it("returns the constructed Octokit instance", () => {
@@ -80,19 +106,41 @@ describe("createInstallationOctokit", () => {
 		createInstallationOctokit(111, TEST_CREDENTIALS);
 		createInstallationOctokit(222, TEST_CREDENTIALS);
 
-		const [firstCall, secondCall] = MockOctokit.mock.calls;
+		expect(MockOctokit).toHaveBeenCalledTimes(2);
+		expect(MockOctokit).toHaveBeenNthCalledWith(
+			1,
+			expect.objectContaining({ auth: expect.objectContaining({ installationId: 111 }) }),
+		);
+		expect(MockOctokit).toHaveBeenNthCalledWith(
+			2,
+			expect.objectContaining({ auth: expect.objectContaining({ installationId: 222 }) }),
+		);
+	});
 
-		expect(firstCall?.[0].auth.installationId).toBe(111);
-		expect(secondCall?.[0].auth.installationId).toBe(222);
+	it("throws for installationId of zero", () => {
+		expect(() => createInstallationOctokit(0, TEST_CREDENTIALS)).toThrow(
+			"installationId must be a positive integer",
+		);
+	});
+
+	it("throws for a negative installationId", () => {
+		expect(() => createInstallationOctokit(-1, TEST_CREDENTIALS)).toThrow(
+			"installationId must be a positive integer",
+		);
+	});
+
+	it("throws for a non-integer installationId", () => {
+		expect(() => createInstallationOctokit(Number.NaN, TEST_CREDENTIALS)).toThrow(
+			"installationId must be a positive integer",
+		);
 	});
 });
 
 describe("credentialsFromEnvironment", () => {
-	it("maps environment variables to credentials", () => {
+	it("maps GITHUB_APP_ID and GITHUB_PRIVATE_KEY to credentials", () => {
 		const env = {
 			GITHUB_APP_ID: 42,
 			GITHUB_PRIVATE_KEY: "-----BEGIN RSA PRIVATE KEY-----\nkey\n-----END RSA PRIVATE KEY-----",
-			GITHUB_WEBHOOK_SECRET: "secret",
 		};
 
 		const result = credentialsFromEnvironment(env);
@@ -103,32 +151,15 @@ describe("credentialsFromEnvironment", () => {
 		});
 	});
 
-	it("normalizes escaped newlines in the private key", () => {
-		const env = {
-			GITHUB_APP_ID: 42,
-			GITHUB_PRIVATE_KEY:
-				"-----BEGIN RSA PRIVATE KEY-----\\nescaped-key-data\\n-----END RSA PRIVATE KEY-----",
+	it("is compatible with the superset GitHubEnvironment type", () => {
+		const fullEnv = {
+			GITHUB_APP_ID: 99,
+			GITHUB_PRIVATE_KEY: "key",
 			GITHUB_WEBHOOK_SECRET: "secret",
 		};
 
-		const result = credentialsFromEnvironment(env);
+		const result = credentialsFromEnvironment(fullEnv);
 
-		expect(result.privateKey).toBe(
-			"-----BEGIN RSA PRIVATE KEY-----\nescaped-key-data\n-----END RSA PRIVATE KEY-----",
-		);
-	});
-
-	it("does not modify keys that already contain real newlines", () => {
-		const realNewlineKey =
-			"-----BEGIN RSA PRIVATE KEY-----\nreal-key-data\n-----END RSA PRIVATE KEY-----";
-		const env = {
-			GITHUB_APP_ID: 42,
-			GITHUB_PRIVATE_KEY: realNewlineKey,
-			GITHUB_WEBHOOK_SECRET: "secret",
-		};
-
-		const result = credentialsFromEnvironment(env);
-
-		expect(result.privateKey).toBe(realNewlineKey);
+		expect(result.appId).toBe(99);
 	});
 });
