@@ -1,4 +1,4 @@
-import type { Job } from "bullmq";
+import { UnrecoverableError, type Job } from "bullmq";
 import type { Logger } from "pino";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -11,7 +11,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
 	mockFindUniqueRepository,
 	mockUpdateProviderRepository,
-	mockCreateAnalysisRun,
+	mockUpsertAnalysisRun,
 	mockUpdateAnalysisRun,
 	mockParseGitHubCredentialsEnvironment,
 	mockCredentialsFromEnvironment,
@@ -27,7 +27,7 @@ const {
 } = vi.hoisted(() => ({
 	mockFindUniqueRepository: vi.fn(),
 	mockUpdateProviderRepository: vi.fn().mockResolvedValue({}),
-	mockCreateAnalysisRun: vi.fn(),
+	mockUpsertAnalysisRun: vi.fn(),
 	mockUpdateAnalysisRun: vi.fn(),
 	mockParseGitHubCredentialsEnvironment: vi.fn(),
 	mockCredentialsFromEnvironment: vi.fn(),
@@ -49,7 +49,7 @@ vi.mock("@synk-ai/db", () => ({
 			update: mockUpdateProviderRepository,
 		},
 		analysisRun: {
-			create: mockCreateAnalysisRun,
+			upsert: mockUpsertAnalysisRun,
 			update: mockUpdateAnalysisRun,
 		},
 	},
@@ -76,7 +76,7 @@ vi.mock("@synk-ai/doc-adapters", () => ({
 // Imports under test (after vi.mock so they receive the mocked modules)
 // ---------------------------------------------------------------------------
 
-import type { AnalyzeChangesJobPayload } from "@synk-ai/shared";
+import { ANALYZE_CHANGES_JOB_ATTEMPTS, type AnalyzeChangesJobPayload } from "@synk-ai/shared";
 import {
 	aggregateTokenUsage,
 	mergeResolvedConfig,
@@ -105,6 +105,8 @@ const makeLogger = (): Logger =>
 
 // makeJob creates a minimal mock of the BullMQ Job object. Only the fields
 // accessed by processAnalyzeChangesJob are provided; the rest are cast away.
+// opts.attempts defaults to ANALYZE_CHANGES_JOB_ATTEMPTS so that isFinalAttempt
+// logic behaves correctly — tests can override it to simulate a final attempt.
 const makeJob = (
 	overrides: Partial<{
 		id: string;
@@ -113,12 +115,14 @@ const makeJob = (
 		trigger: AnalyzeChangesJobPayload["trigger"];
 		repositoryId: string;
 		installationId: string;
+		opts: { attempts?: number };
 	}> = {},
 ): Job<AnalyzeChangesJobPayload> =>
 	({
 		id: overrides.id ?? "job-1",
 		attemptsMade: overrides.attemptsMade ?? 0,
 		queueName: overrides.queueName ?? "analyze-changes",
+		opts: overrides.opts ?? { attempts: ANALYZE_CHANGES_JOB_ATTEMPTS },
 		data: {
 			repositoryId: overrides.repositoryId ?? "repo-1",
 			installationId: overrides.installationId ?? "install-1",
@@ -457,7 +461,7 @@ describe("processAnalyzeChangesJob", () => {
 		mockFetchMultipleFiles.mockResolvedValue([]);
 
 		mockFindUniqueRepository.mockResolvedValue(makeRepository());
-		mockCreateAnalysisRun.mockResolvedValue({ id: "run-1" });
+		mockUpsertAnalysisRun.mockResolvedValue({ id: "run-1" });
 		mockUpdateAnalysisRun.mockResolvedValue({});
 
 		const defaultAdapter = makeAdapter();
@@ -832,17 +836,71 @@ describe("processAnalyzeChangesJob", () => {
 		);
 	});
 
-	it("throws without creating a run when credentials are missing", async () => {
+	it("throws UnrecoverableError and does not create a run when credentials are missing", async () => {
 		mockParseGitHubCredentialsEnvironment.mockImplementation(() => {
 			throw new Error("Missing GITHUB_APP_ID");
 		});
 
-		await expect(processAnalyzeChangesJob(makeJob(), makeLogger())).rejects.toThrow(
-			"Missing GITHUB_APP_ID",
-		);
+		const rejection = processAnalyzeChangesJob(makeJob(), makeLogger());
+		await expect(rejection).rejects.toThrow(UnrecoverableError);
+		await expect(rejection).rejects.toThrow("Missing GITHUB_APP_ID");
 
-		// No run should have been created — the error happened before createInitialRun
-		expect(mockCreateAnalysisRun).not.toHaveBeenCalled();
+		// No run should have been created — the error happened before upsertInitialRun
+		expect(mockUpsertAnalysisRun).not.toHaveBeenCalled();
+	});
+
+	it("throws UnrecoverableError and does not create a run when repository is not found", async () => {
+		mockFindUniqueRepository.mockResolvedValue(null);
+
+		const rejection = processAnalyzeChangesJob(makeJob(), makeLogger());
+		await expect(rejection).rejects.toThrow(UnrecoverableError);
+		await expect(rejection).rejects.toThrow("was not found");
+		expect(mockUpsertAnalysisRun).not.toHaveBeenCalled();
+	});
+
+	it("throws UnrecoverableError when pipeline encounters a non-retryable HTTP 404 error", async () => {
+		const notFoundApiError = Object.assign(new Error("Not Found"), { status: 404 });
+		mockFilterDiff
+			.mockReturnValueOnce([{ filename: "src/index.ts" }])
+			.mockReturnValueOnce([{ filename: "src/index.ts" }]);
+		mockFetchRepoTree.mockRejectedValue(notFoundApiError);
+
+		await expect(
+			processAnalyzeChangesJob(makeJob(), makeLogger()),
+		).rejects.toThrow(UnrecoverableError);
+
+		// Run should still be recorded as failed
+		expect(mockUpdateAnalysisRun).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({ status: "failed" }),
+			}),
+		);
+	});
+
+	it("rethrows the original error (not UnrecoverableError) for retryable HTTP 500 errors", async () => {
+		const serverError = Object.assign(new Error("Internal Server Error"), { status: 500 });
+		mockFilterDiff
+			.mockReturnValueOnce([{ filename: "src/index.ts" }])
+			.mockReturnValueOnce([{ filename: "src/index.ts" }]);
+		mockFetchRepoTree.mockRejectedValue(serverError);
+
+		const rejection = processAnalyzeChangesJob(makeJob(), makeLogger());
+		// Must NOT be wrapped in UnrecoverableError so BullMQ retries
+		await expect(rejection).rejects.not.toThrow(UnrecoverableError);
+		await expect(rejection).rejects.toThrow("Internal Server Error");
+	});
+
+	it("upserts the run record with updated attemptCount on retries", async () => {
+		mockFilterDiff.mockReturnValue([]);
+
+		await processAnalyzeChangesJob(makeJob({ attemptsMade: 1 }), makeLogger());
+
+		expect(mockUpsertAnalysisRun).toHaveBeenCalledWith(
+			expect.objectContaining({
+				update: expect.objectContaining({ attemptCount: 2 }),
+				create: expect.objectContaining({ attemptCount: 2 }),
+			}),
+		);
 	});
 
 	it("propagates the original pipeline error even when updateRunStatus also throws", async () => {
@@ -864,6 +922,53 @@ describe("processAnalyzeChangesJob", () => {
 		// The original error must propagate — not the DB error.
 		await expect(processAnalyzeChangesJob(makeJob(), makeLogger(), mockServices)).rejects.toThrow(
 			"original pipeline failure",
+		);
+	});
+
+	it("logs at warn level for a retryable error on a non-final attempt", async () => {
+		const serverError = Object.assign(new Error("Internal Server Error"), { status: 500 });
+		mockFilterDiff
+			.mockReturnValueOnce([{ filename: "src/index.ts" }])
+			.mockReturnValueOnce([{ filename: "src/index.ts" }]);
+		mockFetchRepoTree.mockRejectedValue(serverError);
+
+		const logger = makeLogger();
+		// attemptsMade=0, maxAttempts=4 → isFinalAttempt=false → warn
+		await expect(processAnalyzeChangesJob(makeJob(), logger)).rejects.toBeDefined();
+
+		expect(logger.child).toHaveBeenCalled();
+		const child = (logger.child as ReturnType<typeof vi.fn>).mock.results[0]?.value as {
+			warn: ReturnType<typeof vi.fn>;
+			error: ReturnType<typeof vi.fn>;
+		};
+		expect(child.warn).toHaveBeenCalledWith(
+			expect.objectContaining({ isFinalAttempt: false, classification: "retryable" }),
+			expect.any(String),
+		);
+		expect(child.error).not.toHaveBeenCalledWith(
+			expect.objectContaining({ classification: "retryable" }),
+			expect.any(String),
+		);
+	});
+
+	it("logs at error level for a retryable error on the final attempt", async () => {
+		const serverError = Object.assign(new Error("Internal Server Error"), { status: 500 });
+		mockFilterDiff
+			.mockReturnValueOnce([{ filename: "src/index.ts" }])
+			.mockReturnValueOnce([{ filename: "src/index.ts" }]);
+		mockFetchRepoTree.mockRejectedValue(serverError);
+
+		const logger = makeLogger();
+		// attemptsMade=3, maxAttempts=4 → isFinalAttempt=true → error
+		const finalJob = makeJob({ attemptsMade: ANALYZE_CHANGES_JOB_ATTEMPTS - 1 });
+		await expect(processAnalyzeChangesJob(finalJob, logger)).rejects.toBeDefined();
+
+		const child = (logger.child as ReturnType<typeof vi.fn>).mock.results[0]?.value as {
+			error: ReturnType<typeof vi.fn>;
+		};
+		expect(child.error).toHaveBeenCalledWith(
+			expect.objectContaining({ isFinalAttempt: true, classification: "retryable" }),
+			expect.any(String),
 		);
 	});
 });

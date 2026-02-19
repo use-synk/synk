@@ -1,4 +1,9 @@
-import { ANALYZE_CHANGES_QUEUE_NAME, type AnalyzeChangesJobPayload } from "@synk-ai/shared";
+import {
+	ANALYZE_CHANGES_JOB_ATTEMPTS,
+	ANALYZE_CHANGES_JOB_BACKOFF_TYPE,
+	ANALYZE_CHANGES_QUEUE_NAME,
+	type AnalyzeChangesJobPayload,
+} from "@synk-ai/shared";
 import { Queue } from "bullmq";
 
 export { ANALYZE_CHANGES_QUEUE_NAME };
@@ -14,6 +19,10 @@ export const createAnalyzeChangesQueue = (redisUrl: string): Queue<AnalyzeChange
 		defaultJobOptions: {
 			removeOnComplete: REMOVE_COMPLETED_JOBS,
 			removeOnFail: REMOVE_FAILED_JOBS,
+			attempts: ANALYZE_CHANGES_JOB_ATTEMPTS,
+			backoff: {
+				type: ANALYZE_CHANGES_JOB_BACKOFF_TYPE,
+			},
 		},
 	});
 
