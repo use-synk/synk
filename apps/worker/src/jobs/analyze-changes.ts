@@ -26,8 +26,9 @@ import {
 	type ParsedSynkAiConfig,
 	parseSynkAiConfigFromYaml,
 } from "@synk-ai/shared";
-import type { Job } from "bullmq";
+import { type Job, UnrecoverableError } from "bullmq";
 import type { Logger } from "../logger.js";
+import { classifyError } from "./error-classification.js";
 
 const PROVIDER_GITHUB = "github";
 const RUN_STATUS_RUNNING = "running";
@@ -723,43 +724,76 @@ const loadRepository = async (
 		},
 	});
 	if (repository === null) {
-		throw new Error(`Repository '${payload.repositoryId}' was not found.`);
+		// Repository was deleted from the database after the job was enqueued.
+		// Retrying will not restore it — fail immediately.
+		throw new UnrecoverableError(
+			`Repository '${payload.repositoryId}' was not found. It may have been removed.`,
+		);
 	}
 	if (repository.provider !== PROVIDER_GITHUB) {
-		throw new Error(`Unsupported repository provider '${repository.provider}'.`);
+		// Unsupported provider is a configuration error that will not resolve on retry.
+		throw new UnrecoverableError(
+			`Unsupported repository provider '${repository.provider}'.`,
+		);
 	}
 	if (repository.installation.id !== payload.installationId) {
-		throw new Error("Job installationId does not match repository installation.");
+		// Mismatched installation ID means the job payload is stale or invalid.
+		throw new UnrecoverableError("Job installationId does not match repository installation.");
 	}
 	if (repository.installation.status !== "active") {
-		throw new Error(
+		// Suspended or deleted installations require manual action to fix.
+		// Retrying will not change the installation status.
+		throw new UnrecoverableError(
 			`Repository installation is not active (status: ${repository.installation.status}).`,
 		);
 	}
 	return repository;
 };
 
-const createInitialRun = async (
+/**
+ * Creates the analysis run record on the first attempt, or updates the existing
+ * record on subsequent retry attempts. The unique constraint on
+ * (repositoryId, triggerCommitSha, triggerType) guarantees exactly one run
+ * per commit event, updated in-place across retries.
+ */
+const upsertInitialRun = async (
 	job: Job<AnalyzeChangesJobPayload>,
 	repository: RepositoryWithInstallation,
 ): Promise<string> => {
-	const run = await db.analysisRun.create({
-		data: {
+	const triggerMeta = {
+		bullmq: {
+			jobId: job.id ?? null,
+			attemptNumber: job.attemptsMade + 1,
+		},
+	};
+	const run = await db.analysisRun.upsert({
+		where: {
+			repositoryId_triggerCommitSha_triggerType: {
+				repositoryId: repository.id,
+				triggerCommitSha: job.data.trigger.commitSha,
+				triggerType: job.data.trigger.type,
+			},
+		},
+		create: {
 			repositoryId: repository.id,
 			provider: repository.provider,
 			triggerType: job.data.trigger.type,
 			triggerRef: job.data.trigger.ref,
 			triggerCommitSha: job.data.trigger.commitSha,
 			triggerMergeRequestNumber: job.data.trigger.prNumber ?? null,
-			triggerMeta: {
-				bullmq: {
-					jobId: job.id ?? null,
-					attemptNumber: job.attemptsMade + 1,
-				},
-			},
+			triggerMeta,
 			status: RUN_STATUS_RUNNING,
 			startedAt: new Date(),
 			attemptCount: job.attemptsMade + 1,
+		},
+		update: {
+			// Reset transient state at the start of each retry attempt.
+			status: RUN_STATUS_RUNNING,
+			startedAt: new Date(),
+			completedAt: null,
+			error: null,
+			attemptCount: job.attemptsMade + 1,
+			triggerMeta,
 		},
 		select: {
 			id: true,
@@ -804,8 +838,16 @@ export const processAnalyzeChangesJob = async (
 	// Credential parsing must succeed before we create the run record. A failure
 	// here is a deployment configuration error — retrying the job won't fix it,
 	// and we should not produce a "failed" run entry for it.
-	const credentials = credentialsFromEnvironment(parseGitHubCredentialsEnvironment());
-	const runId = await createInitialRun(job, repository);
+	const credentials = (() => {
+		try {
+			return credentialsFromEnvironment(parseGitHubCredentialsEnvironment());
+		} catch (error) {
+			const message =
+				error instanceof Error ? error.message : "Invalid GitHub credentials configuration";
+			throw new UnrecoverableError(message);
+		}
+	})();
+	const runId = await upsertInitialRun(job, repository);
 	const timings: Record<string, number> = {};
 	let triageUsage = normalizeTokenUsage(undefined);
 	const generationUsage: TokenUsage[] = [];
@@ -1044,6 +1086,19 @@ export const processAnalyzeChangesJob = async (
 		});
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : "Unknown analyze-changes failure";
+		const classification = classifyError(error);
+
+		jobLogger.error(
+			{
+				err: error,
+				runId,
+				classification,
+				repositoryId: job.data.repositoryId,
+				attemptNumber: job.attemptsMade + 1,
+			},
+			"analyze-changes pipeline failed",
+		);
+
 		try {
 			await updateRunStatus(runId, RUN_STATUS_FAILED, {
 				error: errorMessage,
@@ -1055,6 +1110,13 @@ export const processAnalyzeChangesJob = async (
 		} catch {
 			// Swallow status-update failures so the original pipeline error always
 			// propagates to BullMQ for correct retry tracking.
+		}
+
+		// Non-retryable errors (auth revoked, resource permanently gone, invalid
+		// payload) must not be retried. Wrapping in UnrecoverableError signals
+		// BullMQ to skip the remaining retry attempts and move the job to the DLQ.
+		if (classification === "non-retryable") {
+			throw new UnrecoverableError(errorMessage);
 		}
 		throw error;
 	}

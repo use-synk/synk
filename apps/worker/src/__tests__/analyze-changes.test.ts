@@ -1,4 +1,4 @@
-import type { Job } from "bullmq";
+import { UnrecoverableError, type Job } from "bullmq";
 import type { Logger } from "pino";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -11,7 +11,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const {
 	mockFindUniqueRepository,
 	mockUpdateProviderRepository,
-	mockCreateAnalysisRun,
+	mockUpsertAnalysisRun,
 	mockUpdateAnalysisRun,
 	mockParseGitHubCredentialsEnvironment,
 	mockCredentialsFromEnvironment,
@@ -27,7 +27,7 @@ const {
 } = vi.hoisted(() => ({
 	mockFindUniqueRepository: vi.fn(),
 	mockUpdateProviderRepository: vi.fn().mockResolvedValue({}),
-	mockCreateAnalysisRun: vi.fn(),
+	mockUpsertAnalysisRun: vi.fn(),
 	mockUpdateAnalysisRun: vi.fn(),
 	mockParseGitHubCredentialsEnvironment: vi.fn(),
 	mockCredentialsFromEnvironment: vi.fn(),
@@ -49,7 +49,7 @@ vi.mock("@synk-ai/db", () => ({
 			update: mockUpdateProviderRepository,
 		},
 		analysisRun: {
-			create: mockCreateAnalysisRun,
+			upsert: mockUpsertAnalysisRun,
 			update: mockUpdateAnalysisRun,
 		},
 	},
@@ -457,7 +457,7 @@ describe("processAnalyzeChangesJob", () => {
 		mockFetchMultipleFiles.mockResolvedValue([]);
 
 		mockFindUniqueRepository.mockResolvedValue(makeRepository());
-		mockCreateAnalysisRun.mockResolvedValue({ id: "run-1" });
+		mockUpsertAnalysisRun.mockResolvedValue({ id: "run-1" });
 		mockUpdateAnalysisRun.mockResolvedValue({});
 
 		const defaultAdapter = makeAdapter();
@@ -832,17 +832,71 @@ describe("processAnalyzeChangesJob", () => {
 		);
 	});
 
-	it("throws without creating a run when credentials are missing", async () => {
+	it("throws UnrecoverableError and does not create a run when credentials are missing", async () => {
 		mockParseGitHubCredentialsEnvironment.mockImplementation(() => {
 			throw new Error("Missing GITHUB_APP_ID");
 		});
 
-		await expect(processAnalyzeChangesJob(makeJob(), makeLogger())).rejects.toThrow(
-			"Missing GITHUB_APP_ID",
-		);
+		const rejection = processAnalyzeChangesJob(makeJob(), makeLogger());
+		await expect(rejection).rejects.toThrow(UnrecoverableError);
+		await expect(rejection).rejects.toThrow("Missing GITHUB_APP_ID");
 
-		// No run should have been created — the error happened before createInitialRun
-		expect(mockCreateAnalysisRun).not.toHaveBeenCalled();
+		// No run should have been created — the error happened before upsertInitialRun
+		expect(mockUpsertAnalysisRun).not.toHaveBeenCalled();
+	});
+
+	it("throws UnrecoverableError and does not create a run when repository is not found", async () => {
+		mockFindUniqueRepository.mockResolvedValue(null);
+
+		const rejection = processAnalyzeChangesJob(makeJob(), makeLogger());
+		await expect(rejection).rejects.toThrow(UnrecoverableError);
+		await expect(rejection).rejects.toThrow("was not found");
+		expect(mockUpsertAnalysisRun).not.toHaveBeenCalled();
+	});
+
+	it("throws UnrecoverableError when pipeline encounters a non-retryable HTTP 404 error", async () => {
+		const notFoundApiError = Object.assign(new Error("Not Found"), { status: 404 });
+		mockFilterDiff
+			.mockReturnValueOnce([{ filename: "src/index.ts" }])
+			.mockReturnValueOnce([{ filename: "src/index.ts" }]);
+		mockFetchRepoTree.mockRejectedValue(notFoundApiError);
+
+		await expect(
+			processAnalyzeChangesJob(makeJob(), makeLogger()),
+		).rejects.toThrow(UnrecoverableError);
+
+		// Run should still be recorded as failed
+		expect(mockUpdateAnalysisRun).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({ status: "failed" }),
+			}),
+		);
+	});
+
+	it("rethrows the original error (not UnrecoverableError) for retryable HTTP 500 errors", async () => {
+		const serverError = Object.assign(new Error("Internal Server Error"), { status: 500 });
+		mockFilterDiff
+			.mockReturnValueOnce([{ filename: "src/index.ts" }])
+			.mockReturnValueOnce([{ filename: "src/index.ts" }]);
+		mockFetchRepoTree.mockRejectedValue(serverError);
+
+		const rejection = processAnalyzeChangesJob(makeJob(), makeLogger());
+		// Must NOT be wrapped in UnrecoverableError so BullMQ retries
+		await expect(rejection).rejects.not.toThrow(UnrecoverableError);
+		await expect(rejection).rejects.toThrow("Internal Server Error");
+	});
+
+	it("upserts the run record with updated attemptCount on retries", async () => {
+		mockFilterDiff.mockReturnValue([]);
+
+		await processAnalyzeChangesJob(makeJob({ attemptsMade: 1 }), makeLogger());
+
+		expect(mockUpsertAnalysisRun).toHaveBeenCalledWith(
+			expect.objectContaining({
+				update: expect.objectContaining({ attemptCount: 2 }),
+				create: expect.objectContaining({ attemptCount: 2 }),
+			}),
+		);
 	});
 
 	it("propagates the original pipeline error even when updateRunStatus also throws", async () => {
