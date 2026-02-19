@@ -7,9 +7,39 @@ export const FRAMEWORK_IDS = ["nextra", "fumadocs", "docusaurus", "markdown"] as
 
 export type FrameworkId = (typeof FRAMEWORK_IDS)[number];
 
+const createPendingAdapter = (frameworkId: Exclude<FrameworkId, "markdown">): DocAdapter => ({
+	frameworkId,
+
+	async detect(_tree: RepoFile[]): Promise<boolean> {
+		return false;
+	},
+
+	getDocPaths(config) {
+		return markdownAdapter.getDocPaths(config);
+	},
+
+	parseStructure(files) {
+		return markdownAdapter.parseStructure(files);
+	},
+
+	getConventions() {
+		const conventions = markdownAdapter.getConventions();
+		return {
+			...conventions,
+			description: `${frameworkId} adapter is not implemented yet; using markdown fallback conventions.`,
+		};
+	},
+
+	validateOutput(content, filePath) {
+		return markdownAdapter.validateOutput(content, filePath);
+	},
+});
+
 /** Adapters in detection priority order (highest first). Markdown is last as fallback. */
 const ADAPTERS_BY_PRIORITY: DocAdapter[] = [
-	// nextra, fumadocs, docusaurus will be added in 3.3, 3.4
+	createPendingAdapter("nextra"),
+	createPendingAdapter("fumadocs"),
+	createPendingAdapter("docusaurus"),
 	markdownAdapter,
 ];
 

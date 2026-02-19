@@ -34,6 +34,27 @@ const pathToTitle = (path: string): string => {
 	return baseName.replace(/\.(md|mdx)$/i, "").replace(/-/g, " ");
 };
 
+const segmentToTitle = (segment: string): string => segment.replace(/-/g, " ");
+
+const sortNodes = (nodes: DocTreeNode[]): void => {
+	nodes.sort((left, right) => {
+		const leftOrder = left.order ?? Number.MAX_SAFE_INTEGER;
+		const rightOrder = right.order ?? Number.MAX_SAFE_INTEGER;
+
+		if (leftOrder !== rightOrder) {
+			return leftOrder - rightOrder;
+		}
+
+		return left.title.localeCompare(right.title);
+	});
+
+	for (const node of nodes) {
+		if (node.children !== undefined) {
+			sortNodes(node.children);
+		}
+	}
+};
+
 export const markdownAdapter: DocAdapter = {
 	frameworkId: "markdown",
 
@@ -48,10 +69,51 @@ export const markdownAdapter: DocAdapter = {
 
 	parseStructure(files: DocFile[]): DocTree {
 		const sorted = [...files].sort((a, b) => a.path.localeCompare(b.path));
-		const roots: DocTreeNode[] = sorted.map((f, i) => {
-			const title = extractH1(f.content) || pathToTitle(f.path);
-			return { title, path: f.path, order: i };
-		});
+		const roots: DocTreeNode[] = [];
+		const sectionsByPath = new Map<string, DocTreeNode>();
+
+		for (const [index, file] of sorted.entries()) {
+			const segments = file.path.split("/").filter((segment) => segment.length > 0);
+			if (segments.length === 0) {
+				continue;
+			}
+
+			const directorySegments = segments.slice(0, -1);
+			let parentNodes = roots;
+			let directoryKey = "";
+
+			for (const segment of directorySegments) {
+				directoryKey = directoryKey.length > 0 ? `${directoryKey}/${segment}` : segment;
+				let section = sectionsByPath.get(directoryKey);
+
+				if (section === undefined) {
+					section = {
+						title: segmentToTitle(segment),
+						children: [],
+						order: index,
+					};
+					sectionsByPath.set(directoryKey, section);
+					parentNodes.push(section);
+				}
+
+				if (section.order === undefined || index < section.order) {
+					section.order = index;
+				}
+
+				if (section.children === undefined) {
+					section.children = [];
+				}
+				parentNodes = section.children;
+			}
+
+			parentNodes.push({
+				title: extractH1(file.content) || pathToTitle(file.path),
+				path: file.path,
+				order: index,
+			});
+		}
+
+		sortNodes(roots);
 		return { roots };
 	},
 
@@ -74,11 +136,14 @@ export const markdownAdapter: DocAdapter = {
 
 		const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
 		for (const match of content.matchAll(linkRegex)) {
-			const href = match[2];
-			if (href === undefined || href.startsWith("#")) continue;
-			if (href.startsWith("http://") || href.startsWith("https://")) continue;
-			if (href.includes("..") || href.startsWith("/")) {
-				errors.push(`Suspicious relative link: ${href}`);
+			const href = match[2]?.trim();
+			if (href === undefined || href.length === 0) {
+				errors.push("Markdown links must include a non-empty target.");
+				continue;
+			}
+
+			if (href.toLowerCase().startsWith("javascript:")) {
+				errors.push(`Unsupported link protocol: ${href}`);
 			}
 		}
 

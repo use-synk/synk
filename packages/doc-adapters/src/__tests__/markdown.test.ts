@@ -40,22 +40,33 @@ describe("markdownAdapter.getDocPaths", () => {
 });
 
 describe("markdownAdapter.parseStructure", () => {
-	it("parses files into DocTree with titles from H1", () => {
+	it("parses files into a hierarchical DocTree", () => {
 		const files = [
 			{ path: "docs/a.md", content: "# Getting Started\n\nContent here." },
 			{ path: "docs/b.md", content: "# API Reference" },
 		];
 		const tree = markdownAdapter.parseStructure(files);
-		expect(tree.roots).toHaveLength(2);
-		expect(tree.roots[0]?.title).toBe("Getting Started");
-		expect(tree.roots[0]?.path).toBe("docs/a.md");
-		expect(tree.roots[1]?.title).toBe("API Reference");
+		expect(tree.roots).toHaveLength(1);
+		expect(tree.roots[0]?.title).toBe("docs");
+		expect(tree.roots[0]?.children).toHaveLength(2);
+		expect(tree.roots[0]?.children?.[0]?.title).toBe("Getting Started");
+		expect(tree.roots[0]?.children?.[0]?.path).toBe("docs/a.md");
+		expect(tree.roots[0]?.children?.[1]?.title).toBe("API Reference");
 	});
 
 	it("falls back to path-derived title when no H1", () => {
 		const files = [{ path: "docs/quick-start.md", content: "No heading here." }];
 		const tree = markdownAdapter.parseStructure(files);
-		expect(tree.roots[0]?.title).toBe("quick start");
+		expect(tree.roots[0]?.children?.[0]?.title).toBe("quick start");
+	});
+
+	it("nests sections for deeper paths", () => {
+		const files = [{ path: "docs/guides/setup/install.md", content: "# Install" }];
+		const tree = markdownAdapter.parseStructure(files);
+		expect(tree.roots[0]?.title).toBe("docs");
+		expect(tree.roots[0]?.children?.[0]?.title).toBe("guides");
+		expect(tree.roots[0]?.children?.[0]?.children?.[0]?.title).toBe("setup");
+		expect(tree.roots[0]?.children?.[0]?.children?.[0]?.children?.[0]?.title).toBe("Install");
 	});
 });
 
@@ -82,5 +93,18 @@ describe("markdownAdapter.validateOutput", () => {
 	it("returns invalid for whitespace-only content", () => {
 		const result = markdownAdapter.validateOutput("   \n\t  ", "docs/a.md");
 		expect(result.valid).toBe(false);
+	});
+
+	it("allows parent-relative and root-relative links", () => {
+		const content = "# Title\n\n[Guide](../guide.md)\n[API](/api/reference)";
+		const result = markdownAdapter.validateOutput(content, "docs/a.md");
+		expect(result.valid).toBe(true);
+	});
+
+	it("rejects javascript links", () => {
+		const content = "# Title\n\n[Bad](javascript:alert('xss'))";
+		const result = markdownAdapter.validateOutput(content, "docs/a.md");
+		expect(result.valid).toBe(false);
+		expect(result.errors?.[0]).toContain("Unsupported link protocol");
 	});
 });

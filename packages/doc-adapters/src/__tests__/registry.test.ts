@@ -12,12 +12,18 @@ describe("getAdapter", () => {
 		expect(() => getAdapter("unknown")).toThrow("Unknown doc framework: unknown");
 	});
 
-	it("supports all FRAMEWORK_IDS except unimplemented ones", () => {
-		expect(getAdapter("markdown").frameworkId).toBe("markdown");
+	it("resolves all declared FRAMEWORK_IDS", () => {
 		for (const id of FRAMEWORK_IDS) {
-			if (id === "markdown") continue;
-			expect(() => getAdapter(id)).toThrow();
+			const adapter = getAdapter(id);
+			expect(adapter.frameworkId).toBe(id);
 		}
+	});
+
+	it("marks pending adapters with explicit fallback conventions", () => {
+		const adapter = getAdapter("nextra");
+		const conventions = adapter.getConventions();
+		expect(conventions.description).toContain("not implemented yet");
+		expect(conventions.description).toContain("markdown fallback");
 	});
 });
 
