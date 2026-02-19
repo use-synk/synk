@@ -47,7 +47,8 @@ const hasNextraStructure = (tree: RepoFile[]): boolean => {
 			f.path.startsWith("pages/docs/") || f.path.startsWith("content/") || f.path === "pages/docs",
 	);
 	const hasMeta = tree.some(
-		(f) => (f.path.startsWith("pages/docs/") || f.path.startsWith("content/")) && isMetaFilePath(f.path),
+		(f) =>
+			(f.path.startsWith("pages/docs/") || f.path.startsWith("content/")) && isMetaFilePath(f.path),
 	);
 	return hasDocs && hasMeta;
 };
