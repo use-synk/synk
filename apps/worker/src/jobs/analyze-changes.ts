@@ -710,7 +710,7 @@ export const processAnalyzeChangesJob = async (
 		timings.detectDocAdapter = detectAdapterDuration;
 		const resolvedFramework =
 			resolvedConfig.docs.framework === undefined || resolvedConfig.docs.framework === "auto"
-				? (adapterResolution.adapter.frameworkId as DocsConfig["framework"])
+				? parseFramework(adapterResolution.adapter.frameworkId)
 				: resolvedConfig.docs.framework;
 		const docsConfig = createDocsConfig({
 			framework: resolvedFramework,
