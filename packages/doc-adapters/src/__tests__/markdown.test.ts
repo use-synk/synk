@@ -13,9 +13,14 @@ describe("markdownAdapter.detect", () => {
 		expect(await markdownAdapter.detect(tree)).toBe(true);
 	});
 
-	it("returns true when .md files exist", async () => {
-		const tree = [{ path: "api.md" }];
+	it("returns true when markdown files exist in common doc locations", async () => {
+		const tree = [{ path: "guides/api.md" }];
 		expect(await markdownAdapter.detect(tree)).toBe(true);
+	});
+
+	it("returns false when markdown files only exist outside common doc locations", async () => {
+		const tree = [{ path: "tmp/generated/notes.md" }];
+		expect(await markdownAdapter.detect(tree)).toBe(false);
 	});
 
 	it("returns false for repo with no doc files", async () => {
@@ -68,6 +73,48 @@ describe("markdownAdapter.parseStructure", () => {
 		expect(tree.roots[0]?.children?.[0]?.children?.[0]?.title).toBe("setup");
 		expect(tree.roots[0]?.children?.[0]?.children?.[0]?.children?.[0]?.title).toBe("Install");
 	});
+
+	it("parses heading hierarchy beneath each page", () => {
+		const files = [
+			{
+				path: "docs/guide.md",
+				content: "# Guide\n\n## Install\n\n### Linux\n\n## Usage",
+			},
+		];
+		const tree = markdownAdapter.parseStructure(files);
+		const guidePage = tree.roots[0]?.children?.[0];
+		expect(guidePage?.title).toBe("Guide");
+		expect(guidePage?.children?.[0]?.title).toBe("Install");
+		expect(guidePage?.children?.[0]?.path).toBe("docs/guide.md#install");
+		expect(guidePage?.children?.[0]?.children?.[0]?.title).toBe("Linux");
+		expect(guidePage?.children?.[1]?.title).toBe("Usage");
+	});
+
+	it("preserves heading order from source markdown", () => {
+		const files = [
+			{
+				path: "docs/guide.md",
+				content: "# Guide\n\n## Zebra\n\n## Alpha",
+			},
+		];
+		const tree = markdownAdapter.parseStructure(files);
+		const guidePage = tree.roots[0]?.children?.[0];
+		expect(guidePage?.children?.[0]?.title).toBe("Zebra");
+		expect(guidePage?.children?.[1]?.title).toBe("Alpha");
+	});
+
+	it("does not close code fences with shorter markers when parsing headings", () => {
+		const files = [
+			{
+				path: "docs/guide.md",
+				content: "# Guide\n\n````ts\n# Inside code\n```\n## Also inside code\n````\n## Real section",
+			},
+		];
+		const tree = markdownAdapter.parseStructure(files);
+		const guidePage = tree.roots[0]?.children?.[0];
+		expect(guidePage?.children).toHaveLength(1);
+		expect(guidePage?.children?.[0]?.title).toBe("Real section");
+	});
 });
 
 describe("markdownAdapter.getConventions", () => {
@@ -101,6 +148,14 @@ describe("markdownAdapter.validateOutput", () => {
 		expect(result.valid).toBe(true);
 	});
 
+	it("allows existing relative links when repository context is provided", () => {
+		const content = "# Title\n\n[Guide](../guide.md)\n[Setup](setup)";
+		const result = markdownAdapter.validateOutput(content, "docs/tutorials/a.md", {
+			repoFilePaths: ["docs/guide.md", "docs/tutorials/setup/index.md"],
+		});
+		expect(result.valid).toBe(true);
+	});
+
 	it("rejects javascript links", () => {
 		const content = "# Title\n\n[Bad](javascript:alert('xss'))";
 		const result = markdownAdapter.validateOutput(content, "docs/a.md");
@@ -113,5 +168,35 @@ describe("markdownAdapter.validateOutput", () => {
 		const result = markdownAdapter.validateOutput(content, "docs/a.md");
 		expect(result.valid).toBe(false);
 		expect(result.errors).toContain("Markdown links must include a non-empty target.");
+	});
+
+	it("rejects relative links that escape repository root", () => {
+		const content = "# Title\n\n[Escapes](../../../outside.md)";
+		const result = markdownAdapter.validateOutput(content, "docs/guides/a.md");
+		expect(result.valid).toBe(false);
+		expect(result.errors).toContain("Broken relative link: ../../../outside.md");
+	});
+
+	it("rejects missing relative links when repository context is provided", () => {
+		const content = "# Title\n\n[Missing](./missing.md)";
+		const result = markdownAdapter.validateOutput(content, "docs/guides/a.md", {
+			repoFilePaths: ["docs/guides/a.md", "docs/guides/intro.md"],
+		});
+		expect(result.valid).toBe(false);
+		expect(result.errors).toContain("Broken relative link: ./missing.md");
+	});
+
+	it("rejects markdown with unclosed code fences", () => {
+		const content = "# Title\n\n```ts\nconst a = 1;\n";
+		const result = markdownAdapter.validateOutput(content, "docs/a.md");
+		expect(result.valid).toBe(false);
+		expect(result.errors).toContain("Markdown contains an unclosed code fence.");
+	});
+
+	it("rejects when a shorter closing fence is used", () => {
+		const content = "# Title\n\n````ts\nconst a = 1;\n```";
+		const result = markdownAdapter.validateOutput(content, "docs/a.md");
+		expect(result.valid).toBe(false);
+		expect(result.errors).toContain("Markdown contains an unclosed code fence.");
 	});
 });

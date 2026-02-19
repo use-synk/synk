@@ -4,6 +4,7 @@ import type {
 	DocsConfig,
 	FrameworkConventions,
 	RepoFile,
+	ValidationContext,
 	ValidationResult,
 } from "./types.js";
 
@@ -38,5 +39,5 @@ export interface DocAdapter {
 	/**
 	 * Validates generated content against framework rules.
 	 */
-	validateOutput(content: string, filePath: string): ValidationResult;
+	validateOutput(content: string, filePath: string, context?: ValidationContext): ValidationResult;
 }

@@ -63,6 +63,14 @@ export interface ValidationResult {
 }
 
 /**
+ * Repository-aware validation context for adapter output checks.
+ */
+export interface ValidationContext {
+	/** Known repository file paths used for internal link validation. */
+	repoFilePaths?: string[];
+}
+
+/**
  * Docs-related configuration passed to adapters.
  * Matches the shape used in repositories.docs_config and .synk-ai.yml.
  */
