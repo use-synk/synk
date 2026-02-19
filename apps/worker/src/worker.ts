@@ -129,9 +129,15 @@ const enqueuePendingPayloadForRepository = async (
 
 		const jobAfterConflict = await getRepositoryActiveJob(queue, job.data.repositoryId);
 		if (jobAfterConflict === null) {
-			await queue.add(job.name, pending.payload, jobOptions);
-			await clearPendingPayload(queue, job);
-			return;
+			try {
+				await queue.add(job.name, pending.payload, jobOptions);
+				await clearPendingPayload(queue, job);
+				return;
+			} catch (retryError) {
+				if (!isAlreadyExistingJobError(retryError)) {
+					throw retryError;
+				}
+			}
 		}
 
 		const redisClient = await queue.client;
