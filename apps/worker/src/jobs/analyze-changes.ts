@@ -388,22 +388,29 @@ const hasConfiguredDocsValue = (docs: DocsConfig): boolean =>
 	docs.repo !== undefined ||
 	docs.branch !== undefined;
 
+type AdapterResolution = {
+	adapter: DocAdapter;
+	// Present only when auto-detection was performed; undefined when the
+	// framework was configured explicitly (no tree fetch needed).
+	detectionTree: readonly RepoTreeFile[] | undefined;
+};
+
 const resolveAdapter = async (
 	octokit: ReturnType<typeof createInstallationOctokit>,
 	context: PipelineContext,
 	docsConfig: DocsConfig,
-): Promise<{ adapter: DocAdapter; sourceTree: readonly RepoTreeFile[] }> => {
-	const sourceTree = await fetchRepoTree(octokit, {
+): Promise<AdapterResolution> => {
+	if (docsConfig.framework !== undefined && docsConfig.framework !== "auto") {
+		return { adapter: getAdapter(docsConfig.framework), detectionTree: undefined };
+	}
+
+	const detectionTree = await fetchRepoTree(octokit, {
 		owner: context.owner,
 		repo: context.repo,
 		ref: context.commitSha,
 	});
-	if (docsConfig.framework !== undefined && docsConfig.framework !== "auto") {
-		return { adapter: getAdapter(docsConfig.framework), sourceTree };
-	}
-
 	const packageJsonContent = await readPackageJsonContent(octokit, context);
-	const repoFiles: RepoFile[] = sourceTree.map((file) => ({
+	const repoFiles: RepoFile[] = detectionTree.map((file) => ({
 		path: file.path,
 		sha: file.sha,
 		size: file.size,
@@ -412,7 +419,7 @@ const resolveAdapter = async (
 		repoFiles,
 		packageJsonContent === undefined ? undefined : { packageJson: packageJsonContent },
 	);
-	return { adapter, sourceTree };
+	return { adapter, detectionTree };
 };
 
 const readPackageJsonContent = async (
@@ -449,17 +456,28 @@ const resolveDocsLocation = (
 	};
 };
 
+type CollectDocFilesOptions = {
+	docsConfig: DocsConfig;
+	location: { owner: string; repo: string; ref: string };
+	// When the docs repo is the same as the source repo and a tree was already
+	// fetched during adapter auto-detection, pass it here to avoid a second
+	// identical GitHub API call.
+	prefetchedTree?: readonly RepoTreeFile[] | undefined;
+};
+
 const collectDocFiles = async (
 	octokit: ReturnType<typeof createInstallationOctokit>,
 	adapter: DocAdapter,
-	docsConfig: DocsConfig,
-	location: { owner: string; repo: string; ref: string },
+	options: CollectDocFilesOptions,
 ): Promise<{ tree: readonly RepoTreeFile[]; docFiles: readonly DocFile[] }> => {
-	const tree = await fetchRepoTree(octokit, {
-		owner: location.owner,
-		repo: location.repo,
-		ref: location.ref,
-	});
+	const { docsConfig, location } = options;
+	const tree =
+		options.prefetchedTree ??
+		(await fetchRepoTree(octokit, {
+			owner: location.owner,
+			repo: location.repo,
+			ref: location.ref,
+		}));
 	const globs = adapter.getDocPaths(docsConfig);
 	const docPaths = tree
 		.map((entry) => entry.path)
@@ -741,11 +759,22 @@ export const processAnalyzeChangesJob = async (
 			docsConfig,
 		);
 
+		// Re-use the tree fetched during auto-detection when the docs repository
+		// is the same as the source repository to avoid a duplicate GitHub API call.
+		const docsIsSameAsSourceRepo =
+			docsLocation.owner === context.owner && docsLocation.repo === context.repo;
 		const { value: docData, durationMs: stepSixDuration } = await measureStep(
 			jobLogger,
 			runId,
 			"fetch-doc-tree-and-files",
-			async () => collectDocFiles(octokit, adapterResolution.adapter, docsConfig, docsLocation),
+			async () =>
+				collectDocFiles(octokit, adapterResolution.adapter, {
+					docsConfig,
+					location: docsLocation,
+					prefetchedTree: docsIsSameAsSourceRepo
+						? adapterResolution.detectionTree
+						: undefined,
+				}),
 		);
 		timings.fetchDocTreeAndFiles = stepSixDuration;
 
