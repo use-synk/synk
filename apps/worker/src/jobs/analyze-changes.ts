@@ -20,7 +20,7 @@ import {
 	filterDiff,
 	parseGitHubCredentialsEnvironment,
 } from "@synk-ai/github";
-import type { AnalyzeChangesJobPayload } from "@synk-ai/shared";
+import { type AnalyzeChangesJobPayload, parseSynkAiConfigFromYaml } from "@synk-ai/shared";
 import type { Job } from "bullmq";
 import type { Logger } from "../logger.js";
 
@@ -242,82 +242,21 @@ export const parseFramework = (framework: string | undefined): DocsConfig["frame
 	}
 };
 
+/**
+ * Parses .synk-ai.yml content using Zod schema. Returns ResolvedDocsConfig for
+ * use in the pipeline. Re-exports shared parser for backward compatibility.
+ */
 export const parseSynkAiYaml = (content: string): ResolvedDocsConfig | null => {
-	const docs: DocsConfig = {};
-	const ignorePaths: string[] = [];
-	let topLevelSection: string | undefined;
-	let inIgnorePaths = false;
-
-	for (const rawLine of content.split("\n")) {
-		const line = rawLine.replace(/\t/gu, "  ");
-		const trimmed = line.trim();
-		if (trimmed.length === 0 || trimmed.startsWith("#")) {
-			continue;
-		}
-
-		const indent = line.length - line.trimStart().length;
-		if (indent === 0 && trimmed.endsWith(":")) {
-			topLevelSection = trimmed.slice(0, -1);
-			inIgnorePaths = false;
-			continue;
-		}
-
-		if (topLevelSection === "docs" && indent >= 2) {
-			const match = trimmed.match(/^(framework|path|repo|branch):\s*(.+)$/u);
-			if (match) {
-				const key = match[1];
-				const rawValue = match[2]?.replace(/^["']|["']$/gu, "");
-				const value = parseStringValue(rawValue);
-				if (key === "framework") {
-					const parsedFramework = parseFramework(value);
-					if (parsedFramework !== undefined) {
-						docs.framework = parsedFramework;
-					}
-				}
-				if (key === "path") {
-					if (value !== undefined) {
-						docs.path = value;
-					}
-				}
-				if (key === "repo") {
-					if (value !== undefined) {
-						docs.repo = value;
-					}
-				}
-				if (key === "branch") {
-					if (value !== undefined) {
-						docs.branch = value;
-					}
-				}
-			}
-			continue;
-		}
-
-		if (topLevelSection === "triggers" && indent >= 2) {
-			if (trimmed === "ignore_paths:") {
-				inIgnorePaths = true;
-				continue;
-			}
-			if (inIgnorePaths && trimmed.startsWith("- ")) {
-				const value = trimmed
-					.slice(2)
-					.trim()
-					.replace(/^["']|["']$/gu, "");
-				if (value.length > 0) {
-					ignorePaths.push(value);
-				}
-				continue;
-			}
-			if (!trimmed.startsWith("- ")) {
-				inIgnorePaths = false;
-			}
-		}
+	const parsed = parseSynkAiConfigFromYaml(content);
+	if (parsed === null) {
+		return null;
 	}
-
-	return {
-		docs,
-		ignorePaths,
-	};
+	const docs: DocsConfig = {};
+	if (parsed.docs.framework !== undefined) docs.framework = parsed.docs.framework;
+	if (parsed.docs.path !== undefined) docs.path = parsed.docs.path;
+	if (parsed.docs.repo !== undefined) docs.repo = parsed.docs.repo;
+	if (parsed.docs.branch !== undefined) docs.branch = parsed.docs.branch;
+	return { docs, ignorePaths: parsed.ignorePaths };
 };
 
 // Returns true when `path` matches any of the provided glob patterns.
@@ -368,11 +307,7 @@ const resolveDocsConfig = async (
 	context: PipelineContext,
 	repository: RepositoryWithInstallation,
 ): Promise<ResolvedDocsConfig> => {
-	const fromDatabase = parseDocsConfigFromObject(repository.docsConfig);
-	if (fromDatabase !== null && hasConfiguredDocsValue(fromDatabase.docs)) {
-		return fromDatabase;
-	}
-
+	let fromFile: ResolvedDocsConfig | null = null;
 	try {
 		const configFile = await fetchFileContent(octokit, {
 			owner: context.owner,
@@ -380,9 +315,14 @@ const resolveDocsConfig = async (
 			path: ".synk-ai.yml",
 			ref: context.commitSha,
 		});
-		const fromFile = parseSynkAiYaml(configFile.content);
-		if (fromFile !== null && hasConfiguredDocsValue(fromFile.docs)) {
-			return fromFile;
+		const parsed = parseSynkAiConfigFromYaml(configFile.content);
+		if (parsed !== null) {
+			const docs: DocsConfig = {};
+			if (parsed.docs.framework !== undefined) docs.framework = parsed.docs.framework;
+			if (parsed.docs.path !== undefined) docs.path = parsed.docs.path;
+			if (parsed.docs.repo !== undefined) docs.repo = parsed.docs.repo;
+			if (parsed.docs.branch !== undefined) docs.branch = parsed.docs.branch;
+			fromFile = { docs, ignorePaths: parsed.ignorePaths };
 		}
 	} catch (error) {
 		if (!isHttpNotFoundError(error)) {
@@ -391,14 +331,31 @@ const resolveDocsConfig = async (
 		// File not found — expected for repositories without .synk-ai.yml.
 	}
 
-	return { docs: {}, ignorePaths: [] };
+	const fromDatabase = parseDocsConfigFromObject(repository.docsConfig);
+
+	// Config merging: file config > database config > auto-detected defaults
+	return mergeResolvedConfig(
+		fromFile ?? { docs: {}, ignorePaths: [] },
+		fromDatabase ?? { docs: {}, ignorePaths: [] },
+	);
 };
 
-const hasConfiguredDocsValue = (docs: DocsConfig): boolean =>
-	docs.framework !== undefined ||
-	docs.path !== undefined ||
-	docs.repo !== undefined ||
-	docs.branch !== undefined;
+export const mergeResolvedConfig = (
+	file: ResolvedDocsConfig,
+	db: ResolvedDocsConfig,
+): ResolvedDocsConfig => {
+	const docs: DocsConfig = {};
+	const framework = file.docs.framework ?? db.docs.framework;
+	const path = file.docs.path ?? db.docs.path;
+	const repo = file.docs.repo ?? db.docs.repo;
+	const branch = file.docs.branch ?? db.docs.branch;
+	if (framework !== undefined) docs.framework = framework;
+	if (path !== undefined) docs.path = path;
+	if (repo !== undefined) docs.repo = repo;
+	if (branch !== undefined) docs.branch = branch;
+	const ignorePaths = file.ignorePaths.length > 0 ? file.ignorePaths : db.ignorePaths;
+	return { docs, ignorePaths };
+};
 
 type AdapterResolution = {
 	adapter: DocAdapter;
@@ -509,6 +466,26 @@ const collectDocFiles = async (
 		tree,
 		docFiles: files.map((file) => ({ path: file.path, content: file.content })),
 	};
+};
+
+const storeResolvedDocsConfig = async (
+	repositoryId: string,
+	docsConfig: DocsConfig,
+	ignorePaths: string[],
+): Promise<void> => {
+	const docs: Record<string, unknown> = {};
+	if (docsConfig.framework !== undefined) docs.framework = docsConfig.framework;
+	if (docsConfig.path !== undefined) docs.path = docsConfig.path;
+	if (docsConfig.repo !== undefined) docs.repo = docsConfig.repo;
+	if (docsConfig.branch !== undefined) docs.branch = docsConfig.branch;
+	const configJson = {
+		docs,
+		triggers: { ignore_paths: ignorePaths },
+	};
+	await db.providerRepository.update({
+		where: { id: repositoryId },
+		data: { docsConfig: configJson },
+	});
 };
 
 const updateRunStatus = async (
@@ -779,6 +756,9 @@ export const processAnalyzeChangesJob = async (
 			repo: resolvedConfig.docs.repo,
 			branch: resolvedConfig.docs.branch,
 		});
+
+		await storeResolvedDocsConfig(repository.id, docsConfig, resolvedConfig.ignorePaths);
+
 		const docsLocation = resolveDocsLocation(
 			repository.fullName,
 			repository.defaultBranch,
@@ -797,9 +777,7 @@ export const processAnalyzeChangesJob = async (
 				collectDocFiles(octokit, adapterResolution.adapter, {
 					docsConfig,
 					location: docsLocation,
-					prefetchedTree: docsIsSameAsSourceRepo
-						? adapterResolution.detectionTree
-						: undefined,
+					prefetchedTree: docsIsSameAsSourceRepo ? adapterResolution.detectionTree : undefined,
 				}),
 		);
 		timings.fetchDocTreeAndFiles = fetchDocsDurationMs;
