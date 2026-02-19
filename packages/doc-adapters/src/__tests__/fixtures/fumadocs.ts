@@ -19,6 +19,13 @@ export const FUMADOCS_PACKAGE_JSON_CORE_ONLY = JSON.stringify({
 	},
 });
 
+export const FUMADOCS_PACKAGE_JSON_UI_ONLY = JSON.stringify({
+	name: "docs-site",
+	dependencies: {
+		"fumadocs-ui": "14.0.0",
+	},
+});
+
 export const NON_FUMADOCS_PACKAGE_JSON = JSON.stringify({
 	name: "plain-site",
 	dependencies: {

@@ -6,6 +6,7 @@ import {
 	FUMADOCS_DOC_FILES,
 	FUMADOCS_PACKAGE_JSON,
 	FUMADOCS_PACKAGE_JSON_CORE_ONLY,
+	FUMADOCS_PACKAGE_JSON_UI_ONLY,
 	FUMADOCS_TREE,
 	NON_FUMADOCS_PACKAGE_JSON,
 } from "./fixtures/fumadocs.js";
@@ -17,9 +18,15 @@ describe("fumadocsAdapter.detect", () => {
 		expect(await fumadocsAdapter.detect(tree, context)).toBe(true);
 	});
 
-	it("returns true when package.json has fumadocs-ui only", async () => {
+	it("returns true when package.json has fumadocs-core only", async () => {
 		const tree = FUMADOCS_TREE.map((f) => ({ path: f.path }));
 		const context = { packageJson: FUMADOCS_PACKAGE_JSON_CORE_ONLY };
+		expect(await fumadocsAdapter.detect(tree, context)).toBe(true);
+	});
+
+	it("returns true when package.json has fumadocs-ui only", async () => {
+		const tree = FUMADOCS_TREE.map((f) => ({ path: f.path }));
+		const context = { packageJson: FUMADOCS_PACKAGE_JSON_UI_ONLY };
 		expect(await fumadocsAdapter.detect(tree, context)).toBe(true);
 	});
 
