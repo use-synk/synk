@@ -79,13 +79,18 @@ export interface ValidationContext {
 	repoFilePaths?: string[];
 }
 
+/** Known framework identifiers. Markdown is always available as fallback. */
+export const FRAMEWORK_IDS = ["nextra", "fumadocs", "docusaurus", "markdown"] as const;
+
+export type FrameworkId = (typeof FRAMEWORK_IDS)[number];
+
 /**
  * Docs-related configuration passed to adapters.
  * Matches the shape used in repositories.docs_config and .synk-ai.yml.
  */
 export interface DocsConfig {
 	/** Framework identifier */
-	framework?: "auto" | "nextra" | "fumadocs" | "docusaurus" | "markdown";
+	framework?: "auto" | FrameworkId;
 	/** Path to docs within the repo (e.g. "docs/", "pages/docs") */
 	path?: string;
 	/** Separate docs repo (e.g. "org/docs-repo") */
