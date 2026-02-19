@@ -1,15 +1,40 @@
 import type { AnalyzeChangesJobPayload } from "@synk-ai/shared";
-import type { Job } from "bullmq";
+import { UnrecoverableError, type Job } from "bullmq";
 import { parseWorkerEnvironment } from "./env.js";
 import { processAnalyzeChangesJob } from "./jobs/analyze-changes.js";
 import { createLogger } from "./logger.js";
 import {
 	createAnalyzeChangesQueueEvents,
+	createAnalyzeChangesDlqQueue,
 	createAnalyzeChangesWorker,
 	createRedisConnectionOptions,
+	type AnalyzeChangesDlqPayload,
 } from "./queue.js";
 
 const SHUTDOWN_TIMEOUT_MS = 30_000;
+
+const isJobPermanentlyFailed = (
+	job: Job<AnalyzeChangesJobPayload>,
+	error: Error,
+): boolean => {
+	const maxAttempts = job.opts.attempts ?? 1;
+	return (job.attemptsMade >= maxAttempts) || (error instanceof UnrecoverableError);
+};
+
+const moveToDlq = async (
+	job: Job<AnalyzeChangesJobPayload>,
+	error: Error,
+	dlqQueue: ReturnType<typeof createAnalyzeChangesDlqQueue>,
+): Promise<void> => {
+	const payload: AnalyzeChangesDlqPayload = {
+		originalJobId: job.id,
+		failedAt: new Date().toISOString(),
+		errorMessage: error.message,
+		attemptsMade: job.attemptsMade,
+		data: job.data,
+	};
+	await dlqQueue.add(job.name, payload);
+};
 
 const startWorker = async (): Promise<void> => {
 	const env = parseWorkerEnvironment();
@@ -22,6 +47,7 @@ const startWorker = async (): Promise<void> => {
 		processor: async (job: Job<AnalyzeChangesJobPayload>) => processAnalyzeChangesJob(job, logger),
 	});
 	const queueEvents = createAnalyzeChangesQueueEvents(connection);
+	const dlqQueue = createAnalyzeChangesDlqQueue(connection);
 
 	worker.on("error", (error) => {
 		logger.error({ err: error }, "worker error");
@@ -32,14 +58,34 @@ const startWorker = async (): Promise<void> => {
 	});
 
 	worker.on("failed", (job, error) => {
-		logger.error(
-			{
-				err: error,
-				jobId: job?.id ?? "unknown",
-				attemptNumber: job?.attemptsMade ?? 0,
-			},
-			"job failed",
-		);
+		if (!job) {
+			logger.error({ err: error }, "job failed (job reference unavailable)");
+			return;
+		}
+
+		const permanently = isJobPermanentlyFailed(job, error);
+
+		const logMetadata = {
+			err: error,
+			jobId: job.id ?? "unknown",
+			queueName: job.queueName,
+			attemptsMade: job.attemptsMade,
+			maxAttempts: job.opts.attempts ?? 1,
+			repositoryId: job.data.repositoryId,
+			isPermanentlyFailed: permanently,
+		};
+
+		if (permanently) {
+			logger.error(logMetadata, "job permanently failed — moving to dead-letter queue");
+			void moveToDlq(job, error, dlqQueue).catch((dlqError) => {
+				logger.error(
+					{ err: dlqError, jobId: job.id },
+					"failed to add permanently failed job to dead-letter queue",
+				);
+			});
+		} else {
+			logger.warn(logMetadata, "job failed, will be retried");
+		}
 	});
 
 	let isShuttingDown = false;
@@ -62,6 +108,7 @@ const startWorker = async (): Promise<void> => {
 		try {
 			await worker.close();
 			await queueEvents.close();
+			await dlqQueue.close();
 			clearTimeout(timeout);
 			logger.info("worker shutdown complete");
 			process.exit(exitCode);
