@@ -152,6 +152,19 @@ Content.
 		expect(tree.roots[3]?.children?.[0]?.title).toBe("Guide");
 	});
 
+	it("does not recurse infinitely when docs are at repo root (empty dirPath)", () => {
+		const files = [
+			{ path: "meta.json", content: JSON.stringify({ pages: ["..."] }) },
+			{
+				path: "index.mdx",
+				content: "---\ntitle: Root\ndescription: D\n---\n\n# Root",
+			},
+		];
+		const tree = fumadocsAdapter.parseStructure(files);
+		expect(tree.roots).toHaveLength(1);
+		expect(tree.roots[0]?.title).toBe("Root");
+	});
+
 	it("keeps section path when section has index page and children", () => {
 		const files = [
 			{

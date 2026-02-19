@@ -290,6 +290,7 @@ const addPageOrFolderNode = (
 	key: string,
 	order: number,
 ): DocTreeNode | null => {
+	if (key.length === 0) return null;
 	const subDirPath = dirPath ? `${dirPath}/${key}` : key;
 	const nestedMeta = metaByDir.get(subDirPath);
 	const nestedDocs = docFilesByDir.get(subDirPath) ?? [];
@@ -354,16 +355,20 @@ const buildTreeFromMeta = (
 
 	const allKeys = new Set(docByKey.keys());
 	const dirPrefix = dirPath ? `${dirPath}/` : "";
+	const addFirstSegment = (subDir: string): void => {
+		const firstSegment = subDir.slice(dirPath ? dirPath.length + 1 : 0).split("/")[0];
+		if (firstSegment !== undefined && firstSegment.length > 0) {
+			allKeys.add(firstSegment);
+		}
+	};
 	for (const subDir of docFilesByDir.keys()) {
 		if (subDir.startsWith(dirPrefix) || (dirPath === "" && subDir.includes("/"))) {
-			const firstSegment = subDir.slice(dirPath ? dirPath.length + 1 : 0).split("/")[0];
-			if (firstSegment !== undefined) allKeys.add(firstSegment);
+			addFirstSegment(subDir);
 		}
 	}
 	for (const subDir of metaByDir.keys()) {
 		if (subDir.startsWith(dirPrefix) || (dirPath === "" && subDir.includes("/"))) {
-			const firstSegment = subDir.slice(dirPath ? dirPath.length + 1 : 0).split("/")[0];
-			if (firstSegment !== undefined) allKeys.add(firstSegment);
+			addFirstSegment(subDir);
 		}
 	}
 
