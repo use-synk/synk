@@ -36,7 +36,8 @@
 			"**/dist/**",
 			"**/coverage/**",
 			"**/.turbo/**",
-			"**/.next/**"
+			"**/.next/**",
+			"**/generated/**"
 		]
 	}
 }
