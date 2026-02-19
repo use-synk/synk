@@ -22,6 +22,13 @@ export {
 	type FetchPushDiffRequest,
 } from "./diff.js";
 export {
+	summarizeDiff,
+	type SummarizeDiffOptions,
+	type SummarizeDiffResult,
+	type FastModelDiffSummarizer,
+	type FastModelDiffSummarizerInput,
+} from "./diff-summary.js";
+export {
 	fetchFileContent,
 	fetchMultipleFiles,
 	fetchRepoTree,
