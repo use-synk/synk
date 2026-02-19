@@ -55,6 +55,12 @@ type TokenUsage = {
 	total: number;
 };
 
+type AggregatedTokenUsage = {
+	triage: TokenUsage;
+	generation: TokenUsage;
+	total: TokenUsage;
+};
+
 type TriageResult = {
 	needsUpdate: boolean;
 	affectedDocFiles: string[];
@@ -119,7 +125,7 @@ const normalizeTokenUsage = (value: Partial<TokenUsage> | undefined): TokenUsage
 const aggregateTokenUsage = (
 	triageUsage: TokenUsage,
 	generationUsage: readonly TokenUsage[],
-): Record<string, unknown> => {
+): AggregatedTokenUsage => {
 	const generationPrompt = generationUsage.reduce((sum, usage) => sum + usage.prompt, 0);
 	const generationCompletion = generationUsage.reduce((sum, usage) => sum + usage.completion, 0);
 	const generationTotal = generationUsage.reduce((sum, usage) => sum + usage.total, 0);
@@ -311,7 +317,10 @@ const parseSynkAiYaml = (content: string): ResolvedDocsConfig | null => {
 	};
 };
 
-const fileMatchesGlob = (path: string, globPatterns: readonly string[]): boolean => {
+// Returns true when `path` matches any of the provided glob patterns.
+// Uses filterDiff as the matching engine: filterDiff removes files that match
+// its pattern list, so an empty result means the path was matched and removed.
+const pathMatchesAnyGlob = (path: string, globPatterns: readonly string[]): boolean => {
 	if (globPatterns.length === 0) {
 		return false;
 	}
@@ -481,7 +490,7 @@ const collectDocFiles = async (
 	const globs = adapter.getDocPaths(docsConfig);
 	const docPaths = tree
 		.map((entry) => entry.path)
-		.filter((path) => fileMatchesGlob(path, globs))
+		.filter((path) => pathMatchesAnyGlob(path, globs))
 		.slice(0, 500);
 	if (docPaths.length === 0) {
 		return { tree, docFiles: [] };
@@ -507,7 +516,7 @@ const updateRunStatus = async (
 		docsAffected?: boolean;
 		docPrUrl?: string;
 		docPrNumber?: number;
-		tokenUsage?: Record<string, unknown>;
+		tokenUsage?: AggregatedTokenUsage;
 		result?: Record<string, unknown>;
 	},
 ): Promise<void> => {
@@ -652,6 +661,20 @@ const createInitialRun = async (
 	return run.id;
 };
 
+const buildPipelineContext = (
+	repository: RepositoryWithInstallation,
+	trigger: AnalyzeChangesJobPayload["trigger"],
+): PipelineContext => {
+	const { owner, repo } = parseOwnerAndRepo(repository.fullName);
+	return {
+		owner,
+		repo,
+		defaultBranch: repository.defaultBranch,
+		commitSha: trigger.commitSha,
+		ref: trigger.ref,
+	};
+};
+
 const defaultServices: AnalyzeChangesServices = {
 	runTriage: defaultRunTriage,
 	runGeneration: defaultRunGeneration,
@@ -683,29 +706,29 @@ export const processAnalyzeChangesJob = async (
 	try {
 		const context = buildPipelineContext(repository, job.data.trigger);
 		const installationId = parseInstallationId(repository.installation.providerInstallationId);
-		const { value: octokit, durationMs: stepOneDuration } = await measureStep(
+		const { value: octokit, durationMs: createOctokitDurationMs } = await measureStep(
 			jobLogger,
 			runId,
 			"create-installation-octokit",
 			async () => createInstallationOctokit(installationId, credentials),
 		);
-		timings.createInstallationOctokit = stepOneDuration;
+		timings.createInstallationOctokit = createOctokitDurationMs;
 
-		const { value: rawDiff, durationMs: stepTwoDuration } = await measureStep(
+		const { value: rawDiff, durationMs: fetchDiffDurationMs } = await measureStep(
 			jobLogger,
 			runId,
 			"fetch-diff",
 			async () => fetchDiffForTrigger(octokit, context, job.data.trigger),
 		);
-		timings.fetchDiff = stepTwoDuration;
+		timings.fetchDiff = fetchDiffDurationMs;
 
-		const { value: filteredDiff, durationMs: stepThreeDuration } = await measureStep(
+		const { value: filteredDiff, durationMs: filterDiffDurationMs } = await measureStep(
 			jobLogger,
 			runId,
 			"filter-diff",
 			async () => filterDiff(rawDiff),
 		);
-		timings.filterDiff = stepThreeDuration;
+		timings.filterDiff = filterDiffDurationMs;
 		if (filteredDiff.length === 0) {
 			await updateRunStatus(runId, RUN_STATUS_SKIPPED, {
 				docsAffected: false,
@@ -717,13 +740,13 @@ export const processAnalyzeChangesJob = async (
 			return;
 		}
 
-		const { value: resolvedConfig, durationMs: stepFiveDuration } = await measureStep(
+		const { value: resolvedConfig, durationMs: resolveConfigDurationMs } = await measureStep(
 			jobLogger,
 			runId,
 			"resolve-docs-config",
 			async () => resolveDocsConfig(octokit, context, repository),
 		);
-		timings.resolveDocsConfig = stepFiveDuration;
+		timings.resolveDocsConfig = resolveConfigDurationMs;
 		const filteredDiffWithProjectIgnores = filterDiff(filteredDiff, resolvedConfig.ignorePaths);
 		if (filteredDiffWithProjectIgnores.length === 0) {
 			await updateRunStatus(runId, RUN_STATUS_SKIPPED, {
@@ -736,13 +759,13 @@ export const processAnalyzeChangesJob = async (
 			return;
 		}
 
-		const { value: adapterResolution, durationMs: detectAdapterDuration } = await measureStep(
+		const { value: adapterResolution, durationMs: detectAdapterDurationMs } = await measureStep(
 			jobLogger,
 			runId,
 			"detect-doc-adapter",
 			async () => resolveAdapter(octokit, context, resolvedConfig.docs),
 		);
-		timings.detectDocAdapter = detectAdapterDuration;
+		timings.detectDocAdapter = detectAdapterDurationMs;
 		const resolvedFramework =
 			resolvedConfig.docs.framework === undefined || resolvedConfig.docs.framework === "auto"
 				? parseFramework(adapterResolution.adapter.frameworkId)
@@ -763,7 +786,7 @@ export const processAnalyzeChangesJob = async (
 		// is the same as the source repository to avoid a duplicate GitHub API call.
 		const docsIsSameAsSourceRepo =
 			docsLocation.owner === context.owner && docsLocation.repo === context.repo;
-		const { value: docData, durationMs: stepSixDuration } = await measureStep(
+		const { value: docData, durationMs: fetchDocsDurationMs } = await measureStep(
 			jobLogger,
 			runId,
 			"fetch-doc-tree-and-files",
@@ -776,10 +799,10 @@ export const processAnalyzeChangesJob = async (
 						: undefined,
 				}),
 		);
-		timings.fetchDocTreeAndFiles = stepSixDuration;
+		timings.fetchDocTreeAndFiles = fetchDocsDurationMs;
 
 		const docTree = adapterResolution.adapter.parseStructure([...docData.docFiles]);
-		const { value: triageResult, durationMs: stepSevenDuration } = await measureStep(
+		const { value: triageResult, durationMs: triageDurationMs } = await measureStep(
 			jobLogger,
 			runId,
 			"run-ai-triage",
@@ -792,7 +815,7 @@ export const processAnalyzeChangesJob = async (
 					docsConfig,
 				}),
 		);
-		timings.runAiTriage = stepSevenDuration;
+		timings.runAiTriage = triageDurationMs;
 		triageUsage = normalizeTokenUsage(triageResult.tokenUsage);
 		if (!triageResult.needsUpdate) {
 			await updateRunStatus(runId, RUN_STATUS_COMPLETED, {
@@ -854,7 +877,7 @@ export const processAnalyzeChangesJob = async (
 			return;
 		}
 
-		const { value: prResult, durationMs: stepElevenDuration } = await measureStep(
+		const { value: prResult, durationMs: createPrDurationMs } = await measureStep(
 			jobLogger,
 			runId,
 			"create-pr",
@@ -868,7 +891,7 @@ export const processAnalyzeChangesJob = async (
 					trigger: job.data.trigger,
 				}),
 		);
-		timings.createPr = stepElevenDuration;
+		timings.createPr = createPrDurationMs;
 
 		await updateRunStatus(runId, RUN_STATUS_COMPLETED, {
 			docsAffected: true,
@@ -895,18 +918,4 @@ export const processAnalyzeChangesJob = async (
 		});
 		throw error;
 	}
-};
-
-const buildPipelineContext = (
-	repository: RepositoryWithInstallation,
-	trigger: AnalyzeChangesJobPayload["trigger"],
-): PipelineContext => {
-	const { owner, repo } = parseOwnerAndRepo(repository.fullName);
-	return {
-		owner,
-		repo,
-		defaultBranch: repository.defaultBranch,
-		commitSha: trigger.commitSha,
-		ref: trigger.ref,
-	};
 };
