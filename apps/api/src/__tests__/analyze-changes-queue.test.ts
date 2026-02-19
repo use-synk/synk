@@ -38,14 +38,24 @@ const makeDb = (hasRun: boolean) => ({
 
 const makeQueue = (activeJobExists: boolean) => {
 	const set = vi.fn(async () => "OK");
+	const remove = vi.fn(async () => undefined);
+	const getState = vi.fn(async () => (activeJobExists ? "active" : "missing"));
 	const queue = {
-		getJob: vi.fn(async () => (activeJobExists ? { id: "active-job" } : null)),
+		getJob: vi.fn(async () =>
+			activeJobExists
+				? {
+						id: "active-job",
+						getState,
+						remove,
+					}
+				: null,
+		),
 		add: vi.fn(async () => ({ id: "job-1" })),
 		client: Promise.resolve({
 			set,
 		}),
 	};
-	return { queue, set };
+	return { queue, set, getState, remove };
 };
 
 describe("createAnalyzeChangesQueue", () => {
@@ -91,8 +101,11 @@ describe("createAnalyzeChangesEnqueuer", () => {
 		expect(queue.getJob).toHaveBeenCalledWith(buildAnalyzeChangesActiveJobId(payload.repositoryId));
 		expect(queue.add).toHaveBeenCalledWith(ANALYZE_CHANGES_QUEUE_NAME, payload, {
 			jobId: buildAnalyzeChangesActiveJobId(payload.repositoryId),
+			delay: ANALYZE_CHANGES_COALESCE_WINDOW_MS,
+			removeOnComplete: true,
+			removeOnFail: true,
 		});
-		expect(set).not.toHaveBeenCalled();
+		expect(set).toHaveBeenCalledOnce();
 	});
 
 	it("stores only pending payload when an active repository job already exists", async () => {
@@ -109,5 +122,24 @@ describe("createAnalyzeChangesEnqueuer", () => {
 			"PX",
 			ANALYZE_CHANGES_COALESCE_WINDOW_MS * 20,
 		);
+	});
+
+	it("removes terminal fixed-id jobs before enqueueing a new repository run", async () => {
+		const db = makeDb(false);
+		const set = vi.fn(async () => "OK");
+		const remove = vi.fn(async () => undefined);
+		const getState = vi.fn(async () => "completed");
+		const queue = {
+			getJob: vi.fn(async () => ({ id: "completed-job", getState, remove })),
+			add: vi.fn(async () => ({ id: "job-2" })),
+			client: Promise.resolve({ set }),
+		};
+		const enqueue = createAnalyzeChangesEnqueuer(queue as never, db);
+
+		await enqueue(payload);
+
+		expect(getState).toHaveBeenCalledOnce();
+		expect(remove).toHaveBeenCalledOnce();
+		expect(queue.add).toHaveBeenCalledOnce();
 	});
 });

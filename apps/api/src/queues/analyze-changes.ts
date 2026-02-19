@@ -13,6 +13,7 @@ export { ANALYZE_CHANGES_QUEUE_NAME };
 
 const REMOVE_COMPLETED_JOBS = { count: 1000 } as const;
 const REMOVE_FAILED_JOBS = { age: 24 * 60 * 60 } as const;
+const ACTIVE_JOB_START_DELAY_MS = ANALYZE_CHANGES_COALESCE_WINDOW_MS;
 
 export type AnalyzeChangesEnqueuer = (payload: AnalyzeChangesJobPayload) => Promise<void>;
 type AnalyzeChangesQueueDatabase = {
@@ -42,6 +43,27 @@ const isAlreadyExistingJobError = (error: unknown): boolean => {
 		return false;
 	}
 	return error.message.toLowerCase().includes("already exists");
+};
+
+const isTerminalJobState = (state: string): boolean => state === "completed" || state === "failed";
+
+const getRepositoryActiveJob = async (
+	queue: Queue<AnalyzeChangesJobPayload>,
+	repositoryId: string,
+) => {
+	const activeJobId = buildAnalyzeChangesActiveJobId(repositoryId);
+	const job = await queue.getJob(activeJobId);
+	if (job == null) {
+		return null;
+	}
+
+	const state = await job.getState();
+	if (isTerminalJobState(state)) {
+		await job.remove();
+		return null;
+	}
+
+	return job;
 };
 
 const hasExistingRunForCommit = async (
@@ -101,19 +123,37 @@ export const createAnalyzeChangesEnqueuer = (
 		}
 
 		const activeJobId = buildAnalyzeChangesActiveJobId(payload.repositoryId);
-		const activeJob = await queue.getJob(activeJobId);
+		const activeJob = await getRepositoryActiveJob(queue, payload.repositoryId);
 		if (activeJob !== null) {
 			await setPendingPayload(queue, payload);
 			return;
 		}
 
+		await setPendingPayload(queue, payload);
+
 		try {
-			await queue.add(ANALYZE_CHANGES_QUEUE_NAME, payload, { jobId: activeJobId });
+			await queue.add(ANALYZE_CHANGES_QUEUE_NAME, payload, {
+				jobId: activeJobId,
+				delay: ACTIVE_JOB_START_DELAY_MS,
+				removeOnComplete: true,
+				removeOnFail: true,
+			});
 		} catch (error) {
 			if (!isAlreadyExistingJobError(error)) {
 				throw error;
 			}
-			await setPendingPayload(queue, payload);
+
+			const jobAfterConflict = await getRepositoryActiveJob(queue, payload.repositoryId);
+			if (jobAfterConflict !== null) {
+				return;
+			}
+
+			await queue.add(ANALYZE_CHANGES_QUEUE_NAME, payload, {
+				jobId: activeJobId,
+				delay: ACTIVE_JOB_START_DELAY_MS,
+				removeOnComplete: true,
+				removeOnFail: true,
+			});
 		}
 	};
 };

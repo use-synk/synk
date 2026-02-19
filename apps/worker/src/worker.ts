@@ -17,54 +17,16 @@ import {
 	createRedisConnectionOptions,
 	type AnalyzeChangesDlqPayload,
 } from "./queue.js";
+import {
+	calculateCoalesceDelayMs,
+	getRepositoryActiveJob,
+	isAlreadyExistingJobError,
+	parsePendingPayloadRecord,
+	type PendingAnalyzeChangesPayload,
+} from "./repository-queue-coalescing.js";
 
 const SHUTDOWN_TIMEOUT_MS = 30_000;
 const PENDING_PAYLOAD_TTL_MS = ANALYZE_CHANGES_COALESCE_WINDOW_MS * 20;
-
-type PendingAnalyzeChangesPayload = {
-	payload: AnalyzeChangesJobPayload;
-	updatedAtMs: number;
-};
-
-const isPendingPayloadRecord = (value: unknown): value is PendingAnalyzeChangesPayload => {
-	if (typeof value !== "object" || value === null) {
-		return false;
-	}
-
-	const candidate = value as Record<string, unknown>;
-	if (typeof candidate.updatedAtMs !== "number") {
-		return false;
-	}
-
-	const payload = candidate.payload;
-	if (typeof payload !== "object" || payload === null) {
-		return false;
-	}
-
-	const payloadRecord = payload as Record<string, unknown>;
-	const trigger = payloadRecord.trigger as Record<string, unknown> | undefined;
-
-	return (
-		typeof payloadRecord.installationId === "string" &&
-		typeof payloadRecord.repositoryId === "string" &&
-		typeof trigger?.type === "string" &&
-		typeof trigger.ref === "string" &&
-		typeof trigger.commitSha === "string"
-	);
-};
-
-const parsePendingPayloadRecord = (rawValue: string | null): PendingAnalyzeChangesPayload | null => {
-	if (rawValue === null) {
-		return null;
-	}
-
-	try {
-		const parsed = JSON.parse(rawValue);
-		return isPendingPayloadRecord(parsed) ? parsed : null;
-	} catch {
-		return null;
-	}
-};
 
 const getPendingPayload = async (
 	queue: ReturnType<typeof createAnalyzeChangesQueue>,
@@ -116,13 +78,6 @@ const hasExistingRunForCommit = async (payload: AnalyzeChangesJobPayload): Promi
 	return run !== null;
 };
 
-const isAlreadyExistingJobError = (error: unknown): boolean => {
-	if (!(error instanceof Error)) {
-		return false;
-	}
-	return error.message.toLowerCase().includes("already exists");
-};
-
 const enqueuePendingPayloadForRepository = async (
 	queue: ReturnType<typeof createAnalyzeChangesQueue>,
 	job: Job<AnalyzeChangesJobPayload>,
@@ -137,35 +92,29 @@ const enqueuePendingPayloadForRepository = async (
 		return;
 	}
 
-	const elapsedMs = Date.now() - pending.updatedAtMs;
-	const delayMs =
-		elapsedMs >= ANALYZE_CHANGES_COALESCE_WINDOW_MS
-			? 0
-			: ANALYZE_CHANGES_COALESCE_WINDOW_MS - elapsedMs;
+	const delayMs = calculateCoalesceDelayMs(pending.updatedAtMs);
+
+	const activeJob = await getRepositoryActiveJob(queue, job.data.repositoryId);
+	if (activeJob !== null) {
+		const redisClient = await queue.client;
+		const key = buildAnalyzeChangesPendingPayloadKey(job.data.repositoryId);
+		await redisClient.pexpire(key, PENDING_PAYLOAD_TTL_MS);
+		return;
+	}
 
 	const activeJobId = buildAnalyzeChangesActiveJobId(job.data.repositoryId);
 	const jobOptions: JobsOptions = {
 		jobId: activeJobId,
 		delay: delayMs,
+		removeOnComplete: true,
+		removeOnFail: true,
 	};
 	if (job.opts.attempts !== undefined) {
 		jobOptions.attempts = job.opts.attempts;
 	}
-	if (job.opts.backoff !== undefined) {
+	if (job.opts.backoff !== undefined && job.opts.backoff !== 0) {
 		jobOptions.backoff = job.opts.backoff as Exclude<
 			Job<AnalyzeChangesJobPayload>["opts"]["backoff"],
-			undefined
-		>;
-	}
-	if (job.opts.removeOnComplete !== undefined) {
-		jobOptions.removeOnComplete = job.opts.removeOnComplete as Exclude<
-			Job<AnalyzeChangesJobPayload>["opts"]["removeOnComplete"],
-			undefined
-		>;
-	}
-	if (job.opts.removeOnFail !== undefined) {
-		jobOptions.removeOnFail = job.opts.removeOnFail as Exclude<
-			Job<AnalyzeChangesJobPayload>["opts"]["removeOnFail"],
 			undefined
 		>;
 	}
@@ -176,6 +125,13 @@ const enqueuePendingPayloadForRepository = async (
 	} catch (error) {
 		if (!isAlreadyExistingJobError(error)) {
 			throw error;
+		}
+
+		const jobAfterConflict = await getRepositoryActiveJob(queue, job.data.repositoryId);
+		if (jobAfterConflict === null) {
+			await queue.add(job.name, pending.payload, jobOptions);
+			await clearPendingPayload(queue, job);
+			return;
 		}
 
 		const redisClient = await queue.client;
