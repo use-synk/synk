@@ -23,7 +23,7 @@ describe("nextraAdapter.detect", () => {
 		expect(await nextraAdapter.detect(tree, context)).toBe(true);
 	});
 
-	it("returns false when package.json has no nextra deps", async () => {
+	it("falls back to structure detection when package.json has no nextra deps", async () => {
 		const tree = NEXTRA_TREE.map((f) => ({ path: f.path }));
 		const context = { packageJson: NON_NEXTRA_PACKAGE_JSON };
 		expect(await nextraAdapter.detect(tree, context)).toBe(true);
@@ -240,6 +240,20 @@ const x = 1;
 		const result = nextraAdapter.validateOutput(content, "pages/docs/page.mdx");
 		expect(result.valid).toBe(false);
 		expect(result.errors).toContain("Content contains an unclosed code fence");
+	});
+
+	it("does not validate image references as doc links", () => {
+		const content = `---
+title: Page
+description: Desc
+---
+
+![diagram](./assets/diagram.png)
+`;
+		const result = nextraAdapter.validateOutput(content, "pages/docs/page.mdx", {
+			repoFilePaths: ["pages/docs/page.mdx"],
+		});
+		expect(result.valid).toBe(true);
 	});
 
 	it("ignores markdown links inside fenced code blocks", () => {

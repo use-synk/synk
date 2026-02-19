@@ -187,6 +187,14 @@ describe("markdownAdapter.validateOutput", () => {
 		expect(result.errors).toContain("Broken relative link: ./missing.md");
 	});
 
+	it("does not validate links inside fenced code blocks", () => {
+		const content = "# Title\n\n```md\n[Broken](./missing.md)\n```\n";
+		const result = markdownAdapter.validateOutput(content, "docs/a.md", {
+			repoFilePaths: ["docs/a.md"],
+		});
+		expect(result.valid).toBe(true);
+	});
+
 	it("rejects markdown with unclosed code fences", () => {
 		const content = "# Title\n\n```ts\nconst a = 1;\n";
 		const result = markdownAdapter.validateOutput(content, "docs/a.md");
