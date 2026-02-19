@@ -17,6 +17,8 @@
 	"scripts": {
 		"build": "tsc -p tsconfig.json",
 		"lint": "biome check .",
+		"lint:write": "biome check . --write",
+		"lint:unsafe": "biome check . --write --unsafe",
 		"typecheck": "tsc --noEmit",
 		"test": "echo 'db test placeholder'",
 		"generate": "pnpm dlx prisma generate --config src/prisma.config.ts",

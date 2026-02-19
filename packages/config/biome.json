@@ -31,6 +31,13 @@
 		}
 	},
 	"files": {
-		"ignore": ["**/node_modules/**", "**/dist/**", "**/coverage/**", "**/.turbo/**"]
+		"ignore": [
+			"**/node_modules/**",
+			"**/dist/**",
+			"**/coverage/**",
+			"**/.turbo/**",
+			"**/.next/**",
+			"**/generated/**"
+		]
 	}
 }

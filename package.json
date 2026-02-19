@@ -5,6 +5,8 @@
 		"build": "turbo run build",
 		"dev": "turbo run dev",
 		"lint": "turbo run lint",
+		"lint:write": "turbo run lint:write",
+		"lint:unsafe": "turbo run lint:unsafe",
 		"format": "biome format --write .",
 		"typecheck": "turbo run typecheck",
 		"test": "turbo run test",

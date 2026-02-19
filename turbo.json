@@ -15,6 +15,14 @@
 			"dependsOn": ["^lint"],
 			"outputs": []
 		},
+		"lint:write": {
+			"dependsOn": ["^lint:write"],
+			"outputs": []
+		},
+		"lint:unsafe": {
+			"dependsOn": ["^lint:unsafe"],
+			"outputs": []
+		},
 		"typecheck": {
 			"dependsOn": ["^typecheck"],
 			"outputs": []
