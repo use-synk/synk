@@ -171,9 +171,6 @@ const decodeBase64Content = (
 	return Buffer.from(content.replace(/\n/gu, ""), "base64").toString("utf8");
 };
 
-const isBlobFallbackRequired = (file: GitHubContentFile): boolean =>
-	file.size > LARGE_FILE_THRESHOLD_BYTES || file.content === undefined || file.content.length === 0;
-
 const isDirectoryListing = (
 	data: GitHubContentFile | readonly GitHubDirectoryEntry[],
 ): data is readonly GitHubDirectoryEntry[] => Array.isArray(data);
@@ -319,14 +316,12 @@ export const fetchFileContent = async (
 
 	const contentData = ensureFileContent(response.data, request.path);
 
-	if (!isBlobFallbackRequired(contentData)) {
+	if (
+		contentData.size <= LARGE_FILE_THRESHOLD_BYTES &&
+		contentData.content !== undefined &&
+		contentData.content.length > 0
+	) {
 		const fileContent = contentData.content;
-		if (fileContent === undefined || fileContent.length === 0) {
-			throw new GitHubRepositoryContentError(
-				"missing-content",
-				`GitHub contents response for '${request.path}' did not include file content.`,
-			);
-		}
 
 		return {
 			path: contentData.path,
