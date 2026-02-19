@@ -137,6 +137,21 @@ type AnalyzeChangesServices = {
 	}) => Promise<PullRequestResult>;
 };
 
+/**
+ * Parses GitHub credentials from the environment or throws an UnrecoverableError
+ * if the configuration is missing or invalid. A credentials error is a
+ * deployment configuration problem that retrying won't fix.
+ */
+const parseCredentialsOrFail = (): ReturnType<typeof credentialsFromEnvironment> => {
+	try {
+		return credentialsFromEnvironment(parseGitHubCredentialsEnvironment());
+	} catch (error) {
+		const message =
+			error instanceof Error ? error.message : "Invalid GitHub credentials configuration";
+		throw new UnrecoverableError(message);
+	}
+};
+
 // The following pure utility functions are exported for unit testing.
 // They are internal implementation details and not considered public API.
 
@@ -787,11 +802,14 @@ const upsertInitialRun = async (
 			attemptCount: job.attemptsMade + 1,
 		},
 		update: {
-			// Reset transient state at the start of each retry attempt.
+			// Reset transient state at the start of each retry attempt so stale
+			// data from the previous attempt is not visible mid-run.
 			status: RUN_STATUS_RUNNING,
 			startedAt: new Date(),
 			completedAt: null,
 			error: null,
+			tokenUsage: {},
+			result: {},
 			attemptCount: job.attemptsMade + 1,
 			triggerMeta,
 		},
@@ -838,15 +856,7 @@ export const processAnalyzeChangesJob = async (
 	// Credential parsing must succeed before we create the run record. A failure
 	// here is a deployment configuration error — retrying the job won't fix it,
 	// and we should not produce a "failed" run entry for it.
-	const credentials = (() => {
-		try {
-			return credentialsFromEnvironment(parseGitHubCredentialsEnvironment());
-		} catch (error) {
-			const message =
-				error instanceof Error ? error.message : "Invalid GitHub credentials configuration";
-			throw new UnrecoverableError(message);
-		}
-	})();
+	const credentials = parseCredentialsOrFail();
 	const runId = await upsertInitialRun(job, repository);
 	const timings: Record<string, number> = {};
 	let triageUsage = normalizeTokenUsage(undefined);
@@ -1087,17 +1097,27 @@ export const processAnalyzeChangesJob = async (
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : "Unknown analyze-changes failure";
 		const classification = classifyError(error);
+		const maxAttempts = job.opts.attempts ?? 1;
+		const isFinalAttempt = job.attemptsMade + 1 >= maxAttempts;
 
-		jobLogger.error(
-			{
-				err: error,
-				runId,
-				classification,
-				repositoryId: job.data.repositoryId,
-				attemptNumber: job.attemptsMade + 1,
-			},
-			"analyze-changes pipeline failed",
-		);
+		const logContext = {
+			err: error,
+			runId,
+			classification,
+			isFinalAttempt,
+			repositoryId: job.data.repositoryId,
+			attemptNumber: job.attemptsMade + 1,
+		};
+
+		// Alert at error level only when the failure is permanent: either the
+		// error is non-retryable (misconfiguration, missing resource) or all
+		// attempts have been exhausted. Transient retryable failures log at warn
+		// to avoid spurious on-call pages.
+		if (classification === "non-retryable" || isFinalAttempt) {
+			jobLogger.error(logContext, "analyze-changes pipeline failed permanently");
+		} else {
+			jobLogger.warn(logContext, "analyze-changes pipeline failed, will be retried");
+		}
 
 		try {
 			await updateRunStatus(runId, RUN_STATUS_FAILED, {
