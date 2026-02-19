@@ -8,10 +8,10 @@ export const ANALYZE_CHANGES_DLQ_NAME = "analyze-changes-dlq";
 export const ANALYZE_CHANGES_JOB_BACKOFF_TYPE = "synk-exponential";
 
 /**
- * Total number of attempts (1 initial + 2 retries) for analyze-changes jobs.
- * Retry delays: 30 s → 2 min → (job exhausted).
+ * Total number of attempts (1 initial + 3 retries) for analyze-changes jobs.
+ * Retry delays: 30 s → 2 min → 10 min.
  */
-export const ANALYZE_CHANGES_JOB_ATTEMPTS = 3;
+export const ANALYZE_CHANGES_JOB_ATTEMPTS = 4;
 
 export type AnalyzeChangesJobPayload = {
 	installationId: string;
