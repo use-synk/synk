@@ -44,8 +44,7 @@ const isConfigFile = (path: string): boolean => {
 		lower.endsWith(".config.js") ||
 		lower.endsWith(".config.ts") ||
 		lower.endsWith(".config.mjs") ||
-		lower.endsWith(".config.cjs") ||
-		/\/(package\.json|tsconfig\.[^/]+|biome\.json|turbo\.json|docker-compose\.ya?ml)$/u.test(lower)
+		lower.endsWith(".config.cjs")
 	);
 };
 
