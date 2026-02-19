@@ -621,6 +621,79 @@ describe("processAnalyzeChangesJob", () => {
 		);
 	});
 
+	it("preserves existing pr and trigger settings when caching resolved docs config", async () => {
+		mockFilterDiff
+			.mockReturnValueOnce([{ filename: "src/index.ts" }])
+			.mockReturnValueOnce([{ filename: "src/index.ts" }])
+			.mockReturnValue([]);
+
+		mockFindUniqueRepository.mockResolvedValueOnce({
+			...makeRepository(),
+			docsConfig: {
+				docs: { framework: "nextra" },
+				triggers: { branches: ["main", "release"], ignore_paths: ["db-ignore/**"] },
+				pr: {
+					labels: ["docs"],
+					assignees: ["alice"],
+					reviewers: ["bob"],
+					draft: true,
+				},
+			},
+		});
+
+		mockFetchRepoTree.mockResolvedValue([{ path: "docs/index.md", sha: "s1", size: 100 }]);
+		mockFetchMultipleFiles.mockResolvedValue([
+			{ path: "docs/index.md", content: "# Old", sha: "s1", size: 5 },
+		]);
+
+		const adapter = makeAdapter();
+		adapter.getDocPaths.mockReturnValue(["**/*.md"]);
+		mockDetectAdapter.mockResolvedValue(adapter);
+		mockGetAdapter.mockReturnValue(adapter);
+
+		const mockServices = {
+			runTriage: vi.fn().mockResolvedValue({
+				needsUpdate: true,
+				affectedDocFiles: ["docs/index.md"],
+				reasoning: "change",
+				tokenUsage: { prompt: 10, completion: 5, total: 15 },
+			}),
+			runGeneration: vi.fn().mockResolvedValue({
+				path: "docs/index.md",
+				content: "# Updated",
+				reasoning: "updated",
+				tokenUsage: { prompt: 5, completion: 3, total: 8 },
+			}),
+			createPullRequest: vi.fn().mockResolvedValue({
+				prNumber: 2,
+				prUrl: "https://github.com/acme/app/pull/2",
+				branchName: "synk-ai/docs-abcdef0-20260219-000000",
+			}),
+		};
+
+		await processAnalyzeChangesJob(makeJob(), makeLogger(), mockServices);
+
+		expect(mockUpdateProviderRepository).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: { id: "repo-1" },
+				data: expect.objectContaining({
+					docsConfig: expect.objectContaining({
+						pr: expect.objectContaining({
+							labels: ["docs"],
+							assignees: ["alice"],
+							reviewers: ["bob"],
+							draft: true,
+						}),
+						triggers: expect.objectContaining({
+							branches: ["main", "release"],
+							ignore_paths: ["db-ignore/**"],
+						}),
+					}),
+				}),
+			}),
+		);
+	});
+
 	it("detects framework from docs repo when docs.repo points to a separate repository", async () => {
 		mockFilterDiff
 			.mockReturnValueOnce([{ filename: "src/index.ts" }])

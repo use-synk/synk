@@ -5,6 +5,14 @@ export {
 	type GitHubAppCredentials,
 } from "./auth.js";
 export {
+	createDocUpdatePR,
+	type CreateDocUpdatePrRequest,
+	type CreateDocUpdatePrResult,
+	type DocUpdateFile,
+	type DocUpdatePrConfig,
+	type DocUpdateTriggerInfo,
+} from "./pr.js";
+export {
 	DEFAULT_DIFF_IGNORE_PATTERNS,
 	fetchPRDiff,
 	fetchPushDiff,
