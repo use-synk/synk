@@ -248,4 +248,40 @@ describe("createDocUpdatePR", () => {
 			}),
 		).rejects.toThrow("requires at least one file update");
 	});
+
+	it("retries with a suffixed branch name when the first ref already exists", async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date("2026-02-19T12:34:56.000Z"));
+		const { octokit, createRef } = createOctokitMock();
+		createRef
+			.mockRejectedValueOnce(Object.assign(new Error("Reference already exists"), { status: 422 }))
+			.mockResolvedValueOnce({});
+
+		const result = await createDocUpdatePR(octokit, {
+			owner: "acme",
+			repo: "docs",
+			baseBranch: "main",
+			files: [{ path: "docs/intro.md", content: "# Intro" }],
+			triggerInfo: {
+				type: "push",
+				ref: "refs/heads/main",
+				commitSha: "abcdef1234567890",
+			},
+		});
+
+		expect(createRef).toHaveBeenNthCalledWith(
+			1,
+			expect.objectContaining({
+				ref: "refs/heads/synk-ai/docs-abcdef1-20260219-123456",
+			}),
+		);
+		expect(createRef).toHaveBeenNthCalledWith(
+			2,
+			expect.objectContaining({
+				ref: "refs/heads/synk-ai/docs-abcdef1-20260219-123456-2",
+			}),
+		);
+		expect(result.branchName).toBe("synk-ai/docs-abcdef1-20260219-123456-2");
+		vi.useRealTimers();
+	});
 });

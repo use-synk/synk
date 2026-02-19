@@ -591,15 +591,28 @@ const storeResolvedDocsConfig = async (
 	repositoryId: string,
 	docsConfig: DocsConfig,
 	ignorePaths: string[],
+	previousConfig: unknown,
 ): Promise<void> => {
+	const baseConfig =
+		typeof previousConfig === "object" && previousConfig !== null
+			? ({ ...previousConfig } as Record<string, unknown>)
+			: {};
+	const existingTriggers =
+		typeof baseConfig.triggers === "object" && baseConfig.triggers !== null
+			? ({ ...baseConfig.triggers } as Record<string, unknown>)
+			: {};
 	const docs: Record<string, unknown> = {};
 	if (docsConfig.framework !== undefined) docs.framework = docsConfig.framework;
 	if (docsConfig.path !== undefined) docs.path = docsConfig.path;
 	if (docsConfig.repo !== undefined) docs.repo = docsConfig.repo;
 	if (docsConfig.branch !== undefined) docs.branch = docsConfig.branch;
 	const configJson = {
+		...baseConfig,
 		docs,
-		triggers: { ignore_paths: ignorePaths },
+		triggers: {
+			...existingTriggers,
+			ignore_paths: ignorePaths,
+		},
 	};
 	await db.providerRepository.update({
 		where: { id: repositoryId },
@@ -893,7 +906,12 @@ export const processAnalyzeChangesJob = async (
 			branch: resolvedConfig.docs.branch,
 		});
 
-		await storeResolvedDocsConfig(repository.id, docsConfig, resolvedConfig.ignorePaths);
+		await storeResolvedDocsConfig(
+			repository.id,
+			docsConfig,
+			resolvedConfig.ignorePaths,
+			repository.docsConfig,
+		);
 
 		// Re-use the tree fetched during auto-detection when the docs repository
 		// is the same as the source repository to avoid a duplicate GitHub API call.

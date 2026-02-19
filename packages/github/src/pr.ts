@@ -179,6 +179,40 @@ const buildBranchName = (triggerSha: string, now: Date): string => {
 	return `synk-ai/docs-${shortSha}-${timestampForBranch(now)}`;
 };
 
+const isBranchAlreadyExistsError = (error: unknown): boolean => {
+	if (typeof error !== "object" || error === null || !("status" in error)) {
+		return false;
+	}
+	return error.status === 422;
+};
+
+const createBranchReference = async (
+	octokit: GitHubPrServiceOctokit,
+	owner: string,
+	repo: string,
+	commitSha: string,
+	baseBranchName: string,
+): Promise<string> => {
+	const maxAttempts = 5;
+	for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+		const branchName = attempt === 0 ? baseBranchName : `${baseBranchName}-${attempt + 1}`;
+		try {
+			await octokit.rest.git.createRef({
+				owner,
+				repo,
+				ref: `refs/heads/${branchName}`,
+				sha: commitSha,
+			});
+			return branchName;
+		} catch (error) {
+			if (!isBranchAlreadyExistsError(error) || attempt === maxAttempts - 1) {
+				throw error;
+			}
+		}
+	}
+	throw new Error("Unable to create PR branch reference.");
+};
+
 const sanitizeUnique = (values: readonly string[] | undefined): string[] =>
 	(values ?? []).map((value) => value.trim()).filter((value, index, all) => value.length > 0 && all.indexOf(value) === index);
 
@@ -197,7 +231,7 @@ export const createDocUpdatePR = async (
 ): Promise<CreateDocUpdatePrResult> => {
 	validateFiles(request.files);
 
-	const branchName = buildBranchName(request.triggerInfo.commitSha, new Date());
+	const baseBranchName = buildBranchName(request.triggerInfo.commitSha, new Date());
 	const baseReference = await octokit.rest.git.getRef({
 		owner: request.owner,
 		repo: request.repo,
@@ -228,12 +262,13 @@ export const createDocUpdatePR = async (
 		tree: tree.data.sha,
 		parents: [baseCommitSha],
 	});
-	await octokit.rest.git.createRef({
-		owner: request.owner,
-		repo: request.repo,
-		ref: `refs/heads/${branchName}`,
-		sha: commit.data.sha,
-	});
+	const branchName = await createBranchReference(
+		octokit,
+		request.owner,
+		request.repo,
+		commit.data.sha,
+		baseBranchName,
+	);
 
 	const title = buildPullRequestTitle(request.files);
 	const pullRequest = await octokit.rest.pulls.create({
