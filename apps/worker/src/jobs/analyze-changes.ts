@@ -325,7 +325,10 @@ const fetchDiffForTrigger = async (
 	context: PipelineContext,
 	trigger: AnalyzeChangesJobPayload["trigger"],
 ): Promise<DiffFile[]> => {
-	if (trigger.type === "merge" && trigger.prNumber !== undefined) {
+	if (trigger.type === "merge") {
+		if (trigger.prNumber === undefined) {
+			throw new Error("Merge trigger requires prNumber but none was provided.");
+		}
 		return fetchPRDiff(octokit, {
 			owner: context.owner,
 			repo: context.repo,
