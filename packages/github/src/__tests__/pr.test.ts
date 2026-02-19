@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createDocUpdatePR } from "../pr.js";
 
@@ -46,6 +46,10 @@ const createOctokitMock = () => {
 };
 
 describe("createDocUpdatePR", () => {
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
 	it("creates one commit from tree API updates and opens a PR", async () => {
 		vi.useFakeTimers();
 		vi.setSystemTime(new Date("2026-02-19T12:34:56.000Z"));
@@ -132,7 +136,6 @@ describe("createDocUpdatePR", () => {
 		});
 		expect(addAssignees).not.toHaveBeenCalled();
 		expect(requestReviewers).not.toHaveBeenCalled();
-		vi.useRealTimers();
 	});
 
 	it("applies configurable labels, assignees, reviewers and draft mode", async () => {
@@ -282,6 +285,5 @@ describe("createDocUpdatePR", () => {
 			}),
 		);
 		expect(result.branchName).toBe("synk-ai/docs-abcdef1-20260219-123456-2");
-		vi.useRealTimers();
 	});
 });

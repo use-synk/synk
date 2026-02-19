@@ -21,7 +21,11 @@ import {
 	filterDiff,
 	parseGitHubCredentialsEnvironment,
 } from "@synk-ai/github";
-import { type AnalyzeChangesJobPayload, parseSynkAiConfigFromYaml } from "@synk-ai/shared";
+import {
+	type AnalyzeChangesJobPayload,
+	type ParsedSynkAiConfig,
+	parseSynkAiConfigFromYaml,
+} from "@synk-ai/shared";
 import type { Job } from "bullmq";
 import type { Logger } from "../logger.js";
 
@@ -324,6 +328,10 @@ export const parseSynkAiYaml = (content: string): ResolvedDocsConfig | null => {
 	if (parsed === null) {
 		return null;
 	}
+	return resolveDocsConfigFromParsedFile(parsed);
+};
+
+const resolveDocsConfigFromParsedFile = (parsed: ParsedSynkAiConfig): ResolvedDocsConfig => {
 	const docs: DocsConfig = {};
 	if (parsed.docs.framework !== undefined) docs.framework = parsed.docs.framework;
 	if (parsed.docs.path !== undefined) docs.path = parsed.docs.path;
@@ -375,12 +383,10 @@ const fetchDiffForTrigger = async (
 	});
 };
 
-const resolveDocsConfig = async (
+const readSynkAiConfigFromFile = async (
 	octokit: ReturnType<typeof createInstallationOctokit>,
 	context: PipelineContext,
-	repository: RepositoryWithInstallation,
-): Promise<ResolvedDocsConfig> => {
-	let fromFile: ResolvedDocsConfig | null = null;
+): Promise<ParsedSynkAiConfig | null> => {
 	try {
 		const configFile = await fetchFileContent(octokit, {
 			owner: context.owner,
@@ -388,21 +394,20 @@ const resolveDocsConfig = async (
 			path: ".synk-ai.yml",
 			ref: context.commitSha,
 		});
-		const parsed = parseSynkAiConfigFromYaml(configFile.content);
-		if (parsed !== null) {
-			const docs: DocsConfig = {};
-			if (parsed.docs.framework !== undefined) docs.framework = parsed.docs.framework;
-			if (parsed.docs.path !== undefined) docs.path = parsed.docs.path;
-			if (parsed.docs.repo !== undefined) docs.repo = parsed.docs.repo;
-			if (parsed.docs.branch !== undefined) docs.branch = parsed.docs.branch;
-			fromFile = { docs, ignorePaths: parsed.ignorePaths };
-		}
+		return parseSynkAiConfigFromYaml(configFile.content);
 	} catch (error) {
 		if (!isHttpNotFoundError(error)) {
 			throw error;
 		}
-		// File not found — expected for repositories without .synk-ai.yml.
+		return null;
 	}
+};
+
+const resolveDocsConfig = (
+	repository: RepositoryWithInstallation,
+	synkAiFileConfig: ParsedSynkAiConfig | null,
+): ResolvedDocsConfig => {
+	const fromFile = synkAiFileConfig === null ? null : resolveDocsConfigFromParsedFile(synkAiFileConfig);
 
 	const fromDatabase = parseDocsConfigFromObject(repository.docsConfig);
 
@@ -413,33 +418,19 @@ const resolveDocsConfig = async (
 	);
 };
 
-const resolvePrConfig = async (
-	octokit: ReturnType<typeof createInstallationOctokit>,
-	context: PipelineContext,
+const resolvePrConfig = (
 	repository: RepositoryWithInstallation,
-): Promise<PullRequestConfig> => {
-	let fromFile: Partial<PullRequestConfig> | null = null;
-	try {
-		const configFile = await fetchFileContent(octokit, {
-			owner: context.owner,
-			repo: context.repo,
-			path: ".synk-ai.yml",
-			ref: context.commitSha,
-		});
-		const parsed = parseSynkAiConfigFromYaml(configFile.content);
-		if (parsed !== null) {
-			fromFile = {
-				labels: [...parsed.pr.labels],
-				assignees: [...parsed.pr.assignees],
-				reviewers: [...parsed.pr.reviewers],
-				draft: parsed.pr.draft,
-			};
-		}
-	} catch (error) {
-		if (!isHttpNotFoundError(error)) {
-			throw error;
-		}
-	}
+	synkAiFileConfig: ParsedSynkAiConfig | null,
+): PullRequestConfig => {
+	const fromFile =
+		synkAiFileConfig === null
+			? null
+			: {
+					labels: [...synkAiFileConfig.pr.labels],
+					assignees: [...synkAiFileConfig.pr.assignees],
+					reviewers: [...synkAiFileConfig.pr.reviewers],
+					draft: synkAiFileConfig.pr.draft,
+				};
 
 	const fromDatabase = parsePrConfigFromObject(repository.docsConfig);
 	return mergePrConfig(fromFile, fromDatabase);
@@ -856,18 +847,25 @@ export const processAnalyzeChangesJob = async (
 			return;
 		}
 
+		const { value: synkAiFileConfig, durationMs: loadSynkAiFileConfigDurationMs } = await measureStep(
+			jobLogger,
+			runId,
+			"load-synk-ai-config",
+			async () => readSynkAiConfigFromFile(octokit, context),
+		);
+		timings.loadSynkAiConfig = loadSynkAiFileConfigDurationMs;
 		const { value: resolvedConfig, durationMs: resolveConfigDurationMs } = await measureStep(
 			jobLogger,
 			runId,
 			"resolve-docs-config",
-			async () => resolveDocsConfig(octokit, context, repository),
+			async () => resolveDocsConfig(repository, synkAiFileConfig),
 		);
 		timings.resolveDocsConfig = resolveConfigDurationMs;
 		const { value: prConfig, durationMs: resolvePrConfigDurationMs } = await measureStep(
 			jobLogger,
 			runId,
 			"resolve-pr-config",
-			async () => resolvePrConfig(octokit, context, repository),
+			async () => resolvePrConfig(repository, synkAiFileConfig),
 		);
 		timings.resolvePrConfig = resolvePrConfigDurationMs;
 		const filteredDiffWithProjectIgnores = filterDiff(filteredDiff, resolvedConfig.ignorePaths);
