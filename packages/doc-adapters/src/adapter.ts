@@ -1,0 +1,42 @@
+import type {
+	DocFile,
+	DocTree,
+	DocsConfig,
+	FrameworkConventions,
+	RepoFile,
+	ValidationResult,
+} from "./types.js";
+
+/**
+ * Adapter contract for documentation frameworks.
+ * Each framework (Nextra, Fumadocs, Markdown, etc.) implements this interface.
+ */
+export interface DocAdapter {
+	/** Unique framework identifier (e.g. "nextra", "markdown") */
+	readonly frameworkId: string;
+
+	/**
+	 * Returns true if this framework is detected in the repository tree.
+	 */
+	detect(tree: RepoFile[]): Promise<boolean>;
+
+	/**
+	 * Returns glob patterns for documentation source files.
+	 */
+	getDocPaths(config: DocsConfig): string[];
+
+	/**
+	 * Parses doc files into a hierarchical structure (sections, pages, ordering).
+	 */
+	parseStructure(files: DocFile[]): DocTree;
+
+	/**
+	 * Returns framework-specific conventions for AI consumption.
+	 */
+	getConventions(): FrameworkConventions;
+
+	/**
+	 * Validates generated content against framework rules.
+	 */
+	validateOutput(content: string, filePath: string): ValidationResult;
+}

@@ -258,7 +258,20 @@ importers:
         specifier: 5.9.2
         version: 5.9.2
 
-  packages/doc-adapters: {}
+  packages/doc-adapters:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.17.2
+        version: 22.19.11
+      '@vitest/coverage-v8':
+        specifier: ^3.0.0
+        version: 3.2.4(vitest@3.2.4(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.31.1)(msw@2.12.10(@types/node@22.19.11)(typescript@5.9.2))(tsx@4.21.0))
+      typescript:
+        specifier: 5.9.2
+        version: 5.9.2
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.4(@types/node@22.19.11)(jiti@2.6.1)(lightningcss@1.31.1)(msw@2.12.10(@types/node@22.19.11)(typescript@5.9.2))(tsx@4.21.0)
 
   packages/github:
     dependencies:
