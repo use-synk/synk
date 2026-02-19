@@ -16,6 +16,8 @@ const NEXTRA_DEPS = ["nextra", "nextra-theme-docs"] as const;
 const META_FILENAME = "_meta.json";
 
 type MetaValue = string | { title?: string; display?: string; href?: string; type?: string };
+const isMetaFilePath = (path: string): boolean =>
+	path === META_FILENAME || path.endsWith(`/${META_FILENAME}`);
 
 const hasNextraInDeps = (packageJson: string): boolean => {
 	try {
@@ -44,7 +46,9 @@ const hasNextraStructure = (tree: RepoFile[]): boolean => {
 		(f) =>
 			f.path.startsWith("pages/docs/") || f.path.startsWith("content/") || f.path === "pages/docs",
 	);
-	const hasMeta = tree.some((f) => f.path.includes(META_FILENAME));
+	const hasMeta = tree.some(
+		(f) => (f.path.startsWith("pages/docs/") || f.path.startsWith("content/")) && isMetaFilePath(f.path),
+	);
 	return hasDocs && hasMeta;
 };
 
@@ -240,7 +244,12 @@ const buildTreeFromMeta = (
 		if (nestedMeta !== undefined || (nestedDocs !== undefined && nestedDocs.length > 0)) {
 			const children = buildTreeFromMeta(metaByDir, docFilesByDir, subDirPath);
 			if (children.length > 0) {
-				nodes.push({ title, children, order: nodes.length });
+				const node: DocTreeNode = { title, children, order: nodes.length };
+				const nestedIndexDoc = nestedDocs?.find((f) => /\/index\.(md|mdx)$/i.test(f.path));
+				if (nestedIndexDoc?.path !== undefined) {
+					node.path = nestedIndexDoc.path;
+				}
+				nodes.push(node);
 			} else {
 				const indexDoc = docByKey.get("index") ?? docByKey.get(key);
 				const node: DocTreeNode = { title, order: nodes.length };
@@ -336,8 +345,8 @@ export const nextraAdapter: DocAdapter = {
 	frameworkId: "nextra",
 
 	async detect(tree: RepoFile[], context?: DetectionContext): Promise<boolean> {
-		if (context?.packageJson !== undefined) {
-			return hasNextraInDeps(context.packageJson);
+		if (context?.packageJson !== undefined && hasNextraInDeps(context.packageJson)) {
+			return true;
 		}
 		return hasNextraConfig(tree) && hasNextraStructure(tree);
 	},
@@ -364,7 +373,7 @@ export const nextraAdapter: DocAdapter = {
 		let docsRoot = "";
 
 		for (const f of files) {
-			if (f.path.endsWith(META_FILENAME)) {
+			if (isMetaFilePath(f.path)) {
 				const meta = parseMetaJson(f.content);
 				if (meta !== null) {
 					const dir = f.path.slice(0, -META_FILENAME.length - 1);

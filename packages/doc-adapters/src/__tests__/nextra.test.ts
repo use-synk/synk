@@ -26,6 +26,12 @@ describe("nextraAdapter.detect", () => {
 	it("returns false when package.json has no nextra deps", async () => {
 		const tree = NEXTRA_TREE.map((f) => ({ path: f.path }));
 		const context = { packageJson: NON_NEXTRA_PACKAGE_JSON };
+		expect(await nextraAdapter.detect(tree, context)).toBe(true);
+	});
+
+	it("returns false when package.json has no nextra deps and structure is not nextra", async () => {
+		const tree = [{ path: "docs/readme.md" }, { path: "next.config.js" }];
+		const context = { packageJson: NON_NEXTRA_PACKAGE_JSON };
 		expect(await nextraAdapter.detect(tree, context)).toBe(false);
 	});
 
@@ -41,6 +47,15 @@ describe("nextraAdapter.detect", () => {
 
 	it("returns false for plain docs repo without nextra", async () => {
 		const tree = [{ path: "docs/readme.md" }, { path: "package.json" }];
+		expect(await nextraAdapter.detect(tree)).toBe(false);
+	});
+
+	it("does not match non-meta files that only contain _meta.json in the filename", async () => {
+		const tree = [
+			{ path: "next.config.mjs" },
+			{ path: "pages/docs/index.mdx" },
+			{ path: "pages/docs/not_meta.json.bak" },
+		];
 		expect(await nextraAdapter.detect(tree)).toBe(false);
 	});
 });
@@ -98,6 +113,32 @@ Content.
 		];
 		const tree = nextraAdapter.parseStructure(files);
 		expect(tree.roots[0]?.title).toBe("Actual H1 Title");
+	});
+
+	it("keeps section path when section has index page and children", () => {
+		const files = [
+			{
+				path: "pages/docs/_meta.json",
+				content: JSON.stringify({ guides: "Guides" }),
+			},
+			{
+				path: "pages/docs/guides/_meta.json",
+				content: JSON.stringify({ index: "Overview", install: "Install" }),
+			},
+			{
+				path: "pages/docs/guides/index.mdx",
+				content: "---\ntitle: Guides\ndescription: Overview\n---\n\n# Guides",
+			},
+			{
+				path: "pages/docs/guides/install.mdx",
+				content: "---\ntitle: Install\ndescription: Install steps\n---\n\n# Install",
+			},
+		];
+		const tree = nextraAdapter.parseStructure(files);
+		expect(tree.roots).toHaveLength(1);
+		expect(tree.roots[0]?.title).toBe("Guides");
+		expect(tree.roots[0]?.path).toBe("pages/docs/guides/index.mdx");
+		expect(tree.roots[0]?.children).toHaveLength(2);
 	});
 });
 
