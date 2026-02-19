@@ -183,7 +183,37 @@ const isBranchAlreadyExistsError = (error: unknown): boolean => {
 	if (typeof error !== "object" || error === null || !("status" in error)) {
 		return false;
 	}
-	return error.status === 422;
+	if (error.status !== 422) {
+		return false;
+	}
+	const messages: string[] = [];
+	if ("message" in error && typeof error.message === "string") {
+		messages.push(error.message);
+	}
+	if ("response" in error && typeof error.response === "object" && error.response !== null) {
+		const response = error.response as Record<string, unknown>;
+		if ("data" in response && typeof response.data === "object" && response.data !== null) {
+			const data = response.data as Record<string, unknown>;
+			if (typeof data.message === "string") {
+				messages.push(data.message);
+			}
+			if (Array.isArray(data.errors)) {
+				for (const entry of data.errors) {
+					if (typeof entry === "object" && entry !== null) {
+						const errorEntry = entry as Record<string, unknown>;
+						if (typeof errorEntry.message === "string") {
+							messages.push(errorEntry.message);
+						}
+						if (typeof errorEntry.code === "string") {
+							messages.push(errorEntry.code);
+						}
+					}
+				}
+			}
+		}
+	}
+	const combinedMessage = messages.join(" ").toLowerCase();
+	return combinedMessage.includes("reference already exists");
 };
 
 const createBranchReference = async (

@@ -286,4 +286,35 @@ describe("createDocUpdatePR", () => {
 		);
 		expect(result.branchName).toBe("synk-ai/docs-abcdef1-20260219-123456-2");
 	});
+
+	it("does not retry on unrelated 422 validation errors", async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date("2026-02-19T12:34:56.000Z"));
+		const { octokit, createRef } = createOctokitMock();
+		const validationError = Object.assign(new Error("Validation Failed"), {
+			status: 422,
+			response: {
+				data: {
+					message: "Validation Failed",
+					errors: [{ code: "invalid", message: "Object does not exist" }],
+				},
+			},
+		});
+		createRef.mockRejectedValueOnce(validationError);
+
+		await expect(
+			createDocUpdatePR(octokit, {
+				owner: "acme",
+				repo: "docs",
+				baseBranch: "main",
+				files: [{ path: "docs/intro.md", content: "# Intro" }],
+				triggerInfo: {
+					type: "push",
+					ref: "refs/heads/main",
+					commitSha: "abcdef1234567890",
+				},
+			}),
+		).rejects.toThrow("Validation Failed");
+		expect(createRef).toHaveBeenCalledTimes(1);
+	});
 });
