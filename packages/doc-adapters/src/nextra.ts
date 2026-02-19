@@ -146,7 +146,9 @@ const slugifyHeading = (title: string): string =>
 		.toLowerCase()
 		.trim()
 		.replace(/[^\w\s-]/g, "")
-		.replace(/\s+/g, "-");
+		.replace(/\s+/g, "-")
+		.replace(/-+/g, "-")
+		.replace(/^-+|-+$/g, "");
 
 type MarkdownHeading = { level: number; title: string };
 
@@ -203,6 +205,33 @@ const addHeadingChildren = (
 		parent.children.push(node);
 		stack.push({ level: h.level, node });
 	}
+};
+
+const extractMarkdownLinks = (content: string): string[] => {
+	const links: string[] = [];
+	const linkRegex = /\[([^\]]+)\]\(([^)]*)\)/g;
+	let activeFence: string | undefined;
+
+	for (const line of content.split("\n")) {
+		const nextFenceState = updateCodeFenceState(activeFence, line);
+		if (nextFenceState !== activeFence) {
+			activeFence = nextFenceState;
+			continue;
+		}
+
+		if (activeFence !== undefined) {
+			continue;
+		}
+
+		for (const match of line.matchAll(linkRegex)) {
+			const href = match[2]?.trim();
+			if (href !== undefined) {
+				links.push(href);
+			}
+		}
+	}
+
+	return links;
 };
 
 const buildTreeFromMeta = (
@@ -435,10 +464,8 @@ export const nextraAdapter: DocAdapter = {
 			errors.push("Content contains an unclosed code fence");
 		}
 
-		const linkRegex = /\[([^\]]+)\]\(([^)]*)\)/g;
-		for (const m of content.matchAll(linkRegex)) {
-			const href = m[2]?.trim();
-			if (href === undefined || href.length === 0) {
+		for (const href of extractMarkdownLinks(content)) {
+			if (href.length === 0) {
 				errors.push("Markdown links must include a non-empty target");
 				continue;
 			}

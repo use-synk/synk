@@ -115,6 +115,29 @@ Content.
 		expect(tree.roots[0]?.title).toBe("Actual H1 Title");
 	});
 
+	it("normalizes heading anchors by collapsing and trimming hyphens", () => {
+		const files = [
+			{
+				path: "pages/docs/headings.mdx",
+				content: `---
+title: Heading Page
+description: Heading examples
+---
+
+# Heading Page
+
+## Hello - World
+## - Leading And Trailing -
+`,
+			},
+		];
+
+		const tree = nextraAdapter.parseStructure(files);
+		const childPaths = tree.roots[0]?.children?.map((child) => child.path) ?? [];
+		expect(childPaths).toContain("pages/docs/headings.mdx#hello-world");
+		expect(childPaths).toContain("pages/docs/headings.mdx#leading-and-trailing");
+	});
+
 	it("keeps section path when section has index page and children", () => {
 		const files = [
 			{
@@ -217,6 +240,37 @@ const x = 1;
 		const result = nextraAdapter.validateOutput(content, "pages/docs/page.mdx");
 		expect(result.valid).toBe(false);
 		expect(result.errors).toContain("Content contains an unclosed code fence");
+	});
+
+	it("ignores markdown links inside fenced code blocks", () => {
+		const content = `---
+title: Page
+description: Desc
+---
+
+\`\`\`md
+[Broken Example](./missing.mdx)
+\`\`\`
+`;
+		const result = nextraAdapter.validateOutput(content, "pages/docs/page.mdx", {
+			repoFilePaths: ["pages/docs/page.mdx"],
+		});
+		expect(result.valid).toBe(true);
+	});
+
+	it("still validates markdown links outside fenced code blocks", () => {
+		const content = `---
+title: Page
+description: Desc
+---
+
+[Broken Example](./missing.mdx)
+`;
+		const result = nextraAdapter.validateOutput(content, "pages/docs/page.mdx", {
+			repoFilePaths: ["pages/docs/page.mdx"],
+		});
+		expect(result.valid).toBe(false);
+		expect(result.errors).toContain("Broken relative link: ./missing.mdx");
 	});
 });
 
