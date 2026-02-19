@@ -584,4 +584,26 @@ describe("processAnalyzeChangesJob", () => {
 		// No run should have been created — the error happened before createInitialRun
 		expect(mockCreateAnalysisRun).not.toHaveBeenCalled();
 	});
+
+	it("propagates the original pipeline error even when updateRunStatus also throws", async () => {
+		const pipelineError = new Error("original pipeline failure");
+		mockFilterDiff
+			.mockReturnValueOnce([{ filename: "src/index.ts" }])
+			.mockReturnValueOnce([{ filename: "src/index.ts" }]);
+		mockFetchRepoTree.mockRejectedValue(pipelineError);
+
+		// Simulate the DB being unavailable when we try to record the failure.
+		mockUpdateAnalysisRun.mockRejectedValue(new Error("DB connection lost"));
+
+		const mockServices = {
+			runTriage: vi.fn(),
+			runGeneration: vi.fn(),
+			createPullRequest: vi.fn(),
+		};
+
+		// The original error must propagate — not the DB error.
+		await expect(
+			processAnalyzeChangesJob(makeJob(), makeLogger(), mockServices),
+		).rejects.toThrow("original pipeline failure");
+	});
 });

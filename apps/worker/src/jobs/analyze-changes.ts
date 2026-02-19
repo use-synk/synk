@@ -912,13 +912,18 @@ export const processAnalyzeChangesJob = async (
 		});
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : "Unknown analyze-changes failure";
-		await updateRunStatus(runId, RUN_STATUS_FAILED, {
-			error: errorMessage,
-			tokenUsage: aggregateTokenUsage(triageUsage, generationUsage),
-			result: {
-				timingsMs: timings,
-			},
-		});
+		try {
+			await updateRunStatus(runId, RUN_STATUS_FAILED, {
+				error: errorMessage,
+				tokenUsage: aggregateTokenUsage(triageUsage, generationUsage),
+				result: {
+					timingsMs: timings,
+				},
+			});
+		} catch {
+			// Swallow status-update failures so the original pipeline error always
+			// propagates to BullMQ for correct retry tracking.
+		}
 		throw error;
 	}
 };
