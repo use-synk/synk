@@ -13,6 +13,8 @@ const DOCS_DIR = "docs";
 const README = "README.md";
 const MD_EXT = ".md";
 const MDX_EXT = ".mdx";
+const COMMON_DOC_PATH_PREFIXES = ["docs/", "doc/", "documentation/", "guides/", "guide/"];
+const COMMON_DOC_FILENAMES = ["README.md", "CONTRIBUTING.md", "CHANGELOG.md", "docs.md"];
 
 const hasDocsDir = (tree: RepoFile[]): boolean =>
 	tree.some((f) => f.path === DOCS_DIR || f.path.startsWith(`${DOCS_DIR}/`));
@@ -20,13 +22,32 @@ const hasDocsDir = (tree: RepoFile[]): boolean =>
 const hasReadme = (tree: RepoFile[]): boolean =>
 	tree.some((f) => f.path === README || f.path.toLowerCase().endsWith("/readme.md"));
 
-const hasMdFiles = (tree: RepoFile[]): boolean =>
-	tree.some((f) => f.path.endsWith(MD_EXT) || f.path.endsWith(MDX_EXT));
+const hasMdFilesInCommonLocations = (tree: RepoFile[]): boolean =>
+	tree.some((file) => {
+		const lowerPath = file.path.toLowerCase();
+		const isMarkdown = lowerPath.endsWith(MD_EXT) || lowerPath.endsWith(MDX_EXT);
+		if (!isMarkdown) {
+			return false;
+		}
 
-const extractH1 = (content: string): string => {
-	const match = content.match(/^#\s+(.+)$/m);
-	const group = match?.[1];
-	return group !== undefined ? group.trim() : "";
+		if (COMMON_DOC_PATH_PREFIXES.some((prefix) => lowerPath.startsWith(prefix))) {
+			return true;
+		}
+
+		if (!lowerPath.includes("/")) {
+			return true;
+		}
+
+		const fileName = file.path.split("/").pop();
+		if (fileName === undefined) {
+			return false;
+		}
+		return COMMON_DOC_FILENAMES.some((name) => name.toLowerCase() === fileName.toLowerCase());
+	});
+
+type MarkdownHeading = {
+	level: number;
+	title: string;
 };
 
 const pathToTitle = (path: string): string => {
@@ -35,6 +56,149 @@ const pathToTitle = (path: string): string => {
 };
 
 const segmentToTitle = (segment: string): string => segment.replace(/-/g, " ");
+
+const slugifyHeading = (title: string): string =>
+	title
+		.toLowerCase()
+		.trim()
+		.replace(/[^\w\s-]/g, "")
+		.replace(/\s+/g, "-");
+
+const extractHeadings = (content: string): MarkdownHeading[] => {
+	const headings: MarkdownHeading[] = [];
+	const lines = content.split("\n");
+	let activeFence: string | undefined;
+
+	for (const line of lines) {
+		const trimmed = line.trim();
+		const fenceStartMatch = trimmed.match(/^(```+|~~~+)/);
+		if (fenceStartMatch?.[1] !== undefined) {
+			const marker = fenceStartMatch[1][0];
+			if (activeFence === undefined) {
+				activeFence = marker;
+			} else if (activeFence === marker) {
+				activeFence = undefined;
+			}
+			continue;
+		}
+
+		if (activeFence !== undefined) {
+			continue;
+		}
+
+		const headingMatch = line.match(/^(#{1,6})\s+(.+?)\s*#*\s*$/);
+		const title = headingMatch?.[2]?.trim();
+		const level = headingMatch?.[1]?.length;
+		if (title === undefined || title.length === 0 || level === undefined) {
+			continue;
+		}
+
+		headings.push({ level, title });
+	}
+
+	return headings;
+};
+
+const getHeadingParent = (
+	headingStack: Array<{ level: number; node: DocTreeNode }>,
+	fileNode: DocTreeNode,
+	level: number,
+): DocTreeNode => {
+	while (headingStack.length > 0) {
+		const current = headingStack[headingStack.length - 1];
+		if (current !== undefined && current.level < level) {
+			return current.node;
+		}
+		headingStack.pop();
+	}
+	return fileNode;
+};
+
+const addHeadingChildren = (
+	fileNode: DocTreeNode,
+	headings: MarkdownHeading[],
+	filePath: string,
+	order: number,
+): void => {
+	if (headings.length === 0) {
+		return;
+	}
+
+	const headingStack: Array<{ level: number; node: DocTreeNode }> = [];
+	for (const heading of headings) {
+		const parent = getHeadingParent(headingStack, fileNode, heading.level);
+		const anchor = slugifyHeading(heading.title);
+		const node: DocTreeNode = {
+			title: heading.title,
+			path: anchor.length > 0 ? `${filePath}#${anchor}` : filePath,
+			order,
+		};
+		if (parent.children === undefined) {
+			parent.children = [];
+		}
+		parent.children.push(node);
+		headingStack.push({ level: heading.level, node });
+	}
+};
+
+const hasUnclosedCodeFence = (content: string): boolean => {
+	let activeFence: string | undefined;
+	const lines = content.split("\n");
+	for (const line of lines) {
+		const trimmed = line.trim();
+		const fenceStartMatch = trimmed.match(/^(```+|~~~+)/);
+		if (fenceStartMatch?.[1] === undefined) {
+			continue;
+		}
+
+		const marker = fenceStartMatch[1][0];
+		if (activeFence === undefined) {
+			activeFence = marker;
+			continue;
+		}
+		if (activeFence === marker) {
+			activeFence = undefined;
+		}
+	}
+	return activeFence !== undefined;
+};
+
+const isExternalLink = (href: string): boolean => /^[a-z][a-z0-9+.-]*:/i.test(href);
+
+const isBrokenRelativeLink = (href: string, filePath: string): boolean => {
+	if (href.startsWith("/") || href.startsWith("#") || isExternalLink(href)) {
+		return false;
+	}
+
+	const targetPath = href.split(/[?#]/, 1)[0]?.trim() ?? "";
+	if (targetPath.length === 0) {
+		return false;
+	}
+
+	const baseSegments = filePath
+		.split("/")
+		.slice(0, -1)
+		.filter((segment) => segment.length > 0);
+	const targetSegments = targetPath.split("/").filter((segment) => segment.length > 0);
+	const segments = [...baseSegments, ...targetSegments];
+	let depth = 0;
+
+	for (const segment of segments) {
+		if (segment === ".") {
+			continue;
+		}
+		if (segment === "..") {
+			depth -= 1;
+		} else {
+			depth += 1;
+		}
+		if (depth < 0) {
+			return true;
+		}
+	}
+
+	return false;
+};
 
 const sortNodes = (nodes: DocTreeNode[]): void => {
 	nodes.sort((left, right) => {
@@ -59,7 +223,7 @@ export const markdownAdapter: DocAdapter = {
 	frameworkId: "markdown",
 
 	async detect(tree: RepoFile[]): Promise<boolean> {
-		return hasDocsDir(tree) || hasReadme(tree) || hasMdFiles(tree);
+		return hasDocsDir(tree) || hasReadme(tree) || hasMdFilesInCommonLocations(tree);
 	},
 
 	getDocPaths(config: DocsConfig): string[] {
@@ -106,11 +270,17 @@ export const markdownAdapter: DocAdapter = {
 				parentNodes = section.children;
 			}
 
-			parentNodes.push({
-				title: extractH1(file.content) || pathToTitle(file.path),
+			const headings = extractHeadings(file.content);
+			const h1 = headings.find((heading) => heading.level === 1);
+			const fileNode: DocTreeNode = {
+				title: h1?.title ?? pathToTitle(file.path),
 				path: file.path,
 				order: index,
-			});
+			};
+
+			const nestedHeadings = h1 === undefined ? headings : headings.filter((heading) => heading !== h1);
+			addHeadingChildren(fileNode, nestedHeadings, file.path, index);
+			parentNodes.push(fileNode);
 		}
 
 		sortNodes(roots);
@@ -145,6 +315,14 @@ export const markdownAdapter: DocAdapter = {
 			if (href.toLowerCase().startsWith("javascript:")) {
 				errors.push(`Unsupported link protocol: ${href}`);
 			}
+
+			if (isBrokenRelativeLink(href, _filePath)) {
+				errors.push(`Broken relative link: ${href}`);
+			}
+		}
+
+		if (hasUnclosedCodeFence(content)) {
+			errors.push("Markdown contains an unclosed code fence.");
 		}
 
 		if (errors.length === 0) {
