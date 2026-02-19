@@ -10,6 +10,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
 	mockFindUniqueRepository,
+	mockUpdateProviderRepository,
 	mockCreateAnalysisRun,
 	mockUpdateAnalysisRun,
 	mockParseGitHubCredentialsEnvironment,
@@ -25,6 +26,7 @@ const {
 	mockGetAdapter,
 } = vi.hoisted(() => ({
 	mockFindUniqueRepository: vi.fn(),
+	mockUpdateProviderRepository: vi.fn().mockResolvedValue({}),
 	mockCreateAnalysisRun: vi.fn(),
 	mockUpdateAnalysisRun: vi.fn(),
 	mockParseGitHubCredentialsEnvironment: vi.fn(),
@@ -42,7 +44,10 @@ const {
 
 vi.mock("@synk-ai/db", () => ({
 	db: {
-		providerRepository: { findUnique: mockFindUniqueRepository },
+		providerRepository: {
+			findUnique: mockFindUniqueRepository,
+			update: mockUpdateProviderRepository,
+		},
 		analysisRun: {
 			create: mockCreateAnalysisRun,
 			update: mockUpdateAnalysisRun,
@@ -74,6 +79,7 @@ vi.mock("@synk-ai/doc-adapters", () => ({
 import type { AnalyzeChangesJobPayload } from "@synk-ai/shared";
 import {
 	aggregateTokenUsage,
+	mergeResolvedConfig,
 	normalizeTokenUsage,
 	parseDocsConfigFromObject,
 	parseFramework,
@@ -324,6 +330,20 @@ docs:
 		const yaml = "docs:\n\tframework: fumadocs\n";
 		expect(parseSynkAiYaml(yaml)?.docs.framework).toBe("fumadocs");
 	});
+
+	it("returns null for invalid yaml", () => {
+		const yaml = "docs:\n  framework: [";
+		expect(parseSynkAiYaml(yaml)).toBeNull();
+	});
+
+	it("returns null when schema validation fails", () => {
+		const yaml = `
+docs:
+  framework: nextra
+unexpected: true
+`;
+		expect(parseSynkAiYaml(yaml)).toBeNull();
+	});
 });
 
 // ---------------------------------------------------------------------------
@@ -360,6 +380,63 @@ describe("parseDocsConfigFromObject", () => {
 	it("ignores unknown framework values", () => {
 		const input = { docs: { framework: "jekyll" } };
 		expect(parseDocsConfigFromObject(input)?.docs.framework).toBeUndefined();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// mergeResolvedConfig — config merging (file > db > auto-detected)
+// ---------------------------------------------------------------------------
+
+describe("mergeResolvedConfig", () => {
+	it("prefers file config over database config", () => {
+		const file = {
+			docs: { framework: "nextra" as const, path: "/docs" },
+			ignorePaths: ["*.test.ts"],
+		};
+		const db = {
+			docs: { framework: "fumadocs" as const, path: "/content", repo: "acme/docs" },
+			ignorePaths: ["dist/**"],
+		};
+		const result = mergeResolvedConfig(file, db);
+		expect(result.docs.framework).toBe("nextra");
+		expect(result.docs.path).toBe("/docs");
+		expect(result.docs.repo).toBe("acme/docs");
+		expect(result.ignorePaths).toEqual(["*.test.ts"]);
+	});
+
+	it("uses database config when file has no values", () => {
+		const file = { docs: {}, ignorePaths: [] };
+		const db = {
+			docs: { framework: "docusaurus" as const, path: "/docs", branch: "main" },
+			ignorePaths: ["*.lock"],
+		};
+		const result = mergeResolvedConfig(file, db);
+		expect(result.docs.framework).toBe("docusaurus");
+		expect(result.docs.path).toBe("/docs");
+		expect(result.docs.branch).toBe("main");
+		expect(result.ignorePaths).toEqual(["*.lock"]);
+	});
+
+	it("uses file ignorePaths when non-empty, else db", () => {
+		const file = { docs: {}, ignorePaths: ["file-ignore"] };
+		const db = { docs: {}, ignorePaths: ["db-ignore"] };
+		expect(mergeResolvedConfig(file, db).ignorePaths).toEqual(["file-ignore"]);
+		expect(mergeResolvedConfig({ docs: {}, ignorePaths: [] }, db).ignorePaths).toEqual([
+			"db-ignore",
+		]);
+	});
+
+	it("merges partial file overrides with db defaults", () => {
+		const file = { docs: { framework: "auto" as const }, ignorePaths: [] };
+		const db = {
+			docs: { path: "/content", repo: "org/docs", branch: "develop" },
+			ignorePaths: [],
+		};
+		const result = mergeResolvedConfig(file, db);
+		expect(result.docs.framework).toBe("auto");
+		expect(result.docs.path).toBe("/content");
+		expect(result.docs.repo).toBe("org/docs");
+		expect(result.docs.branch).toBe("develop");
 	});
 });
 
@@ -405,9 +482,7 @@ describe("processAnalyzeChangesJob", () => {
 	it("marks run as skipped when project-ignore-filtered diff is empty", async () => {
 		// First filterDiff call (default patterns) keeps the file.
 		// Second filterDiff call (project ignore paths) removes it.
-		mockFilterDiff
-			.mockReturnValueOnce([{ filename: "src/index.ts" }])
-			.mockReturnValueOnce([]);
+		mockFilterDiff.mockReturnValueOnce([{ filename: "src/index.ts" }]).mockReturnValueOnce([]);
 
 		// Provide a .synk-ai.yml with an ignore path to trigger the second filter.
 		mockFetchFileContent.mockResolvedValueOnce({
@@ -496,6 +571,118 @@ describe("processAnalyzeChangesJob", () => {
 		expect(mockServices.createPullRequest).not.toHaveBeenCalled();
 	});
 
+	it("stores resolved docs_config to repository for caching", async () => {
+		mockFilterDiff
+			.mockReturnValueOnce([{ filename: "src/index.ts" }])
+			.mockReturnValueOnce([{ filename: "src/index.ts" }])
+			.mockReturnValue([]);
+
+		mockFetchRepoTree.mockResolvedValue([{ path: "docs/index.md", sha: "s1", size: 100 }]);
+		mockFetchMultipleFiles.mockResolvedValue([
+			{ path: "docs/index.md", content: "# Old", sha: "s1", size: 5 },
+		]);
+
+		const adapter = makeAdapter();
+		adapter.getDocPaths.mockReturnValue(["**/*.md"]);
+		mockDetectAdapter.mockResolvedValue(adapter);
+		mockGetAdapter.mockReturnValue(adapter);
+
+		const mockServices = {
+			runTriage: vi.fn().mockResolvedValue({
+				needsUpdate: true,
+				affectedDocFiles: ["docs/index.md"],
+				reasoning: "change",
+				tokenUsage: { prompt: 10, completion: 5, total: 15 },
+			}),
+			runGeneration: vi.fn().mockResolvedValue({
+				path: "docs/index.md",
+				content: "# Updated",
+				reasoning: "updated",
+				tokenUsage: { prompt: 5, completion: 3, total: 8 },
+			}),
+			createPullRequest: vi.fn().mockResolvedValue({
+				prNumber: 1,
+				prUrl: "https://github.com/acme/app/pull/1",
+			}),
+		};
+
+		await processAnalyzeChangesJob(makeJob(), makeLogger(), mockServices);
+
+		expect(mockUpdateProviderRepository).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: { id: "repo-1" },
+				data: expect.objectContaining({
+					docsConfig: expect.objectContaining({
+						docs: expect.objectContaining({ framework: "nextra" }),
+						triggers: expect.objectContaining({ ignore_paths: expect.any(Array) }),
+					}),
+				}),
+			}),
+		);
+	});
+
+	it("detects framework from docs repo when docs.repo points to a separate repository", async () => {
+		mockFilterDiff
+			.mockReturnValueOnce([{ filename: "src/index.ts" }])
+			.mockReturnValueOnce([{ filename: "src/index.ts" }])
+			.mockReturnValue([]);
+		mockFetchFileContent
+			.mockResolvedValueOnce({
+				content:
+					"docs:\n  framework: auto\n  repo: acme/docs-site\n  branch: docs-main\n  path: docs\n",
+				path: ".synk-ai.yml",
+				sha: "cfg",
+				size: 80,
+			})
+			.mockRejectedValue(notFoundError());
+		mockFetchRepoTree.mockResolvedValue([{ path: "docs/index.md", sha: "s1", size: 100 }]);
+		mockFetchMultipleFiles.mockResolvedValue([
+			{ path: "docs/index.md", content: "# Old", sha: "s1", size: 5 },
+		]);
+
+		const adapter = makeAdapter();
+		adapter.getDocPaths.mockReturnValue(["**/*.md"]);
+		mockDetectAdapter.mockResolvedValue(adapter);
+		mockGetAdapter.mockReturnValue(adapter);
+
+		const mockServices = {
+			runTriage: vi.fn().mockResolvedValue({
+				needsUpdate: true,
+				affectedDocFiles: ["docs/index.md"],
+				reasoning: "change",
+				tokenUsage: { prompt: 10, completion: 5, total: 15 },
+			}),
+			runGeneration: vi.fn().mockResolvedValue({
+				path: "docs/index.md",
+				content: "# Updated",
+				reasoning: "updated",
+				tokenUsage: { prompt: 5, completion: 3, total: 8 },
+			}),
+			createPullRequest: vi.fn().mockResolvedValue({
+				prNumber: 100,
+				prUrl: "https://github.com/acme/docs-site/pull/100",
+			}),
+		};
+
+		await processAnalyzeChangesJob(makeJob(), makeLogger(), mockServices);
+
+		expect(mockFetchRepoTree).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining({
+				owner: "acme",
+				repo: "docs-site",
+				ref: "docs-main",
+			}),
+		);
+		expect(mockServices.createPullRequest).toHaveBeenCalledWith(
+			expect.objectContaining({
+				owner: "acme",
+				repo: "docs-site",
+				baseBranch: "docs-main",
+			}),
+		);
+	});
+
 	it("marks run as completed with docsAffected=true and stores PR info when changes are produced", async () => {
 		mockFilterDiff
 			.mockReturnValueOnce([{ filename: "src/index.ts" }])
@@ -558,9 +745,9 @@ describe("processAnalyzeChangesJob", () => {
 			createPullRequest: vi.fn(),
 		};
 
-		await expect(
-			processAnalyzeChangesJob(makeJob(), makeLogger(), mockServices),
-		).rejects.toThrow("GitHub API failure");
+		await expect(processAnalyzeChangesJob(makeJob(), makeLogger(), mockServices)).rejects.toThrow(
+			"GitHub API failure",
+		);
 
 		expect(mockUpdateAnalysisRun).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -602,8 +789,8 @@ describe("processAnalyzeChangesJob", () => {
 		};
 
 		// The original error must propagate — not the DB error.
-		await expect(
-			processAnalyzeChangesJob(makeJob(), makeLogger(), mockServices),
-		).rejects.toThrow("original pipeline failure");
+		await expect(processAnalyzeChangesJob(makeJob(), makeLogger(), mockServices)).rejects.toThrow(
+			"original pipeline failure",
+		);
 	});
 });
