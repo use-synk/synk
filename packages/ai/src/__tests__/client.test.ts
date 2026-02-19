@@ -7,6 +7,20 @@ type LogEvent = {
 	fields: AiLogFields;
 };
 
+const initialOpenRouterApiKey = process.env.OPENROUTER_API_KEY;
+const initialNodeEnv = process.env.NODE_ENV;
+
+const restoreEnvironmentVariable = (
+	key: "OPENROUTER_API_KEY" | "NODE_ENV",
+	value: string | undefined,
+): void => {
+	if (value === undefined) {
+		Reflect.deleteProperty(process.env, key);
+		return;
+	}
+	process.env[key] = value;
+};
+
 const createLoggerCollector = (): { logger: AiLogger; entries: LogEvent[] } => {
 	const entries: LogEvent[] = [];
 	return {
@@ -26,8 +40,8 @@ const createLoggerCollector = (): { logger: AiLogger; entries: LogEvent[] } => {
 };
 
 afterEach(() => {
-	process.env.OPENROUTER_API_KEY = undefined;
-	process.env.NODE_ENV = undefined;
+	restoreEnvironmentVariable("OPENROUTER_API_KEY", initialOpenRouterApiKey);
+	restoreEnvironmentVariable("NODE_ENV", initialNodeEnv);
 });
 
 describe("createAiClient", () => {
