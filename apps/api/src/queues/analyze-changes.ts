@@ -143,17 +143,23 @@ export const createAnalyzeChangesEnqueuer = (
 				throw error;
 			}
 
-			const jobAfterConflict = await getRepositoryActiveJob(queue, payload.repositoryId);
-			if (jobAfterConflict !== null) {
-				return;
-			}
+				const jobAfterConflict = await getRepositoryActiveJob(queue, payload.repositoryId);
+				if (jobAfterConflict !== null) {
+					return;
+				}
 
-			await queue.add(ANALYZE_CHANGES_QUEUE_NAME, payload, {
-				jobId: activeJobId,
-				delay: ACTIVE_JOB_START_DELAY_MS,
-				removeOnComplete: true,
-				removeOnFail: true,
-			});
-		}
+				try {
+					await queue.add(ANALYZE_CHANGES_QUEUE_NAME, payload, {
+						jobId: activeJobId,
+						delay: ACTIVE_JOB_START_DELAY_MS,
+						removeOnComplete: true,
+						removeOnFail: true,
+					});
+				} catch (retryError) {
+					if (!isAlreadyExistingJobError(retryError)) {
+						throw retryError;
+					}
+				}
+			}
+		};
 	};
-};
