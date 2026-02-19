@@ -936,7 +936,7 @@ describe("processAnalyzeChangesJob", () => {
 		// attemptsMade=0, maxAttempts=4 → isFinalAttempt=false → warn
 		await expect(processAnalyzeChangesJob(makeJob(), logger)).rejects.toBeDefined();
 
-		expect((logger.child as ReturnType<typeof vi.fn>)()).toHaveProperty("warn");
+		expect(logger.child).toHaveBeenCalled();
 		const child = (logger.child as ReturnType<typeof vi.fn>).mock.results[0]?.value as {
 			warn: ReturnType<typeof vi.fn>;
 			error: ReturnType<typeof vi.fn>;
