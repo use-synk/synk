@@ -3,6 +3,11 @@ import {
 	ANALYZE_CHANGES_COALESCE_WINDOW_MS,
 	buildAnalyzeChangesActiveJobId,
 	buildAnalyzeChangesPendingPayloadKey,
+	calculateCoalesceDelayMs,
+	getRepositoryActiveJob,
+	isAlreadyExistingJobError,
+	parsePendingPayloadRecord,
+	type PendingAnalyzeChangesPayload,
 	type AnalyzeChangesJobPayload,
 } from "@synk-ai/shared";
 import { UnrecoverableError, type Job, type JobsOptions } from "bullmq";
@@ -17,13 +22,6 @@ import {
 	createRedisConnectionOptions,
 	type AnalyzeChangesDlqPayload,
 } from "./queue.js";
-import {
-	calculateCoalesceDelayMs,
-	getRepositoryActiveJob,
-	isAlreadyExistingJobError,
-	parsePendingPayloadRecord,
-	type PendingAnalyzeChangesPayload,
-} from "./repository-queue-coalescing.js";
 
 const SHUTDOWN_TIMEOUT_MS = 30_000;
 const PENDING_PAYLOAD_TTL_MS = ANALYZE_CHANGES_COALESCE_WINDOW_MS * 20;

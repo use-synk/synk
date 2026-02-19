@@ -1,17 +1,20 @@
-import { ANALYZE_CHANGES_COALESCE_WINDOW_MS, buildAnalyzeChangesActiveJobId } from "@synk-ai/shared";
-import type { AnalyzeChangesJobPayload } from "@synk-ai/shared";
+import {
+	ANALYZE_CHANGES_COALESCE_WINDOW_MS,
+	buildAnalyzeChangesActiveJobId,
+	type AnalyzeChangesJobPayload,
+} from "./queue.js";
 
 export type PendingAnalyzeChangesPayload = {
 	payload: AnalyzeChangesJobPayload;
 	updatedAtMs: number;
 };
 
-type QueueJobLike = {
+export type QueueJobLike = {
 	getState: () => Promise<string>;
 	remove: () => Promise<void>;
 };
 
-type RepositoryQueueLike = {
+export type RepositoryQueueLike = {
 	getJob: (jobId: string) => Promise<QueueJobLike | null | undefined>;
 };
 

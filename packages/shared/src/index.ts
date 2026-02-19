@@ -28,3 +28,14 @@ export {
 	buildAnalyzeChangesPendingPayloadKey,
 	type AnalyzeChangesJobPayload,
 } from "./queue.js";
+export {
+	calculateCoalesceDelayMs,
+	getRepositoryActiveJob,
+	isAlreadyExistingJobError,
+	isPendingPayloadRecord,
+	isTerminalJobState,
+	parsePendingPayloadRecord,
+	type PendingAnalyzeChangesPayload,
+	type QueueJobLike,
+	type RepositoryQueueLike,
+} from "./queue-coalescing.js";

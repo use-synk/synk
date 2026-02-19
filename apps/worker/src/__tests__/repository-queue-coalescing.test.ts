@@ -1,15 +1,13 @@
 import {
 	ANALYZE_CHANGES_COALESCE_WINDOW_MS,
 	buildAnalyzeChangesActiveJobId,
-	type AnalyzeChangesJobPayload,
-} from "@synk-ai/shared";
-import { describe, expect, it, vi } from "vitest";
-import {
 	calculateCoalesceDelayMs,
 	getRepositoryActiveJob,
 	isAlreadyExistingJobError,
 	parsePendingPayloadRecord,
-} from "../repository-queue-coalescing.js";
+	type AnalyzeChangesJobPayload,
+} from "@synk-ai/shared";
+import { describe, expect, it, vi } from "vitest";
 
 const payload: AnalyzeChangesJobPayload = {
 	installationId: "installation-1",

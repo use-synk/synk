@@ -5,6 +5,9 @@ import {
 	ANALYZE_CHANGES_QUEUE_NAME,
 	buildAnalyzeChangesActiveJobId,
 	buildAnalyzeChangesPendingPayloadKey,
+	getRepositoryActiveJob,
+	isAlreadyExistingJobError,
+	type PendingAnalyzeChangesPayload,
 	type AnalyzeChangesJobPayload,
 } from "@synk-ai/shared";
 import { Queue } from "bullmq";
@@ -30,41 +33,8 @@ type AnalyzeChangesQueueDatabase = {
 	};
 };
 
-type PendingAnalyzeChangesPayload = {
-	payload: AnalyzeChangesJobPayload;
-	updatedAtMs: number;
-};
-
 const serializePendingPayload = (value: PendingAnalyzeChangesPayload): string =>
 	JSON.stringify(value);
-
-const isAlreadyExistingJobError = (error: unknown): boolean => {
-	if (!(error instanceof Error)) {
-		return false;
-	}
-	return error.message.toLowerCase().includes("already exists");
-};
-
-const isTerminalJobState = (state: string): boolean => state === "completed" || state === "failed";
-
-const getRepositoryActiveJob = async (
-	queue: Queue<AnalyzeChangesJobPayload>,
-	repositoryId: string,
-) => {
-	const activeJobId = buildAnalyzeChangesActiveJobId(repositoryId);
-	const job = await queue.getJob(activeJobId);
-	if (job == null) {
-		return null;
-	}
-
-	const state = await job.getState();
-	if (isTerminalJobState(state)) {
-		await job.remove();
-		return null;
-	}
-
-	return job;
-};
 
 const hasExistingRunForCommit = async (
 	db: AnalyzeChangesQueueDatabase,
