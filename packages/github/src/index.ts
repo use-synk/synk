@@ -18,6 +18,7 @@ export {
 	fetchMultipleFiles,
 	fetchRepoTree,
 	GitHubRepositoryContentError,
+	GitHubRepositoryTreeError,
 	type FetchFileContentRequest,
 	type FetchMultipleFilesRequest,
 	type FetchRepoTreeRequest,

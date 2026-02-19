@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { fetchFileContent, fetchMultipleFiles, fetchRepoTree } from "../tree.js";
+import {
+	GitHubRepositoryContentError,
+	GitHubRepositoryTreeError,
+	fetchFileContent,
+	fetchMultipleFiles,
+	fetchRepoTree,
+} from "../tree.js";
 
 describe("fetchRepoTree", () => {
 	it("fetches a recursive tree and returns only file entries", async () => {
@@ -39,6 +45,36 @@ describe("fetchRepoTree", () => {
 			{ path: "README.md", sha: "sha-readme", size: 120 },
 			{ path: "docs/guide.md", sha: "sha-guide", size: 220 },
 		]);
+	});
+
+	it("throws a typed error when GitHub returns a truncated recursive tree", async () => {
+		const getTree = vi.fn(async () => ({
+			data: {
+				tree: [{ path: "README.md", type: "blob", sha: "sha-readme", size: 120 }],
+				truncated: true,
+			},
+			headers: {},
+		}));
+
+		const octokit = {
+			rest: {
+				git: {
+					getTree,
+					getBlob: vi.fn(),
+				},
+				repos: {
+					getContent: vi.fn(),
+				},
+			},
+		};
+
+		await expect(fetchRepoTree(octokit, "synk", "synk-ai", "main")).rejects.toBeInstanceOf(
+			GitHubRepositoryTreeError,
+		);
+		await expect(fetchRepoTree(octokit, "synk", "synk-ai", "main")).rejects.toMatchObject({
+			name: "GitHubRepositoryTreeError",
+			code: "truncated-tree",
+		});
 	});
 });
 
@@ -153,6 +189,112 @@ describe("fetchFileContent", () => {
 		).rejects.toMatchObject({
 			name: "GitHubRepositoryContentError",
 			code: "path-is-directory",
+		});
+	});
+
+	it("throws a typed error when GitHub returns an unsupported content encoding", async () => {
+		const getContent = vi.fn(async () => ({
+			data: {
+				type: "file",
+				path: "docs/intro.md",
+				sha: "sha-intro",
+				size: 10,
+				encoding: "utf-8",
+				content: "hello world",
+			},
+			headers: {},
+		}));
+		const octokit = {
+			rest: {
+				git: {
+					getTree: vi.fn(),
+					getBlob: vi.fn(),
+				},
+				repos: {
+					getContent,
+				},
+			},
+		};
+
+		await expect(
+			fetchFileContent(octokit, "synk", "synk-ai", "docs/intro.md", "main"),
+		).rejects.toBeInstanceOf(GitHubRepositoryContentError);
+		await expect(
+			fetchFileContent(octokit, "synk", "synk-ai", "docs/intro.md", "main"),
+		).rejects.toMatchObject({
+			name: "GitHubRepositoryContentError",
+			code: "unsupported-encoding",
+		});
+	});
+
+	it("throws a typed error when blob fallback is required but file sha is missing", async () => {
+		const getContent = vi.fn(async () => ({
+			data: {
+				type: "file",
+				path: "docs/large.md",
+				sha: "",
+				size: 1_500_000,
+				encoding: "base64",
+				content: "",
+			},
+			headers: {},
+		}));
+		const octokit = {
+			rest: {
+				git: {
+					getTree: vi.fn(),
+					getBlob: vi.fn(),
+				},
+				repos: {
+					getContent,
+				},
+			},
+		};
+
+		await expect(
+			fetchFileContent(octokit, "synk", "synk-ai", "docs/large.md", "main"),
+		).rejects.toMatchObject({
+			name: "GitHubRepositoryContentError",
+			code: "missing-blob-sha",
+		});
+	});
+
+	it("throws a typed error when blob fallback returns no content", async () => {
+		const getContent = vi.fn(async () => ({
+			data: {
+				type: "file",
+				path: "docs/large.md",
+				sha: "sha-large",
+				size: 1_500_000,
+				encoding: "base64",
+				content: "",
+			},
+			headers: {},
+		}));
+		const getBlob = vi.fn(async () => ({
+			data: {
+				encoding: "base64",
+				content: "",
+			},
+			headers: {},
+		}));
+		const octokit = {
+			rest: {
+				git: {
+					getTree: vi.fn(),
+					getBlob,
+				},
+				repos: {
+					getContent,
+				},
+			},
+		};
+
+		await expect(
+			fetchFileContent(octokit, "synk", "synk-ai", "docs/large.md", "main"),
+		).rejects.toMatchObject({
+			name: "GitHubRepositoryContentError",
+			code: "missing-content",
 		});
 	});
 });

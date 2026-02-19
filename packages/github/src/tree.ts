@@ -48,6 +48,16 @@ export class GitHubRepositoryContentError extends Error {
 	}
 }
 
+export class GitHubRepositoryTreeError extends Error {
+	readonly code: "truncated-tree";
+
+	constructor(code: "truncated-tree", message: string) {
+		super(message);
+		this.name = "GitHubRepositoryTreeError";
+		this.code = code;
+	}
+}
+
 interface GitHubRateLimitHeaders {
 	"x-ratelimit-remaining"?: string;
 	"x-ratelimit-reset"?: string;
@@ -83,7 +93,7 @@ interface GitHubRepositoryTreeOctokit {
 				tree_sha: string;
 				recursive: "1";
 			}): Promise<{
-				data: { tree?: readonly GitHubTreeEntry[] };
+				data: { tree?: readonly GitHubTreeEntry[]; truncated?: boolean };
 				headers: GitHubRateLimitHeaders;
 			}>;
 			getBlob(params: {
@@ -267,6 +277,13 @@ export const fetchRepoTree = async (
 	});
 
 	await backoffIfRateLimitLow(response.headers);
+
+	if (response.data.truncated === true) {
+		throw new GitHubRepositoryTreeError(
+			"truncated-tree",
+			`GitHub tree response was truncated for '${request.owner}/${request.repo}' at ref '${request.ref}'.`,
+		);
+	}
 
 	return (response.data.tree ?? [])
 		.filter((entry): entry is Required<Pick<GitHubTreeEntry, "path" | "sha">> & GitHubTreeEntry => {
