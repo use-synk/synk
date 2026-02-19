@@ -76,3 +76,13 @@ export async function detectAdapter(
 	}
 	return markdownAdapter;
 }
+
+/**
+ * Runs all adapters and returns the best match for the given repository tree.
+ * Convenience wrapper for detectAdapter with explicit packageJson parameter.
+ * @param tree - Repository file tree (paths, shas)
+ * @param packageJson - Raw package.json content for dependency-based detection
+ */
+export async function detectFramework(tree: RepoFile[], packageJson?: string): Promise<DocAdapter> {
+	return detectAdapter(tree, packageJson ? { packageJson } : undefined);
+}
