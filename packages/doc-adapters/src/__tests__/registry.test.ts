@@ -20,7 +20,7 @@ describe("getAdapter", () => {
 	});
 
 	it("marks pending adapters with explicit fallback conventions", () => {
-		const adapter = getAdapter("nextra");
+		const adapter = getAdapter("fumadocs");
 		const conventions = adapter.getConventions();
 		expect(conventions.description).toContain("not implemented yet");
 		expect(conventions.description).toContain("markdown fallback");
