@@ -49,26 +49,65 @@ const hasSourceConfig = (tree: RepoFile[]): boolean =>
 			f.path === "source.config.mjs",
 	);
 
+const isMarkdownFilePath = (path: string): boolean => /\.(md|mdx)$/i.test(path);
+
+const toDirectory = (path: string): string => {
+	const slashIndex = path.lastIndexOf("/");
+	if (slashIndex <= 0) {
+		return "";
+	}
+	return path.slice(0, slashIndex);
+};
+
 const hasFumadocsStructure = (tree: RepoFile[]): boolean => {
-	const hasDocs = tree.some(
-		(f) =>
-			f.path.startsWith("content/docs/") ||
-			f.path === "content/docs" ||
-			f.path.startsWith(`${DEFAULT_DOCS_PATH}/`),
-	);
-	const hasMeta = tree.some(
-		(f) =>
-			(f.path.startsWith("content/docs/") || f.path.startsWith(`${DEFAULT_DOCS_PATH}/`)) &&
-			isMetaFilePath(f.path),
-	);
-	return hasDocs && hasMeta;
+	const metaDirs = new Set<string>();
+	for (const file of tree) {
+		if (!isMetaFilePath(file.path)) {
+			continue;
+		}
+		metaDirs.add(toDirectory(file.path));
+	}
+	if (metaDirs.size === 0) {
+		return false;
+	}
+
+	return tree.some((file) => {
+		if (!isMarkdownFilePath(file.path)) {
+			return false;
+		}
+		for (const dir of metaDirs) {
+			if (file.path.startsWith(`${dir}/`)) {
+				return true;
+			}
+		}
+		return false;
+	});
 };
 
 const parseMetaJson = (content: string): FumadocsMeta | null => {
 	try {
 		const parsed = JSON.parse(content) as unknown;
 		if (parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)) {
-			return parsed as FumadocsMeta;
+			const candidate = parsed as {
+				title?: unknown;
+				icon?: unknown;
+				description?: unknown;
+				pages?: unknown;
+			};
+			if (candidate.pages !== undefined) {
+				if (!Array.isArray(candidate.pages)) {
+					return null;
+				}
+				if (!candidate.pages.every((entry) => typeof entry === "string")) {
+					return null;
+				}
+			}
+			return {
+				...(typeof candidate.title === "string" && { title: candidate.title }),
+				...(typeof candidate.icon === "string" && { icon: candidate.icon }),
+				...(typeof candidate.description === "string" && { description: candidate.description }),
+				...(candidate.pages !== undefined && { pages: candidate.pages as string[] }),
+			};
 		}
 	} catch {
 		// ignore
@@ -230,6 +269,9 @@ const extractMarkdownLinks = (content: string): string[] => {
 		}
 
 		for (const match of line.matchAll(linkRegex)) {
+			if (typeof match.index === "number" && match.index > 0 && line[match.index - 1] === "!") {
+				continue;
+			}
 			const href = match[2]?.trim();
 			if (href !== undefined) {
 				links.push(href);
@@ -247,11 +289,11 @@ const addPageOrFolderNode = (
 	dirPath: string,
 	key: string,
 	order: number,
-): DocTreeNode => {
+): DocTreeNode | null => {
 	const subDirPath = dirPath ? `${dirPath}/${key}` : key;
 	const nestedMeta = metaByDir.get(subDirPath);
 	const nestedDocs = docFilesByDir.get(subDirPath) ?? [];
-	const doc = docByKey.get(key) ?? docByKey.get("index");
+	const doc = docByKey.get(key);
 
 	if (nestedMeta !== undefined || nestedDocs.length > 0) {
 		const children = buildTreeFromMeta(metaByDir, docFilesByDir, subDirPath);
@@ -269,22 +311,23 @@ const addPageOrFolderNode = (
 		if (indexDoc?.path !== undefined) node.path = indexDoc.path;
 		return node;
 	}
+	if (doc === undefined) {
+		return null;
+	}
 
 	const fileNode: DocTreeNode = {
-		title: doc ? pathToTitle(doc.path) : key.replace(/-/g, " "),
+		title: pathToTitle(doc.path),
 		order,
-		...(doc?.path !== undefined && { path: doc.path }),
+		path: doc.path,
 	};
-	if (doc !== undefined) {
-		const headings = extractHeadings(doc.content);
-		const h1 = headings.find((h) => h.level === 1);
-		fileNode.title = h1?.title ?? fileNode.title;
-		addHeadingChildren(
-			fileNode,
-			headings.filter((h) => h !== h1),
-			doc.path,
-		);
-	}
+	const headings = extractHeadings(doc.content);
+	const h1 = headings.find((h) => h.level === 1);
+	fileNode.title = h1?.title ?? fileNode.title;
+	addHeadingChildren(
+		fileNode,
+		headings.filter((h) => h !== h1),
+		doc.path,
+	);
 	return fileNode;
 };
 
@@ -347,9 +390,17 @@ const buildTreeFromMeta = (
 				.sort((a, b) => a.localeCompare(b));
 			for (const key of keysToAdd) {
 				seen.add(key);
-				nodes.push(
-					addPageOrFolderNode(metaByDir, docFilesByDir, docByKey, dirPath, key, nodes.length),
+				const node = addPageOrFolderNode(
+					metaByDir,
+					docFilesByDir,
+					docByKey,
+					dirPath,
+					key,
+					nodes.length,
 				);
+				if (node !== null) {
+					nodes.push(node);
+				}
 			}
 			continue;
 		}
@@ -357,9 +408,17 @@ const buildTreeFromMeta = (
 		if (seen.has(entry)) continue;
 		seen.add(entry);
 
-		nodes.push(
-			addPageOrFolderNode(metaByDir, docFilesByDir, docByKey, dirPath, entry, nodes.length),
+		const node = addPageOrFolderNode(
+			metaByDir,
+			docFilesByDir,
+			docByKey,
+			dirPath,
+			entry,
+			nodes.length,
 		);
+		if (node !== null) {
+			nodes.push(node);
+		}
 	}
 
 	for (const [key, doc] of docByKey) {

@@ -34,6 +34,15 @@ describe("fumadocsAdapter.detect", () => {
 		expect(await fumadocsAdapter.detect(tree)).toBe(true);
 	});
 
+	it("returns true when source.config exists and docs directory is custom", async () => {
+		const tree = [
+			{ path: "source.config.ts" },
+			{ path: "docs/content/meta.json" },
+			{ path: "docs/content/index.mdx" },
+		];
+		expect(await fumadocsAdapter.detect(tree)).toBe(true);
+	});
+
 	it("returns false when no source.config and no package.json context", async () => {
 		const tree = [{ path: "content/docs/meta.json" }, { path: "content/docs/index.mdx" }];
 		expect(await fumadocsAdapter.detect(tree)).toBe(false);
@@ -168,6 +177,40 @@ Content.
 		expect(tree.roots[0]?.path).toBe("content/docs/guides/index.mdx");
 		expect(tree.roots[0]?.children).toHaveLength(2);
 	});
+
+	it("does not map unknown pages entries to index", () => {
+		const files = [
+			{
+				path: "content/docs/meta.json",
+				content: JSON.stringify({ pages: ["getting-started"] }),
+			},
+			{
+				path: "content/docs/index.mdx",
+				content: "---\ntitle: Intro\ndescription: D\n---\n\n# Intro",
+			},
+		];
+		const tree = fumadocsAdapter.parseStructure(files);
+		expect(tree.roots).toHaveLength(1);
+		expect(tree.roots[0]?.title).toBe("Intro");
+		expect(tree.roots[0]?.path).toBe("content/docs/index.mdx");
+	});
+
+	it("ignores malformed pages values in meta.json without throwing", () => {
+		const files = [
+			{
+				path: "content/docs/meta.json",
+				content: JSON.stringify({ pages: [123] }),
+			},
+			{
+				path: "content/docs/a.mdx",
+				content: "---\ntitle: A\ndescription: D\n---\n\n# A",
+			},
+		];
+		const tree = fumadocsAdapter.parseStructure(files);
+		expect(tree.roots).toHaveLength(1);
+		expect(tree.roots[0]?.title).toBe("A");
+		expect(tree.roots[0]?.path).toBe("content/docs/a.mdx");
+	});
 });
 
 describe("fumadocsAdapter.getConventions", () => {
@@ -247,6 +290,20 @@ const x = 1;
 		const result = fumadocsAdapter.validateOutput(content, "content/docs/page.mdx");
 		expect(result.valid).toBe(false);
 		expect(result.errors).toContain("Content contains an unclosed code fence");
+	});
+
+	it("does not validate image references as doc links", () => {
+		const content = `---
+title: Page
+description: Desc
+---
+
+![diagram](./assets/diagram.png)
+`;
+		const result = fumadocsAdapter.validateOutput(content, "content/docs/page.mdx", {
+			repoFilePaths: ["content/docs/page.mdx", "content/docs/other.mdx"],
+		});
+		expect(result.valid).toBe(true);
 	});
 });
 
