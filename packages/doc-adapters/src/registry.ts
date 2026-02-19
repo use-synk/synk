@@ -3,11 +3,9 @@ import { fumadocsAdapter } from "./fumadocs.js";
 import { markdownAdapter } from "./markdown.js";
 import { nextraAdapter } from "./nextra.js";
 import type { DetectionContext, RepoFile } from "./types.js";
+import { FRAMEWORK_IDS, type FrameworkId } from "./types.js";
 
-/** Known framework identifiers. Markdown is always available as fallback. */
-export const FRAMEWORK_IDS = ["nextra", "fumadocs", "docusaurus", "markdown"] as const;
-
-export type FrameworkId = (typeof FRAMEWORK_IDS)[number];
+export { FRAMEWORK_IDS, type FrameworkId };
 
 const createPendingAdapter = (frameworkId: Exclude<FrameworkId, "markdown">): DocAdapter => ({
 	frameworkId,

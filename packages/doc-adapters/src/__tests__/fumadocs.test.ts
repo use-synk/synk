@@ -55,6 +55,15 @@ describe("fumadocsAdapter.detect", () => {
 		expect(await fumadocsAdapter.detect(tree)).toBe(false);
 	});
 
+	it("returns true when source.config exists and meta.json is at repo root", async () => {
+		const tree = [
+			{ path: "source.config.ts" },
+			{ path: "meta.json" },
+			{ path: "index.mdx" },
+		];
+		expect(await fumadocsAdapter.detect(tree)).toBe(true);
+	});
+
 	it("returns false for plain docs repo without fumadocs", async () => {
 		const tree = [{ path: "docs/readme.md" }, { path: "package.json" }];
 		expect(await fumadocsAdapter.detect(tree, { packageJson: NON_FUMADOCS_PACKAGE_JSON })).toBe(
