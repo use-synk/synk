@@ -7,14 +7,15 @@
  *   - Non-HTTP errors (e.g. Redis connection drops, unknown failures)
  *
  * Non-retryable: permanent failures where retrying will not help
- *   - HTTP 401 (auth revoked)
- *   - HTTP 403 (forbidden / permissions removed)
- *   - HTTP 404 (resource permanently gone, e.g. repository deleted)
+ *   - All HTTP 4xx client errors except 429 (e.g. 400, 401, 403, 404, 409, 410, 422)
+ *   - Client errors indicate the request is invalid or the resource state is
+ *     incompatible; retrying wastes budget and delays dead-letter handling.
  */
 
 export type JobErrorClassification = "retryable" | "non-retryable";
 
-const NON_RETRYABLE_HTTP_STATUSES = new Set([401, 403, 404]);
+const HTTP_CLIENT_ERROR_MIN = 400;
+const HTTP_CLIENT_ERROR_MAX = 499;
 const HTTP_RATE_LIMIT_STATUS = 429;
 const HTTP_SERVER_ERROR_MIN = 500;
 const HTTP_SERVER_ERROR_MAX = 599;
@@ -34,14 +35,17 @@ export const classifyError = (error: unknown): JobErrorClassification => {
 	const status = getHttpStatus(error);
 
 	if (status !== null) {
-		if (NON_RETRYABLE_HTTP_STATUSES.has(status)) {
-			return "non-retryable";
-		}
 		if (
 			status === HTTP_RATE_LIMIT_STATUS ||
 			(status >= HTTP_SERVER_ERROR_MIN && status <= HTTP_SERVER_ERROR_MAX)
 		) {
 			return "retryable";
+		}
+		if (
+			status >= HTTP_CLIENT_ERROR_MIN &&
+			status <= HTTP_CLIENT_ERROR_MAX
+		) {
+			return "non-retryable";
 		}
 	}
 

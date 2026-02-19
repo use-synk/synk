@@ -9,8 +9,8 @@ const makeHttpError = (status: number): Error =>
 // ---------------------------------------------------------------------------
 
 describe("classifyError — non-retryable HTTP errors", () => {
-	it.each([401, 403, 404])(
-		"classifies HTTP %i as non-retryable",
+	it.each([400, 401, 403, 404, 409, 410, 422])(
+		"classifies HTTP %i (4xx client error) as non-retryable",
 		(status) => {
 			expect(classifyError(makeHttpError(status))).toBe("non-retryable");
 		},
@@ -69,11 +69,5 @@ describe("classifyError — non-HTTP errors are retryable", () => {
 
 	it("classifies an object with a non-integer status as retryable", () => {
 		expect(classifyError({ status: "404" })).toBe("retryable");
-	});
-
-	it("classifies HTTP 400 (bad request) as retryable — not in non-retryable list", () => {
-		// 400 is intentionally retryable: we cannot distinguish a transient bad
-		// request from an encoding issue without deeper inspection.
-		expect(classifyError(makeHttpError(400))).toBe("retryable");
 	});
 });
