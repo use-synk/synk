@@ -57,6 +57,10 @@ const startWorker = async (): Promise<void> => {
 		logger.error({ err: error }, "queue events error");
 	});
 
+	dlqQueue.on("error", (error) => {
+		logger.error({ err: error }, "dead-letter queue error");
+	});
+
 	worker.on("failed", (job, error) => {
 		if (!job) {
 			logger.error({ err: error }, "job failed (job reference unavailable)");
