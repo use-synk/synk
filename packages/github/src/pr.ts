@@ -149,6 +149,9 @@ const buildTriggeredBySection = (
 		const pullUrl = `https://github.com/${sourceOwner}/${sourceRepo}/pull/${triggerInfo.prNumber}`;
 		return `[PR #${triggerInfo.prNumber}](${pullUrl}) (commit: [${triggerInfo.commitSha.slice(0, 12)}](${commitUrl}))`;
 	}
+	if (triggerInfo.type === "manual") {
+		return `Manual run on \`${triggerInfo.ref}\` for [commit ${triggerInfo.commitSha.slice(0, 12)}](${commitUrl})`;
+	}
 	return `[commit ${triggerInfo.commitSha.slice(0, 12)}](${commitUrl})`;
 };
 

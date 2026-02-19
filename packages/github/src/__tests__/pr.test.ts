@@ -209,6 +209,28 @@ describe("createDocUpdatePR", () => {
 		);
 	});
 
+	it("renders a manual-run trigger label in the PR body", async () => {
+		const { octokit, createPull } = createOctokitMock();
+
+		await createDocUpdatePR(octokit, {
+			owner: "acme",
+			repo: "docs",
+			baseBranch: "main",
+			files: [{ path: "docs/guide.md", content: "# Guide" }],
+			triggerInfo: {
+				type: "manual",
+				ref: "refs/heads/release",
+				commitSha: "deadbeefcafebabefeedface12345678",
+			},
+		});
+
+		expect(createPull).toHaveBeenCalledWith(
+			expect.objectContaining({
+				body: expect.stringContaining("Manual run on `refs/heads/release`"),
+			}),
+		);
+	});
+
 	it("keeps the pull request title at or below 72 characters", async () => {
 		const { octokit, createPull } = createOctokitMock();
 
