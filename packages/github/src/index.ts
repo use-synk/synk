@@ -14,6 +14,18 @@ export {
 	type FetchPushDiffRequest,
 } from "./diff.js";
 export {
+	fetchFileContent,
+	fetchMultipleFiles,
+	fetchRepoTree,
+	GitHubRepositoryContentError,
+	GitHubRepositoryTreeError,
+	type FetchFileContentRequest,
+	type FetchMultipleFilesRequest,
+	type FetchRepoTreeRequest,
+	type RepoFileContent,
+	type RepoTreeFile,
+} from "./tree.js";
+export {
 	githubCredentialsEnvironmentSchema,
 	githubEnvironmentSchema,
 	parseGitHubCredentialsEnvironment,
