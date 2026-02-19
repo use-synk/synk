@@ -3,16 +3,7 @@ import type { DiffFile } from "./diff.js";
 const APPROX_CHARACTERS_PER_TOKEN = 4;
 const MAX_PATCH_LINES_PER_FILE = 160;
 
-type SummaryStrategy = "full" | "prioritized-truncated" | "fast-model" | "heuristic-structured";
-
-type SymbolChanges = {
-	addedFunctions: string[];
-	removedFunctions: string[];
-	addedEndpoints: string[];
-	removedEndpoints: string[];
-	addedTypes: string[];
-	removedTypes: string[];
-};
+type SummaryStrategy = "full" | "prioritized-truncated" | "fast-model";
 
 export interface FastModelDiffSummarizerInput {
 	diff: readonly DiffFile[];
@@ -142,149 +133,19 @@ const renderFileDiff = (file: DiffFile, truncateLargePatches: boolean): string =
 const renderDiff = (files: readonly DiffFile[], truncateLargePatches: boolean): string =>
 	files.map((file) => renderFileDiff(file, truncateLargePatches)).join("\n\n---\n\n");
 
-const toUniqueSortedList = (values: Iterable<string>): string[] => [...new Set(values)].sort();
-
-const collectSymbolChanges = (diff: readonly DiffFile[]): SymbolChanges => {
-	const addedFunctions = new Set<string>();
-	const removedFunctions = new Set<string>();
-	const addedEndpoints = new Set<string>();
-	const removedEndpoints = new Set<string>();
-	const addedTypes = new Set<string>();
-	const removedTypes = new Set<string>();
-
-	for (const file of diff) {
-		if (file.patch === null) {
-			continue;
-		}
-		for (const line of file.patch.split("\n")) {
-			if (line.length === 0) {
-				continue;
-			}
-			const isAddition = line.startsWith("+") && !line.startsWith("+++");
-			const isRemoval = line.startsWith("-") && !line.startsWith("---");
-			if (!isAddition && !isRemoval) {
-				continue;
-			}
-			const content = line.slice(1).trim();
-			if (content.length === 0) {
-				continue;
-			}
-
-			const register = (collection: Set<string>, symbol: string): void => {
-				if (symbol.length > 0) {
-					collection.add(symbol);
-				}
-			};
-
-			const functionMatch =
-				content.match(/^(?:export\s+)?(?:async\s+)?function\s+([A-Za-z0-9_$]+)/u) ??
-				content.match(
-					/^(?:export\s+)?(?:const|let|var)\s+([A-Za-z0-9_$]+)\s*=\s*(?:async\s*)?\(/u,
-				) ??
-				content.match(/^def\s+([A-Za-z0-9_]+)/u);
-			const endpointMatch = content.match(
-				/(?:router|app)\.(get|post|put|patch|delete)\(\s*["'`]([^"'`]+)["'`]/u,
-			);
-			const typeMatch =
-				content.match(/^(?:export\s+)?(?:type|interface|enum)\s+([A-Za-z0-9_$]+)/u) ??
-				content.match(/^class\s+([A-Za-z0-9_$]+)/u);
-
-			if (isAddition && functionMatch?.[1] !== undefined) {
-				register(addedFunctions, functionMatch[1]);
-			}
-			if (isRemoval && functionMatch?.[1] !== undefined) {
-				register(removedFunctions, functionMatch[1]);
-			}
-			if (endpointMatch?.[1] !== undefined && endpointMatch[2] !== undefined) {
-				const endpoint = `${endpointMatch[1].toUpperCase()} ${endpointMatch[2]}`;
-				if (isAddition) {
-					register(addedEndpoints, endpoint);
-				}
-				if (isRemoval) {
-					register(removedEndpoints, endpoint);
-				}
-			}
-			if (typeMatch?.[1] !== undefined) {
-				if (isAddition) {
-					register(addedTypes, typeMatch[1]);
-				}
-				if (isRemoval) {
-					register(removedTypes, typeMatch[1]);
-				}
-			}
-		}
-	}
-
-	return {
-		addedFunctions: toUniqueSortedList(addedFunctions),
-		removedFunctions: toUniqueSortedList(removedFunctions),
-		addedEndpoints: toUniqueSortedList(addedEndpoints),
-		removedEndpoints: toUniqueSortedList(removedEndpoints),
-		addedTypes: toUniqueSortedList(addedTypes),
-		removedTypes: toUniqueSortedList(removedTypes),
-	};
-};
-
-const createSemanticSummary = (diff: readonly DiffFile[], symbols: SymbolChanges): string => {
-	const touchedSourceFiles = diff.filter((file) => isSourceFile(file.filename)).length;
-	const touchedConfigFiles = diff.filter((file) => isConfigFile(file.filename)).length;
-	const touchedTestFiles = diff.filter((file) => isTestFile(file.filename)).length;
-
-	const parts: string[] = [];
-	if (symbols.addedEndpoints.length > 0 || symbols.removedEndpoints.length > 0) {
-		parts.push("API surface changed through endpoint updates.");
-	}
-	if (symbols.addedTypes.length > 0 || symbols.removedTypes.length > 0) {
-		parts.push("Type contracts changed and may require docs updates.");
-	}
-	if (symbols.addedFunctions.length > 0 || symbols.removedFunctions.length > 0) {
-		parts.push("Implementation logic changed through function updates.");
-	}
-	if (touchedConfigFiles > 0) {
-		parts.push("Configuration changed and may affect setup or runtime behavior.");
-	}
-	if (touchedTestFiles > 0 && touchedSourceFiles === 0 && touchedConfigFiles === 0) {
-		parts.push("Changes appear test-only.");
-	}
-	if (parts.length === 0) {
-		parts.push("General file-level changes detected.");
-	}
-	return parts.join(" ");
-};
-
-const asBulletList = (label: string, values: readonly string[]): string =>
-	values.length === 0 ? `${label}: none` : `${label}: ${values.join(", ")}`;
-
-const createStructuredSummary = (diff: readonly DiffFile[]): string => {
-	const symbols = collectSymbolChanges(diff);
-	const files = diff.map(
-		(file) => `- ${file.filename} (${file.status}, +${file.additions}/-${file.deletions})`,
-	);
-
-	return [
-		"Structured diff summary:",
-		"Changed files:",
-		...files,
-		"",
-		"Symbol-level changes:",
-		asBulletList("Added functions", symbols.addedFunctions),
-		asBulletList("Removed functions", symbols.removedFunctions),
-		asBulletList("Added endpoints", symbols.addedEndpoints),
-		asBulletList("Removed endpoints", symbols.removedEndpoints),
-		asBulletList("Added types", symbols.addedTypes),
-		asBulletList("Removed types", symbols.removedTypes),
-		"",
-		`Semantic meaning: ${createSemanticSummary(diff, symbols)}`,
-	].join("\n");
-};
+const TRUNCATION_MARKER = "[truncated to token budget]";
 
 const trimToBudget = (content: string, maxTokens: number): string => {
 	const maxCharacters = maxTokens * APPROX_CHARACTERS_PER_TOKEN;
 	if (content.length <= maxCharacters) {
 		return content;
 	}
-	const head = content.slice(0, Math.max(0, maxCharacters - 28));
-	return `${head}\n[truncated to token budget]`;
+	if (maxCharacters <= TRUNCATION_MARKER.length) {
+		return TRUNCATION_MARKER.slice(0, maxCharacters);
+	}
+	const suffix = `\n${TRUNCATION_MARKER}`;
+	const head = content.slice(0, Math.max(0, maxCharacters - suffix.length));
+	return `${head}${suffix}`;
 };
 
 export const summarizeDiff = async (
@@ -332,11 +193,7 @@ export const summarizeDiff = async (
 		};
 	}
 
-	const heuristicSummary = trimToBudget(createStructuredSummary(prioritized), maxTokens);
-	return {
-		content: heuristicSummary,
-		strategy: "heuristic-structured",
-		estimatedTokens: estimateTokens(heuristicSummary),
-		changedFiles: prioritized.map((file) => file.filename),
-	};
+	throw new Error(
+		"Diff exceeds token budget after truncation and no fastModelSummarizer was provided.",
+	);
 };

@@ -109,34 +109,19 @@ describe("summarizeDiff", () => {
 		expect(result.content).toContain("Structured diff summary:");
 	});
 
-	it("falls back to a structured heuristic summary when no fast model is configured", async () => {
+	it("throws when truncated diff still exceeds budget and no fast model is configured", async () => {
 		const largeAdditions = Array.from(
 			{ length: 500 },
-			(_, index) => `export const generatedValue${index} = ${index};`,
+			(_, index) => `export const value${index} = ${index};`,
 		);
 		const veryLargePatch = toPatch({
-			additions: [
-				...largeAdditions,
-				"export interface CreateUserRequest {",
-				"  email: string;",
-				"}",
-				"export function createUser() {",
-				"  return null;",
-				"}",
-				"router.post('/users', createUser);",
-			],
-			removals: ["router.get('/users', listUsers);"],
+			additions: largeAdditions,
 		});
 		const diff: readonly DiffFile[] = [
 			makeDiffFile({ filename: "src/users.ts", patch: veryLargePatch }),
 		];
 
-		const result = await summarizeDiff(diff, 80);
-
-		expect(result.strategy).toBe("heuristic-structured");
-		expect(result.content).toContain("Changed files:");
-		expect(result.content).toContain("Added endpoints");
-		expect(result.content).toContain("Semantic meaning:");
+		await expect(summarizeDiff(diff, 80)).rejects.toThrow("no fastModelSummarizer was provided");
 	});
 
 	it("throws when maxTokens is not a positive integer", async () => {
@@ -148,5 +133,51 @@ describe("summarizeDiff", () => {
 		];
 
 		await expect(summarizeDiff(diff, 0)).rejects.toThrow("maxTokens must be a positive integer");
+	});
+
+	it("trims fast-model summary to strict token budget for very small limits", async () => {
+		const veryLargePatch = toPatch({
+			additions: Array.from({ length: 500 }, (_, index) => `export const v${index} = ${index};`),
+		});
+		const diff: readonly DiffFile[] = [
+			makeDiffFile({ filename: "src/large.ts", patch: veryLargePatch }),
+		];
+		const maxTokens = 1;
+
+		const result = await summarizeDiff(diff, maxTokens, {
+			fastModelSummarizer: {
+				summarize: vi.fn(async () => "This output is much larger than the budget."),
+			},
+		});
+
+		expect(result.strategy).toBe("fast-model");
+		expect(result.content.length).toBeLessThanOrEqual(maxTokens * 4);
+		expect(result.estimatedTokens).toBeLessThanOrEqual(maxTokens);
+	});
+
+	it("passes rename metadata to fast-model summarizer input", async () => {
+		const veryLargePatch = toPatch({
+			additions: Array.from({ length: 500 }, (_, index) => `export const r${index} = ${index};`),
+		});
+		const diff: readonly DiffFile[] = [
+			{
+				filename: "src/new-path.ts",
+				status: "renamed",
+				additions: 500,
+				deletions: 5,
+				patch: veryLargePatch,
+				previousFilename: "src/old-path.ts",
+			},
+		];
+		const fastModelSummarizer = {
+			summarize: vi.fn(async () => "Structured diff summary"),
+		};
+
+		await summarizeDiff(diff, 40, { fastModelSummarizer });
+
+		expect(fastModelSummarizer.summarize).toHaveBeenCalledTimes(1);
+		expect(fastModelSummarizer.summarize.mock.calls[0]?.[0].prioritizedDiffText).toContain(
+			"Previous filename: src/old-path.ts",
+		);
 	});
 });
