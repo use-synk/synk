@@ -18,7 +18,7 @@ export type AnalyzeChangesJobPayload = {
 	installationId: string;
 	repositoryId: string;
 	trigger: {
-		type: "push" | "merge";
+		type: "push" | "merge" | "manual";
 		ref: string;
 		commitSha: string;
 		prNumber?: number;

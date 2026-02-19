@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "../app.js";
 import { createLogger } from "../logger.js";
 import type { AnalyzeChangesEnqueuer } from "../queues/analyze-changes.js";
+import type { DashboardDatabase } from "../routes/dashboard.js";
 import type {
 	GitHubInstallationRepository,
 	ListInstallationRepositories,
@@ -26,12 +27,13 @@ const readFixture = (name: string): Record<string, unknown> => {
 const createSignature = (body: string): string =>
 	`sha256=${createHmac("sha256", WEBHOOK_SECRET).update(body).digest("hex")}`;
 
-const createMockDatabase = (): WebhookDatabase => {
+const createMockDatabase = (): WebhookDatabase & DashboardDatabase => {
 	return {
 		providerInstallation: {
 			findUnique: vi.fn(async () => null),
 			upsert: vi.fn(async () => ({ id: "installation-1" })),
 			updateMany: vi.fn(async () => ({ count: 1 })),
+			findFirst: vi.fn(async () => ({ id: "installation-1" })),
 		},
 		providerRepository: {
 			upsert: vi.fn(async () => ({})),
@@ -39,14 +41,37 @@ const createMockDatabase = (): WebhookDatabase => {
 				id: "repo-1",
 				installationId: "installation-1",
 				defaultBranch: "main",
+				status: "active" as const,
+				isActive: true,
+				docsConfig: {},
+				updatedAt: new Date("2026-02-19T20:00:00.000Z"),
 			})),
 			updateMany: vi.fn(async () => ({ count: 1 })),
+			count: vi.fn(async () => 0),
+			findMany: vi.fn(async () => []),
+			update: vi.fn(async () => ({
+				id: "repo-1",
+				installationId: "installation-1",
+				defaultBranch: "main",
+				status: "active" as const,
+				isActive: true,
+				docsConfig: {},
+				updatedAt: new Date("2026-02-19T20:00:00.000Z"),
+			})),
+		},
+		session: {
+			findFirst: vi.fn(async () => null),
+		},
+		analysisRun: {
+			count: vi.fn(async () => 0),
+			findMany: vi.fn(async () => []),
+			findFirst: vi.fn(async () => null),
 		},
 	};
 };
 
 const makeApp = (
-	db: WebhookDatabase,
+	db: WebhookDatabase & DashboardDatabase,
 	enqueueAnalyzeChanges: AnalyzeChangesEnqueuer,
 	listInstallationRepositories: ListInstallationRepositories,
 ) => {
@@ -98,7 +123,7 @@ const dispatchWebhook = async (
 };
 
 describe("POST /api/webhooks/github", () => {
-	let db: WebhookDatabase;
+	let db: WebhookDatabase & DashboardDatabase;
 	let enqueueAnalyzeChanges: AnalyzeChangesEnqueuer;
 	let enqueueMock: ReturnType<typeof vi.fn>;
 	let listInstallationRepositoriesMock: ReturnType<typeof vi.fn>;
