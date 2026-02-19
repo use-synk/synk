@@ -28,6 +28,24 @@ describe("getAdapter", () => {
 });
 
 describe("detectAdapter", () => {
+	it("prefers higher-priority adapters when multiple frameworks match", async () => {
+		const tree = [
+			{ path: "next.config.mjs" },
+			{ path: "pages/docs/_meta.json" },
+			{ path: "content/docs/meta.json" },
+			{ path: "source.config.ts" },
+		];
+		const packageJson = JSON.stringify({
+			dependencies: {
+				nextra: "^2.0.0",
+				"fumadocs-core": "^1.0.0",
+			},
+		});
+
+		const adapter = await detectAdapter(tree, { packageJson });
+		expect(adapter.frameworkId).toBe("nextra");
+	});
+
 	it("returns markdown adapter for repo with docs/ directory", async () => {
 		const tree = [{ path: "docs/readme.md" }];
 		const adapter = await detectAdapter(tree);

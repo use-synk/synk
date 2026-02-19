@@ -330,6 +330,20 @@ docs:
 		const yaml = "docs:\n\tframework: fumadocs\n";
 		expect(parseSynkAiYaml(yaml)?.docs.framework).toBe("fumadocs");
 	});
+
+	it("returns null for invalid yaml", () => {
+		const yaml = "docs:\n  framework: [";
+		expect(parseSynkAiYaml(yaml)).toBeNull();
+	});
+
+	it("returns null when schema validation fails", () => {
+		const yaml = `
+docs:
+  framework: nextra
+unexpected: true
+`;
+		expect(parseSynkAiYaml(yaml)).toBeNull();
+	});
 });
 
 // ---------------------------------------------------------------------------
@@ -603,6 +617,68 @@ describe("processAnalyzeChangesJob", () => {
 						triggers: expect.objectContaining({ ignore_paths: expect.any(Array) }),
 					}),
 				}),
+			}),
+		);
+	});
+
+	it("detects framework from docs repo when docs.repo points to a separate repository", async () => {
+		mockFilterDiff
+			.mockReturnValueOnce([{ filename: "src/index.ts" }])
+			.mockReturnValueOnce([{ filename: "src/index.ts" }])
+			.mockReturnValue([]);
+		mockFetchFileContent
+			.mockResolvedValueOnce({
+				content:
+					"docs:\n  framework: auto\n  repo: acme/docs-site\n  branch: docs-main\n  path: docs\n",
+				path: ".synk-ai.yml",
+				sha: "cfg",
+				size: 80,
+			})
+			.mockRejectedValue(notFoundError());
+		mockFetchRepoTree.mockResolvedValue([{ path: "docs/index.md", sha: "s1", size: 100 }]);
+		mockFetchMultipleFiles.mockResolvedValue([
+			{ path: "docs/index.md", content: "# Old", sha: "s1", size: 5 },
+		]);
+
+		const adapter = makeAdapter();
+		adapter.getDocPaths.mockReturnValue(["**/*.md"]);
+		mockDetectAdapter.mockResolvedValue(adapter);
+		mockGetAdapter.mockReturnValue(adapter);
+
+		const mockServices = {
+			runTriage: vi.fn().mockResolvedValue({
+				needsUpdate: true,
+				affectedDocFiles: ["docs/index.md"],
+				reasoning: "change",
+				tokenUsage: { prompt: 10, completion: 5, total: 15 },
+			}),
+			runGeneration: vi.fn().mockResolvedValue({
+				path: "docs/index.md",
+				content: "# Updated",
+				reasoning: "updated",
+				tokenUsage: { prompt: 5, completion: 3, total: 8 },
+			}),
+			createPullRequest: vi.fn().mockResolvedValue({
+				prNumber: 100,
+				prUrl: "https://github.com/acme/docs-site/pull/100",
+			}),
+		};
+
+		await processAnalyzeChangesJob(makeJob(), makeLogger(), mockServices);
+
+		expect(mockFetchRepoTree).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining({
+				owner: "acme",
+				repo: "docs-site",
+				ref: "docs-main",
+			}),
+		);
+		expect(mockServices.createPullRequest).toHaveBeenCalledWith(
+			expect.objectContaining({
+				owner: "acme",
+				repo: "docs-site",
+				baseBranch: "docs-main",
 			}),
 		);
 	});
