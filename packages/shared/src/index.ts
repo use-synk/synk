@@ -5,6 +5,12 @@ export {
 	sharedEnvironmentSchema,
 } from "./env.js";
 export {
+	parseSynkAiConfigFromYaml,
+	synkAiConfigSchema,
+	type ParsedSynkAiConfig,
+	type SynkAiConfig,
+} from "./synk-config.js";
+export {
 	runStatusSchema,
 	runStatusValues,
 	triggerTypeSchema,
