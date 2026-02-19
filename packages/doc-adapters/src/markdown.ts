@@ -65,21 +65,33 @@ const slugifyHeading = (title: string): string =>
 		.replace(/[^\w\s-]/g, "")
 		.replace(/\s+/g, "-");
 
+const updateCodeFenceState = (activeFence: string | undefined, line: string): string | undefined => {
+	const fenceMatch = line.trim().match(/^(```+|~~~+)/);
+	const fence = fenceMatch?.[1];
+	if (fence === undefined) {
+		return activeFence;
+	}
+
+	if (activeFence === undefined) {
+		return fence;
+	}
+
+	if (activeFence[0] === fence[0] && fence.length >= activeFence.length) {
+		return undefined;
+	}
+
+	return activeFence;
+};
+
 const extractHeadings = (content: string): MarkdownHeading[] => {
 	const headings: MarkdownHeading[] = [];
 	const lines = content.split("\n");
 	let activeFence: string | undefined;
 
 	for (const line of lines) {
-		const trimmed = line.trim();
-		const fenceStartMatch = trimmed.match(/^(```+|~~~+)/);
-		if (fenceStartMatch?.[1] !== undefined) {
-			const marker = fenceStartMatch[1][0];
-			if (activeFence === undefined) {
-				activeFence = marker;
-			} else if (activeFence === marker) {
-				activeFence = undefined;
-			}
+		const nextFenceState = updateCodeFenceState(activeFence, line);
+		if (nextFenceState !== activeFence) {
+			activeFence = nextFenceState;
 			continue;
 		}
 
@@ -145,20 +157,7 @@ const hasUnclosedCodeFence = (content: string): boolean => {
 	let activeFence: string | undefined;
 	const lines = content.split("\n");
 	for (const line of lines) {
-		const trimmed = line.trim();
-		const fenceStartMatch = trimmed.match(/^(```+|~~~+)/);
-		if (fenceStartMatch?.[1] === undefined) {
-			continue;
-		}
-
-		const marker = fenceStartMatch[1][0];
-		if (activeFence === undefined) {
-			activeFence = marker;
-			continue;
-		}
-		if (activeFence === marker) {
-			activeFence = undefined;
-		}
+		activeFence = updateCodeFenceState(activeFence, line);
 	}
 	return activeFence !== undefined;
 };

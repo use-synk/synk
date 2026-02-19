@@ -102,6 +102,19 @@ describe("markdownAdapter.parseStructure", () => {
 		expect(guidePage?.children?.[0]?.title).toBe("Zebra");
 		expect(guidePage?.children?.[1]?.title).toBe("Alpha");
 	});
+
+	it("does not close code fences with shorter markers when parsing headings", () => {
+		const files = [
+			{
+				path: "docs/guide.md",
+				content: "# Guide\n\n````ts\n# Inside code\n```\n## Also inside code\n````\n## Real section",
+			},
+		];
+		const tree = markdownAdapter.parseStructure(files);
+		const guidePage = tree.roots[0]?.children?.[0];
+		expect(guidePage?.children).toHaveLength(1);
+		expect(guidePage?.children?.[0]?.title).toBe("Real section");
+	});
 });
 
 describe("markdownAdapter.getConventions", () => {
@@ -175,6 +188,13 @@ describe("markdownAdapter.validateOutput", () => {
 
 	it("rejects markdown with unclosed code fences", () => {
 		const content = "# Title\n\n```ts\nconst a = 1;\n";
+		const result = markdownAdapter.validateOutput(content, "docs/a.md");
+		expect(result.valid).toBe(false);
+		expect(result.errors).toContain("Markdown contains an unclosed code fence.");
+	});
+
+	it("rejects when a shorter closing fence is used", () => {
+		const content = "# Title\n\n````ts\nconst a = 1;\n```";
 		const result = markdownAdapter.validateOutput(content, "docs/a.md");
 		expect(result.valid).toBe(false);
 		expect(result.errors).toContain("Markdown contains an unclosed code fence.");
