@@ -88,6 +88,12 @@ type PipelineContext = {
 	ref: string;
 };
 
+type RepoLocation = {
+	owner: string;
+	repo: string;
+	ref: string;
+};
+
 type AnalyzeChangesServices = {
 	runTriage: (input: {
 		filteredDiff: readonly DiffFile[];
@@ -170,10 +176,10 @@ export const parseInstallationId = (providerInstallationId: string): number => {
 };
 
 const isHttpNotFoundError = (error: unknown): boolean => {
-	if (typeof error !== "object" || error === null) {
+	if (typeof error !== "object" || error === null || !("status" in error)) {
 		return false;
 	}
-	return (error as Record<string, unknown>).status === 404;
+	return error.status === 404;
 };
 
 const parseStringValue = (value: unknown): string | undefined =>
@@ -364,9 +370,23 @@ type AdapterResolution = {
 	detectionTree: readonly RepoTreeFile[] | undefined;
 };
 
+const resolveDetectionLocation = (
+	context: PipelineContext,
+	docsLocation: RepoLocation,
+): RepoLocation => {
+	if (docsLocation.owner === context.owner && docsLocation.repo === context.repo) {
+		return {
+			owner: context.owner,
+			repo: context.repo,
+			ref: context.commitSha,
+		};
+	}
+	return docsLocation;
+};
+
 const resolveAdapter = async (
 	octokit: ReturnType<typeof createInstallationOctokit>,
-	context: PipelineContext,
+	detectionLocation: RepoLocation,
 	docsConfig: DocsConfig,
 ): Promise<AdapterResolution> => {
 	if (docsConfig.framework !== undefined && docsConfig.framework !== "auto") {
@@ -374,11 +394,11 @@ const resolveAdapter = async (
 	}
 
 	const detectionTree = await fetchRepoTree(octokit, {
-		owner: context.owner,
-		repo: context.repo,
-		ref: context.commitSha,
+		owner: detectionLocation.owner,
+		repo: detectionLocation.repo,
+		ref: detectionLocation.ref,
 	});
-	const packageJsonContent = await readPackageJsonContent(octokit, context);
+	const packageJsonContent = await readPackageJsonContent(octokit, detectionLocation);
 	const repoFiles: RepoFile[] = detectionTree.map((file) => ({
 		path: file.path,
 		sha: file.sha,
@@ -393,14 +413,14 @@ const resolveAdapter = async (
 
 const readPackageJsonContent = async (
 	octokit: ReturnType<typeof createInstallationOctokit>,
-	context: PipelineContext,
+	location: RepoLocation,
 ): Promise<string | undefined> => {
 	try {
 		const packageJson = await fetchFileContent(octokit, {
-			owner: context.owner,
-			repo: context.repo,
+			owner: location.owner,
+			repo: location.repo,
 			path: "package.json",
-			ref: context.commitSha,
+			ref: location.ref,
 		});
 		return packageJson.content;
 	} catch (error) {
@@ -415,7 +435,7 @@ const resolveDocsLocation = (
 	repositoryFullName: string,
 	defaultBranch: string,
 	docsConfig: DocsConfig,
-): { owner: string; repo: string; ref: string } => {
+): RepoLocation => {
 	const configuredRepo = docsConfig.repo ?? repositoryFullName;
 	const { owner, repo } = parseOwnerAndRepo(configuredRepo);
 	return {
@@ -739,11 +759,17 @@ export const processAnalyzeChangesJob = async (
 			return;
 		}
 
+		const docsLocation = resolveDocsLocation(
+			repository.fullName,
+			repository.defaultBranch,
+			resolvedConfig.docs,
+		);
+		const detectionLocation = resolveDetectionLocation(context, docsLocation);
 		const { value: adapterResolution, durationMs: detectAdapterDurationMs } = await measureStep(
 			jobLogger,
 			runId,
 			"detect-doc-adapter",
-			async () => resolveAdapter(octokit, context, resolvedConfig.docs),
+			async () => resolveAdapter(octokit, detectionLocation, resolvedConfig.docs),
 		);
 		timings.detectDocAdapter = detectAdapterDurationMs;
 		const resolvedFramework =
@@ -758,12 +784,6 @@ export const processAnalyzeChangesJob = async (
 		});
 
 		await storeResolvedDocsConfig(repository.id, docsConfig, resolvedConfig.ignorePaths);
-
-		const docsLocation = resolveDocsLocation(
-			repository.fullName,
-			repository.defaultBranch,
-			docsConfig,
-		);
 
 		// Re-use the tree fetched during auto-detection when the docs repository
 		// is the same as the source repository to avoid a duplicate GitHub API call.
