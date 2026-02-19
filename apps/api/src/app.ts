@@ -7,6 +7,7 @@ import { createErrorHandler } from "./middleware/error-handler.js";
 import { createLoggingMiddleware } from "./middleware/logging.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
 import type { AnalyzeChangesEnqueuer } from "./queues/analyze-changes.js";
+import { type DashboardDatabase, createDashboardRoute } from "./routes/dashboard.js";
 import {
 	type ListInstallationRepositories,
 	type WebhookDatabase,
@@ -18,7 +19,7 @@ import type { AppEnv } from "./types.js";
 type AppOptions = {
 	env: ApiEnvironment;
 	logger: Logger;
-	db: WebhookDatabase;
+	db: WebhookDatabase & DashboardDatabase;
 	enqueueAnalyzeChanges: AnalyzeChangesEnqueuer;
 	listInstallationRepositories?: ListInstallationRepositories;
 };
@@ -60,6 +61,7 @@ export const createApp = (options: AppOptions): Hono<AppEnv> => {
 
 	app.route("/health", createHealthRoute(env.GIT_SHA));
 	app.route("/api/webhooks", createGitHubWebhookRoute(webhookOptions));
+	app.route("/api", createDashboardRoute(db, enqueueAnalyzeChanges));
 
 	app.notFound((c) => c.json({ error: { code: "NOT_FOUND", message: "Resource not found" } }, 404));
 	app.onError(createErrorHandler(logger));
