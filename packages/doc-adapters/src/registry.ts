@@ -30,8 +30,8 @@ const createPendingAdapter = (frameworkId: Exclude<FrameworkId, "markdown">): Do
 		};
 	},
 
-	validateOutput(content, filePath) {
-		return markdownAdapter.validateOutput(content, filePath);
+	validateOutput(content, filePath, context) {
+		return markdownAdapter.validateOutput(content, filePath, context);
 	},
 });
 

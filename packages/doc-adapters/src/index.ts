@@ -8,5 +8,6 @@ export type {
 	DocsConfig,
 	FrameworkConventions,
 	RepoFile,
+	ValidationContext,
 	ValidationResult,
 } from "./types.js";
