@@ -92,4 +92,6 @@ export interface DocsConfig {
 	repo?: string;
 	/** Target branch for doc PRs */
 	branch?: string;
+	/** Raw content of source.config.ts (Fumadocs only). Used to extract docs dir when path is unset. */
+	sourceConfigContent?: string;
 }

@@ -1,4 +1,5 @@
 import type { DocAdapter } from "./adapter.js";
+import { fumadocsAdapter } from "./fumadocs.js";
 import { markdownAdapter } from "./markdown.js";
 import { nextraAdapter } from "./nextra.js";
 import type { DetectionContext, RepoFile } from "./types.js";
@@ -39,7 +40,7 @@ const createPendingAdapter = (frameworkId: Exclude<FrameworkId, "markdown">): Do
 /** Adapters in detection priority order (highest first). Markdown is last as fallback. */
 const ADAPTERS_BY_PRIORITY: DocAdapter[] = [
 	nextraAdapter,
-	createPendingAdapter("fumadocs"),
+	fumadocsAdapter,
 	createPendingAdapter("docusaurus"),
 	markdownAdapter,
 ];
