@@ -9,6 +9,7 @@ import {
 } from "@synk-ai/doc-adapters";
 import {
 	type DiffFile,
+	createDocUpdatePR,
 	type RepoTreeFile,
 	createInstallationOctokit,
 	credentialsFromEnvironment,
@@ -47,6 +48,14 @@ type RepositoryWithInstallation = {
 type PullRequestResult = {
 	prNumber: number;
 	prUrl: string;
+	branchName: string;
+};
+
+type PullRequestConfig = {
+	labels: string[];
+	assignees: string[];
+	reviewers: string[];
+	draft: boolean;
 };
 
 type TokenUsage = {
@@ -113,8 +122,13 @@ type AnalyzeChangesServices = {
 		owner: string;
 		repo: string;
 		baseBranch: string;
-		files: readonly { path: string; content: string }[];
-		trigger: AnalyzeChangesJobPayload["trigger"];
+		files: readonly { path: string; content: string; reasoning?: string }[];
+		triggerInfo: AnalyzeChangesJobPayload["trigger"] & {
+			sourceOwner: string;
+			sourceRepo: string;
+			prTitle?: string;
+		};
+		config: PullRequestConfig;
 	}) => Promise<PullRequestResult>;
 };
 
@@ -248,6 +262,59 @@ export const parseFramework = (framework: string | undefined): DocsConfig["frame
 	}
 };
 
+const DEFAULT_PULL_REQUEST_CONFIG: PullRequestConfig = {
+	labels: ["synk-ai", "documentation"],
+	assignees: [],
+	reviewers: [],
+	draft: false,
+};
+
+const parseStringList = (value: unknown): string[] | undefined => {
+	if (!Array.isArray(value)) {
+		return undefined;
+	}
+	return value.filter((item): item is string => typeof item === "string");
+};
+
+const parsePrConfigFromObject = (value: unknown): Partial<PullRequestConfig> | null => {
+	if (typeof value !== "object" || value === null) {
+		return null;
+	}
+	const root = value as Record<string, unknown>;
+	if (typeof root.pr !== "object" || root.pr === null) {
+		return null;
+	}
+	const prNode = root.pr as Record<string, unknown>;
+	const labels = parseStringList(prNode.labels);
+	const assignees = parseStringList(prNode.assignees);
+	const reviewers = parseStringList(prNode.reviewers);
+	const draft = typeof prNode.draft === "boolean" ? prNode.draft : undefined;
+	const config: Partial<PullRequestConfig> = {};
+	if (labels !== undefined) {
+		config.labels = labels;
+	}
+	if (assignees !== undefined) {
+		config.assignees = assignees;
+	}
+	if (reviewers !== undefined) {
+		config.reviewers = reviewers;
+	}
+	if (draft !== undefined) {
+		config.draft = draft;
+	}
+	return config;
+};
+
+const mergePrConfig = (
+	fileConfig: Partial<PullRequestConfig> | null,
+	dbConfig: Partial<PullRequestConfig> | null,
+): PullRequestConfig => ({
+	labels: fileConfig?.labels ?? dbConfig?.labels ?? [...DEFAULT_PULL_REQUEST_CONFIG.labels],
+	assignees: fileConfig?.assignees ?? dbConfig?.assignees ?? [...DEFAULT_PULL_REQUEST_CONFIG.assignees],
+	reviewers: fileConfig?.reviewers ?? dbConfig?.reviewers ?? [...DEFAULT_PULL_REQUEST_CONFIG.reviewers],
+	draft: fileConfig?.draft ?? dbConfig?.draft ?? DEFAULT_PULL_REQUEST_CONFIG.draft,
+});
+
 /**
  * Parses .synk-ai.yml content using Zod schema. Returns ResolvedDocsConfig for
  * use in the pipeline. Re-exports shared parser for backward compatibility.
@@ -344,6 +411,38 @@ const resolveDocsConfig = async (
 		fromFile ?? { docs: {}, ignorePaths: [] },
 		fromDatabase ?? { docs: {}, ignorePaths: [] },
 	);
+};
+
+const resolvePrConfig = async (
+	octokit: ReturnType<typeof createInstallationOctokit>,
+	context: PipelineContext,
+	repository: RepositoryWithInstallation,
+): Promise<PullRequestConfig> => {
+	let fromFile: Partial<PullRequestConfig> | null = null;
+	try {
+		const configFile = await fetchFileContent(octokit, {
+			owner: context.owner,
+			repo: context.repo,
+			path: ".synk-ai.yml",
+			ref: context.commitSha,
+		});
+		const parsed = parseSynkAiConfigFromYaml(configFile.content);
+		if (parsed !== null) {
+			fromFile = {
+				labels: [...parsed.pr.labels],
+				assignees: [...parsed.pr.assignees],
+				reviewers: [...parsed.pr.reviewers],
+				draft: parsed.pr.draft,
+			};
+		}
+	} catch (error) {
+		if (!isHttpNotFoundError(error)) {
+			throw error;
+		}
+	}
+
+	const fromDatabase = parsePrConfigFromObject(repository.docsConfig);
+	return mergePrConfig(fromFile, fromDatabase);
 };
 
 export const mergeResolvedConfig = (
@@ -574,11 +673,15 @@ const defaultRunGeneration: AnalyzeChangesServices["runGeneration"] = async (inp
 	};
 };
 
-const defaultCreatePullRequest: AnalyzeChangesServices["createPullRequest"] = async () => {
-	throw new Error(
-		"PR creation service is not wired yet. Implement issue 5.2 and inject createPullRequest.",
-	);
-};
+const defaultCreatePullRequest: AnalyzeChangesServices["createPullRequest"] = async (input) =>
+	createDocUpdatePR(input.octokit, {
+		owner: input.owner,
+		repo: input.repo,
+		baseBranch: input.baseBranch,
+		files: input.files,
+		triggerInfo: input.triggerInfo,
+		config: input.config,
+	});
 
 const measureStep = async <TValue>(
 	logger: Logger,
@@ -747,6 +850,13 @@ export const processAnalyzeChangesJob = async (
 			async () => resolveDocsConfig(octokit, context, repository),
 		);
 		timings.resolveDocsConfig = resolveConfigDurationMs;
+		const { value: prConfig, durationMs: resolvePrConfigDurationMs } = await measureStep(
+			jobLogger,
+			runId,
+			"resolve-pr-config",
+			async () => resolvePrConfig(octokit, context, repository),
+		);
+		timings.resolvePrConfig = resolvePrConfigDurationMs;
 		const filteredDiffWithProjectIgnores = filterDiff(filteredDiff, resolvedConfig.ignorePaths);
 		if (filteredDiffWithProjectIgnores.length === 0) {
 			await updateRunStatus(runId, RUN_STATUS_SKIPPED, {
@@ -850,18 +960,21 @@ export const processAnalyzeChangesJob = async (
 		}
 		timings.runAiGeneration = Date.now() - generationStartedAt;
 
-		const meaningfulChanges = generationOutputs
-			.map((output) => {
-				const currentFile = docFileByPath.get(output.path);
-				if (currentFile === undefined) {
-					return null;
-				}
-				if (currentFile.content === output.content) {
-					return null;
-				}
-				return { path: output.path, content: output.content };
-			})
-			.filter((entry): entry is { path: string; content: string } => entry !== null);
+		const meaningfulChanges: { path: string; content: string; reasoning?: string }[] = [];
+		for (const output of generationOutputs) {
+			const currentFile = docFileByPath.get(output.path);
+			if (currentFile === undefined) {
+				continue;
+			}
+			if (currentFile.content === output.content) {
+				continue;
+			}
+			meaningfulChanges.push({
+				path: output.path,
+				content: output.content,
+				reasoning: output.reasoning,
+			});
+		}
 		if (meaningfulChanges.length === 0) {
 			await updateRunStatus(runId, RUN_STATUS_COMPLETED, {
 				docsAffected: false,
@@ -889,7 +1002,12 @@ export const processAnalyzeChangesJob = async (
 					repo: docsLocation.repo,
 					baseBranch: docsLocation.ref,
 					files: meaningfulChanges,
-					trigger: job.data.trigger,
+					triggerInfo: {
+						...job.data.trigger,
+						sourceOwner: context.owner,
+						sourceRepo: context.repo,
+					},
+					config: prConfig,
 				}),
 		);
 		timings.createPr = createPrDurationMs;
