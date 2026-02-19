@@ -8,8 +8,13 @@ import { roles } from "./ac/org.js";
 
 export function createAuth({
 	secret,
+	github,
 }: {
 	secret: string;
+	github: {
+		clientId: string;
+		clientSecret: string;
+	};
 }) {
 	const baseAuthOptions = {
 		database: prismaAdapter(db, {
@@ -21,6 +26,15 @@ export function createAuth({
 				roles,
 			}),
 		],
+		emailAndPassword: {
+			enabled: false,
+		},
+		socialProviders: {
+			github: {
+				clientId: github.clientId,
+				clientSecret: github.clientSecret,
+			},
+		},
 	} satisfies BetterAuthOptions;
 
 	return betterAuth({

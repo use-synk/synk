@@ -5,6 +5,7 @@ import { type DayButton, DayPicker, type Locale, getDefaultClassNames } from "re
 
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { enUS } from "date-fns/locale";
 import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 
 function Calendar({
@@ -127,7 +128,7 @@ function Calendar({
 
 					return <ChevronDownIcon className={cn("size-4", className)} {...props} />;
 				},
-				DayButton: ({ ...props }) => <CalendarDayButton locale={locale} {...props} />,
+				DayButton: ({ ...props }) => <CalendarDayButton locale={locale || enUS} {...props} />,
 				WeekNumber: ({ children, ...props }) => {
 					return (
 						<td {...props}>
