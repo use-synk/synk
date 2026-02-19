@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { FRAMEWORK_IDS, detectAdapter, getAdapter } from "../registry.js";
+import { FRAMEWORK_IDS, detectAdapter, detectFramework, getAdapter } from "../registry.js";
 
 describe("getAdapter", () => {
 	it("returns markdown adapter for 'markdown'", () => {
@@ -49,5 +49,38 @@ describe("detectAdapter", () => {
 	it("returns markdown adapter for empty tree (fallback)", async () => {
 		const adapter = await detectAdapter([]);
 		expect(adapter.frameworkId).toBe("markdown");
+	});
+});
+
+describe("detectFramework", () => {
+	it("runs all adapters and returns the best match", async () => {
+		const tree = [{ path: "docs/readme.md" }];
+		const adapter = await detectFramework(tree);
+		expect(adapter.frameworkId).toBe("markdown");
+	});
+
+	it("accepts packageJson for dependency-based detection", async () => {
+		const tree = [{ path: "package.json" }, { path: "next.config.mjs" }];
+		const packageJson = JSON.stringify({
+			dependencies: { nextra: "^2.0.0" },
+		});
+		const adapter = await detectFramework(tree, packageJson);
+		expect(adapter.frameworkId).toBe("nextra");
+	});
+
+	it("falls back to markdown when packageJson has no matching deps", async () => {
+		const tree = [{ path: "docs/intro.md" }];
+		const packageJson = JSON.stringify({ dependencies: {} });
+		const adapter = await detectFramework(tree, packageJson);
+		expect(adapter.frameworkId).toBe("markdown");
+	});
+
+	it("works without packageJson (structure-only detection)", async () => {
+		const tree = [{ path: "content/docs/getting-started.mdx" }];
+		const packageJson = JSON.stringify({
+			dependencies: { "fumadocs-core": "^2.0.0" },
+		});
+		const adapter = await detectFramework(tree, packageJson);
+		expect(adapter.frameworkId).toBe("fumadocs");
 	});
 });
