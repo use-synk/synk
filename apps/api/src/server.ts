@@ -15,7 +15,7 @@ const startServer = (): void => {
 	const env = parseApiEnvironment();
 	const logger = createLogger(env.LOG_LEVEL, env.NODE_ENV === "development");
 	const analyzeChangesQueue = createAnalyzeChangesQueue(env.REDIS_URL);
-	const enqueueAnalyzeChanges = createAnalyzeChangesEnqueuer(analyzeChangesQueue);
+	const enqueueAnalyzeChanges = createAnalyzeChangesEnqueuer(analyzeChangesQueue, db);
 	const app = createApp({ env, logger, db, enqueueAnalyzeChanges });
 
 	const server: ServerType = serve(

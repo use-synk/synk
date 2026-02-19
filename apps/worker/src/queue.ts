@@ -128,6 +128,12 @@ export const createAnalyzeChangesQueueEvents = (connection: ConnectionOptions): 
 	return new QueueEvents(ANALYZE_CHANGES_QUEUE_NAME, { connection });
 };
 
+export const createAnalyzeChangesQueue = (
+	connection: ConnectionOptions,
+): Queue<AnalyzeChangesJobPayload> => {
+	return new Queue<AnalyzeChangesJobPayload>(ANALYZE_CHANGES_QUEUE_NAME, { connection });
+};
+
 /**
  * Dead-letter queue for analyze-changes jobs that have exhausted all retries
  * or failed with an unrecoverable error. Jobs are retained for post-mortem
