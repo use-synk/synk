@@ -12,7 +12,7 @@ export interface DocUpdatePrConfig {
 }
 
 export interface DocUpdateTriggerInfo {
-	type: "push" | "merge";
+	type: "push" | "merge" | "manual";
 	ref: string;
 	commitSha: string;
 	prNumber?: number;
@@ -58,7 +58,12 @@ interface GitHubPrServiceOctokit {
 				tree: string;
 				parents: string[];
 			}): Promise<{ data: { sha: string } }>;
-			createRef(params: { owner: string; repo: string; ref: string; sha: string }): Promise<unknown>;
+			createRef(params: {
+				owner: string;
+				repo: string;
+				ref: string;
+				sha: string;
+			}): Promise<unknown>;
 		};
 		pulls: {
 			create(params: {
@@ -244,7 +249,9 @@ const createBranchReference = async (
 };
 
 const sanitizeUnique = (values: readonly string[] | undefined): string[] =>
-	(values ?? []).map((value) => value.trim()).filter((value, index, all) => value.length > 0 && all.indexOf(value) === index);
+	(values ?? [])
+		.map((value) => value.trim())
+		.filter((value, index, all) => value.length > 0 && all.indexOf(value) === index);
 
 const buildCommitMessage = (files: readonly DocUpdateFile[]): string =>
 	`docs: update ${summarizeFiles(files)}`;
