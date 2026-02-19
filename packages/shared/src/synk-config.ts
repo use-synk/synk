@@ -89,7 +89,7 @@ export type ParsedSynkAiConfig = {
 
 /**
  * Parses .synk-ai.yml content using Zod schema with sensible defaults.
- * Returns null for empty content or parse failure.
+ * Returns sensible defaults for empty content and null for parse or schema failures.
  */
 export function parseSynkAiConfigFromYaml(content: string): ParsedSynkAiConfig | null {
 	const trimmed = content.trim();
