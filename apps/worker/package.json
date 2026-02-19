@@ -11,6 +11,9 @@
 		"test": "echo 'worker test placeholder'"
 	},
 	"dependencies": {
+		"@synk-ai/db": "workspace:*",
+		"@synk-ai/doc-adapters": "workspace:*",
+		"@synk-ai/github": "workspace:*",
 		"@synk-ai/shared": "workspace:*",
 		"bullmq": "^5.58.5",
 		"pino": "^9.7.0",

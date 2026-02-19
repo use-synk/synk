@@ -181,6 +181,15 @@ importers:
 
   apps/worker:
     dependencies:
+      '@synk-ai/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@synk-ai/doc-adapters':
+        specifier: workspace:*
+        version: link:../../packages/doc-adapters
+      '@synk-ai/github':
+        specifier: workspace:*
+        version: link:../../packages/github
       '@synk-ai/shared':
         specifier: workspace:*
         version: link:../../packages/shared
