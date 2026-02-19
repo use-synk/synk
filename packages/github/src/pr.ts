@@ -12,7 +12,7 @@ export interface DocUpdatePrConfig {
 }
 
 export interface DocUpdateTriggerInfo {
-	type: "push" | "merge";
+	type: "push" | "merge" | "manual";
 	ref: string;
 	commitSha: string;
 	prNumber?: number;
@@ -143,6 +143,9 @@ const buildTriggeredBySection = (
 	if (triggerInfo.type === "merge" && triggerInfo.prNumber !== undefined) {
 		const pullUrl = `https://github.com/${sourceOwner}/${sourceRepo}/pull/${triggerInfo.prNumber}`;
 		return `[PR #${triggerInfo.prNumber}](${pullUrl}) (commit: [${triggerInfo.commitSha.slice(0, 12)}](${commitUrl}))`;
+	}
+	if (triggerInfo.type === "manual") {
+		return `Manual run on \`${triggerInfo.ref}\` for [commit ${triggerInfo.commitSha.slice(0, 12)}](${commitUrl})`;
 	}
 	return `[commit ${triggerInfo.commitSha.slice(0, 12)}](${commitUrl})`;
 };
