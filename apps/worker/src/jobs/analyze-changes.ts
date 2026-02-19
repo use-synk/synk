@@ -634,7 +634,7 @@ const createInitialRun = async (
 	return run.id;
 };
 
-const services: AnalyzeChangesServices = {
+const defaultServices: AnalyzeChangesServices = {
 	runTriage: defaultRunTriage,
 	runGeneration: defaultRunGeneration,
 	createPullRequest: defaultCreatePullRequest,
@@ -643,6 +643,7 @@ const services: AnalyzeChangesServices = {
 export const processAnalyzeChangesJob = async (
 	job: Job<AnalyzeChangesJobPayload>,
 	logger: Logger,
+	services: AnalyzeChangesServices = defaultServices,
 ): Promise<void> => {
 	const jobLogger = logger.child({
 		jobId: job.id ?? "unknown",
@@ -652,6 +653,10 @@ export const processAnalyzeChangesJob = async (
 	jobLogger.info({ payload: job.data }, "processing analyze changes job");
 
 	const repository = await loadRepository(job.data);
+	// Credential parsing must succeed before we create the run record. A failure
+	// here is a deployment configuration error — retrying the job won't fix it,
+	// and we should not produce a "failed" run entry for it.
+	const credentials = credentialsFromEnvironment(parseGitHubCredentialsEnvironment());
 	const runId = await createInitialRun(job, repository);
 	const timings: Record<string, number> = {};
 	let triageUsage = normalizeTokenUsage(undefined);
@@ -659,7 +664,6 @@ export const processAnalyzeChangesJob = async (
 
 	try {
 		const context = buildPipelineContext(repository, job.data.trigger);
-		const credentials = credentialsFromEnvironment(parseGitHubCredentialsEnvironment());
 		const installationId = parseInstallationId(repository.installation.providerInstallationId);
 		const { value: octokit, durationMs: stepOneDuration } = await measureStep(
 			jobLogger,
