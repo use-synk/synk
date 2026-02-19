@@ -1,9 +1,16 @@
-import type { AnalyzeChangesJobPayload } from "@synk-ai/shared";
-import { UnrecoverableError, type Job } from "bullmq";
+import { db } from "@synk-ai/db";
+import {
+	ANALYZE_CHANGES_COALESCE_WINDOW_MS,
+	buildAnalyzeChangesActiveJobId,
+	buildAnalyzeChangesPendingPayloadKey,
+	type AnalyzeChangesJobPayload,
+} from "@synk-ai/shared";
+import { UnrecoverableError, type Job, type JobsOptions } from "bullmq";
 import { parseWorkerEnvironment } from "./env.js";
 import { processAnalyzeChangesJob } from "./jobs/analyze-changes.js";
 import { createLogger } from "./logger.js";
 import {
+	createAnalyzeChangesQueue,
 	createAnalyzeChangesQueueEvents,
 	createAnalyzeChangesDlqQueue,
 	createAnalyzeChangesWorker,
@@ -12,6 +19,170 @@ import {
 } from "./queue.js";
 
 const SHUTDOWN_TIMEOUT_MS = 30_000;
+const PENDING_PAYLOAD_TTL_MS = ANALYZE_CHANGES_COALESCE_WINDOW_MS * 20;
+
+type PendingAnalyzeChangesPayload = {
+	payload: AnalyzeChangesJobPayload;
+	updatedAtMs: number;
+};
+
+const isPendingPayloadRecord = (value: unknown): value is PendingAnalyzeChangesPayload => {
+	if (typeof value !== "object" || value === null) {
+		return false;
+	}
+
+	const candidate = value as Record<string, unknown>;
+	if (typeof candidate.updatedAtMs !== "number") {
+		return false;
+	}
+
+	const payload = candidate.payload;
+	if (typeof payload !== "object" || payload === null) {
+		return false;
+	}
+
+	const payloadRecord = payload as Record<string, unknown>;
+	const trigger = payloadRecord.trigger as Record<string, unknown> | undefined;
+
+	return (
+		typeof payloadRecord.installationId === "string" &&
+		typeof payloadRecord.repositoryId === "string" &&
+		typeof trigger?.type === "string" &&
+		typeof trigger.ref === "string" &&
+		typeof trigger.commitSha === "string"
+	);
+};
+
+const parsePendingPayloadRecord = (rawValue: string | null): PendingAnalyzeChangesPayload | null => {
+	if (rawValue === null) {
+		return null;
+	}
+
+	try {
+		const parsed = JSON.parse(rawValue);
+		return isPendingPayloadRecord(parsed) ? parsed : null;
+	} catch {
+		return null;
+	}
+};
+
+const getPendingPayload = async (
+	queue: ReturnType<typeof createAnalyzeChangesQueue>,
+	job: Job<AnalyzeChangesJobPayload>,
+): Promise<PendingAnalyzeChangesPayload | null> => {
+	const redisClient = await queue.client;
+	const key = buildAnalyzeChangesPendingPayloadKey(job.data.repositoryId);
+	return parsePendingPayloadRecord(await redisClient.get(key));
+};
+
+const clearPendingPayload = async (
+	queue: ReturnType<typeof createAnalyzeChangesQueue>,
+	job: Job<AnalyzeChangesJobPayload>,
+): Promise<void> => {
+	const redisClient = await queue.client;
+	const key = buildAnalyzeChangesPendingPayloadKey(job.data.repositoryId);
+	await redisClient.del(key);
+};
+
+const updatePayloadFromPending = async (
+	queue: ReturnType<typeof createAnalyzeChangesQueue>,
+	job: Job<AnalyzeChangesJobPayload>,
+): Promise<void> => {
+	const pending = await getPendingPayload(queue, job);
+	if (pending === null) {
+		return;
+	}
+	if (pending.payload.repositoryId !== job.data.repositoryId) {
+		return;
+	}
+	if (pending.payload.trigger.commitSha === job.data.trigger.commitSha) {
+		await clearPendingPayload(queue, job);
+		return;
+	}
+	await job.updateData(pending.payload);
+	await clearPendingPayload(queue, job);
+};
+
+const hasExistingRunForCommit = async (payload: AnalyzeChangesJobPayload): Promise<boolean> => {
+	const run = await db.analysisRun.findFirst({
+		where: {
+			repositoryId: payload.repositoryId,
+			triggerCommitSha: payload.trigger.commitSha,
+		},
+		select: {
+			id: true,
+		},
+	});
+	return run !== null;
+};
+
+const isAlreadyExistingJobError = (error: unknown): boolean => {
+	if (!(error instanceof Error)) {
+		return false;
+	}
+	return error.message.toLowerCase().includes("already exists");
+};
+
+const enqueuePendingPayloadForRepository = async (
+	queue: ReturnType<typeof createAnalyzeChangesQueue>,
+	job: Job<AnalyzeChangesJobPayload>,
+): Promise<void> => {
+	const pending = await getPendingPayload(queue, job);
+	if (pending === null) {
+		return;
+	}
+
+	if (await hasExistingRunForCommit(pending.payload)) {
+		await clearPendingPayload(queue, job);
+		return;
+	}
+
+	const elapsedMs = Date.now() - pending.updatedAtMs;
+	const delayMs =
+		elapsedMs >= ANALYZE_CHANGES_COALESCE_WINDOW_MS
+			? 0
+			: ANALYZE_CHANGES_COALESCE_WINDOW_MS - elapsedMs;
+
+	const activeJobId = buildAnalyzeChangesActiveJobId(job.data.repositoryId);
+	const jobOptions: JobsOptions = {
+		jobId: activeJobId,
+		delay: delayMs,
+	};
+	if (job.opts.attempts !== undefined) {
+		jobOptions.attempts = job.opts.attempts;
+	}
+	if (job.opts.backoff !== undefined) {
+		jobOptions.backoff = job.opts.backoff as Exclude<
+			Job<AnalyzeChangesJobPayload>["opts"]["backoff"],
+			undefined
+		>;
+	}
+	if (job.opts.removeOnComplete !== undefined) {
+		jobOptions.removeOnComplete = job.opts.removeOnComplete as Exclude<
+			Job<AnalyzeChangesJobPayload>["opts"]["removeOnComplete"],
+			undefined
+		>;
+	}
+	if (job.opts.removeOnFail !== undefined) {
+		jobOptions.removeOnFail = job.opts.removeOnFail as Exclude<
+			Job<AnalyzeChangesJobPayload>["opts"]["removeOnFail"],
+			undefined
+		>;
+	}
+
+	try {
+		await queue.add(job.name, pending.payload, jobOptions);
+		await clearPendingPayload(queue, job);
+	} catch (error) {
+		if (!isAlreadyExistingJobError(error)) {
+			throw error;
+		}
+
+		const redisClient = await queue.client;
+		const key = buildAnalyzeChangesPendingPayloadKey(job.data.repositoryId);
+		await redisClient.pexpire(key, PENDING_PAYLOAD_TTL_MS);
+	}
+};
 
 const isJobPermanentlyFailed = (
 	job: Job<AnalyzeChangesJobPayload>,
@@ -40,11 +211,15 @@ const startWorker = async (): Promise<void> => {
 	const env = parseWorkerEnvironment();
 	const logger = createLogger(env.LOG_LEVEL, env.NODE_ENV === "development");
 	const connection = createRedisConnectionOptions({ redisUrl: env.REDIS_URL, logger });
+	const analyzeChangesQueue = createAnalyzeChangesQueue(connection);
 
 	const worker = createAnalyzeChangesWorker({
 		connection,
 		concurrency: env.WORKER_CONCURRENCY,
-		processor: async (job: Job<AnalyzeChangesJobPayload>) => processAnalyzeChangesJob(job, logger),
+		processor: async (job: Job<AnalyzeChangesJobPayload>) => {
+			await updatePayloadFromPending(analyzeChangesQueue, job);
+			await processAnalyzeChangesJob(job, logger);
+		},
 	});
 	const queueEvents = createAnalyzeChangesQueueEvents(connection);
 	const dlqQueue = createAnalyzeChangesDlqQueue(connection);
@@ -87,9 +262,24 @@ const startWorker = async (): Promise<void> => {
 					"failed to add permanently failed job to dead-letter queue",
 				);
 			});
+			void enqueuePendingPayloadForRepository(analyzeChangesQueue, job).catch((enqueueError) => {
+				logger.error(
+					{ err: enqueueError, jobId: job.id, repositoryId: job.data.repositoryId },
+					"failed to enqueue pending repository payload after permanent failure",
+				);
+			});
 		} else {
 			logger.warn(logMetadata, "job failed, will be retried");
 		}
+	});
+
+	worker.on("completed", (job) => {
+		void enqueuePendingPayloadForRepository(analyzeChangesQueue, job).catch((enqueueError) => {
+			logger.error(
+				{ err: enqueueError, jobId: job.id, repositoryId: job.data.repositoryId },
+				"failed to enqueue pending repository payload after completion",
+			);
+		});
 	});
 
 	let isShuttingDown = false;
@@ -111,6 +301,7 @@ const startWorker = async (): Promise<void> => {
 
 		try {
 			await worker.close();
+			await analyzeChangesQueue.close();
 			await queueEvents.close();
 			await dlqQueue.close();
 			clearTimeout(timeout);
