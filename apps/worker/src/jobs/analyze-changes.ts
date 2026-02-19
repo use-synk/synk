@@ -160,6 +160,13 @@ const parseInstallationId = (providerInstallationId: string): number => {
 	return installationId;
 };
 
+const isHttpNotFoundError = (error: unknown): boolean => {
+	if (typeof error !== "object" || error === null) {
+		return false;
+	}
+	return (error as Record<string, unknown>).status === 404;
+};
+
 const parseStringValue = (value: unknown): string | undefined =>
 	typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
 
@@ -365,8 +372,11 @@ const resolveDocsConfig = async (
 		if (fromFile !== null && hasConfiguredDocsValue(fromFile.docs)) {
 			return fromFile;
 		}
-	} catch {
-		// Missing config file is expected for many repositories.
+	} catch (error) {
+		if (!isHttpNotFoundError(error)) {
+			throw error;
+		}
+		// File not found — expected for repositories without .synk-ai.yml.
 	}
 
 	return { docs: {}, ignorePaths: [] };
@@ -417,7 +427,10 @@ const readPackageJsonContent = async (
 			ref: context.commitSha,
 		});
 		return packageJson.content;
-	} catch {
+	} catch (error) {
+		if (!isHttpNotFoundError(error)) {
+			throw error;
+		}
 		return undefined;
 	}
 };
