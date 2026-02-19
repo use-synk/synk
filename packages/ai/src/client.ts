@@ -12,6 +12,7 @@ import {
 	DEFAULT_RETRY_OPTIONS,
 	type RetryOptions,
 	getErrorStatusCode,
+	validateRetryOptions,
 	withExponentialBackoff,
 } from "./retry.js";
 import { estimateTokenCount } from "./token-count.js";
@@ -112,11 +113,25 @@ const createRetryOptions = (
 	sleep: overrides?.sleep ?? DEFAULT_RETRY_OPTIONS.sleep,
 });
 
+const toErrorType = (error: unknown): string =>
+	error instanceof Error ? error.name : "UnknownError";
+
+const toMaxAttempts = (maxRetries: number | undefined, fallback: number): number => {
+	if (maxRetries === undefined) {
+		return fallback;
+	}
+	if (!Number.isFinite(maxRetries) || !Number.isInteger(maxRetries) || maxRetries < 0) {
+		throw new RangeError("maxRetries must be a finite integer greater than or equal to 0.");
+	}
+	return maxRetries + 1;
+};
+
 export const createAiClient = (options: AiClientOptions): AiClient => {
 	const providerFactory: ProviderFactory = options.providerFactory ?? createOpenRouter;
 	const logger = options.logger ?? noopAiLogger;
 	const modelSelection = resolveModelSelection(options.models);
 	const retryOptions = createRetryOptions(options.retry);
+	validateRetryOptions(retryOptions);
 	const openRouterProvider = providerFactory({ apiKey: options.apiKey });
 	const generateTextFn = options.generateTextFn ?? runGenerateText;
 
@@ -124,14 +139,12 @@ export const createAiClient = (options: AiClientOptions): AiClient => {
 		generateText: async (request: AiTextGenerationRequest): Promise<AiTextGenerationResponse> => {
 			const modelId = modelIdFor(request.purpose, modelSelection);
 			const promptTokenEstimate = estimateTokenCount(request.prompt);
-			const maxAttempts =
-				request.maxRetries !== undefined
-					? Math.max(1, request.maxRetries + 1)
-					: retryOptions.maxAttempts;
+			const maxAttempts = toMaxAttempts(request.maxRetries, retryOptions.maxAttempts);
 			const retryConfig: RetryOptions = {
 				...retryOptions,
 				maxAttempts,
 			};
+			validateRetryOptions(retryConfig);
 			const startedAt = Date.now();
 
 			logger.info("ai.request", {
@@ -159,7 +172,7 @@ export const createAiClient = (options: AiClientOptions): AiClient => {
 							maxAttempts: event.maxAttempts,
 							delayMs: event.delayMs,
 							statusCode: getErrorStatusCode(event.error),
-							message: event.error instanceof Error ? event.error.message : "Unknown error",
+							errorType: toErrorType(event.error),
 						});
 					},
 				);
@@ -186,7 +199,7 @@ export const createAiClient = (options: AiClientOptions): AiClient => {
 					purpose: request.purpose,
 					modelId,
 					statusCode: getErrorStatusCode(error),
-					message: error instanceof Error ? error.message : "Unknown error",
+					errorType: toErrorType(error),
 				});
 				throw error;
 			}

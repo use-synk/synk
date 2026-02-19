@@ -145,6 +145,41 @@ describe("createAiClient", () => {
 		).rejects.toEqual({ statusCode: 400, message: "bad request" });
 
 		expect(entries.some((entry) => entry.message === "ai.error")).toBe(true);
+		expect(JSON.stringify(entries)).not.toContain("bad request");
+	});
+
+	it("rejects invalid maxRetries values", async () => {
+		const client = createAiClient({
+			apiKey: "sk-test",
+			providerFactory: () => () => "model",
+			generateTextFn: async (): Promise<{ text: string }> => ({ text: "ok" }),
+			retry: {
+				maxAttempts: 3,
+				sleep: async (): Promise<void> => {},
+			},
+		});
+
+		await expect(
+			client.generateText({
+				purpose: "triage",
+				prompt: "input",
+				maxRetries: -1,
+			}),
+		).rejects.toBeInstanceOf(RangeError);
+	});
+
+	it("rejects invalid retry options at client creation", () => {
+		expect(() =>
+			createAiClient({
+				apiKey: "sk-test",
+				providerFactory: () => () => "model",
+				generateTextFn: async (): Promise<{ text: string }> => ({ text: "ok" }),
+				retry: {
+					maxAttempts: 0,
+					sleep: async (): Promise<void> => {},
+				},
+			}),
+		).toThrow(RangeError);
 	});
 });
 

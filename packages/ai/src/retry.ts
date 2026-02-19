@@ -59,11 +59,42 @@ export const isTransientError = (error: unknown): boolean => {
 	return statusCode !== undefined && TRANSIENT_STATUS_CODES.has(statusCode);
 };
 
+const assertFiniteNumber = (value: number, name: string): void => {
+	if (!Number.isFinite(value)) {
+		throw new RangeError(`${name} must be a finite number.`);
+	}
+};
+
+export const validateRetryOptions = (options: RetryOptions): void => {
+	assertFiniteNumber(options.maxAttempts, "maxAttempts");
+	assertFiniteNumber(options.initialDelayMs, "initialDelayMs");
+	assertFiniteNumber(options.maxDelayMs, "maxDelayMs");
+	assertFiniteNumber(options.backoffMultiplier, "backoffMultiplier");
+
+	if (!Number.isInteger(options.maxAttempts) || options.maxAttempts < 1) {
+		throw new RangeError("maxAttempts must be an integer greater than or equal to 1.");
+	}
+	if (options.initialDelayMs < 0) {
+		throw new RangeError("initialDelayMs must be greater than or equal to 0.");
+	}
+	if (options.maxDelayMs < 0) {
+		throw new RangeError("maxDelayMs must be greater than or equal to 0.");
+	}
+	if (options.backoffMultiplier < 1) {
+		throw new RangeError("backoffMultiplier must be greater than or equal to 1.");
+	}
+	if (options.maxDelayMs < options.initialDelayMs) {
+		throw new RangeError("maxDelayMs must be greater than or equal to initialDelayMs.");
+	}
+};
+
 export const withExponentialBackoff = async <TValue>(
 	operation: (attempt: number) => Promise<TValue>,
 	options: RetryOptions,
 	onRetry: (event: RetryEvent) => void,
 ): Promise<TValue> => {
+	validateRetryOptions(options);
+
 	let attempt = 1;
 	let delayMs = options.initialDelayMs;
 

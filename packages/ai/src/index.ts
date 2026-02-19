@@ -24,6 +24,7 @@ export {
 	DEFAULT_RETRY_OPTIONS,
 	getErrorStatusCode,
 	isTransientError,
+	validateRetryOptions,
 	withExponentialBackoff,
 	type RetryEvent,
 	type RetryOptions,

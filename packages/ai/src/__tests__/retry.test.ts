@@ -3,6 +3,7 @@ import {
 	DEFAULT_RETRY_OPTIONS,
 	getErrorStatusCode,
 	isTransientError,
+	validateRetryOptions,
 	withExponentialBackoff,
 } from "../retry.js";
 
@@ -63,5 +64,27 @@ describe("retry helpers", () => {
 			),
 		).rejects.toEqual({ statusCode: 401 });
 		expect(onRetry).not.toHaveBeenCalled();
+	});
+
+	it("validates retry options", () => {
+		expect(() =>
+			validateRetryOptions({
+				...DEFAULT_RETRY_OPTIONS,
+				maxAttempts: 0,
+			}),
+		).toThrow(RangeError);
+		expect(() =>
+			validateRetryOptions({
+				...DEFAULT_RETRY_OPTIONS,
+				initialDelayMs: -1,
+			}),
+		).toThrow(RangeError);
+		expect(() =>
+			validateRetryOptions({
+				...DEFAULT_RETRY_OPTIONS,
+				maxDelayMs: 10,
+				initialDelayMs: 20,
+			}),
+		).toThrow(RangeError);
 	});
 });
