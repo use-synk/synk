@@ -89,6 +89,19 @@ describe("markdownAdapter.parseStructure", () => {
 		expect(guidePage?.children?.[0]?.children?.[0]?.title).toBe("Linux");
 		expect(guidePage?.children?.[1]?.title).toBe("Usage");
 	});
+
+	it("preserves heading order from source markdown", () => {
+		const files = [
+			{
+				path: "docs/guide.md",
+				content: "# Guide\n\n## Zebra\n\n## Alpha",
+			},
+		];
+		const tree = markdownAdapter.parseStructure(files);
+		const guidePage = tree.roots[0]?.children?.[0];
+		expect(guidePage?.children?.[0]?.title).toBe("Zebra");
+		expect(guidePage?.children?.[1]?.title).toBe("Alpha");
+	});
 });
 
 describe("markdownAdapter.getConventions", () => {
@@ -122,6 +135,14 @@ describe("markdownAdapter.validateOutput", () => {
 		expect(result.valid).toBe(true);
 	});
 
+	it("allows existing relative links when repository context is provided", () => {
+		const content = "# Title\n\n[Guide](../guide.md)\n[Setup](setup)";
+		const result = markdownAdapter.validateOutput(content, "docs/tutorials/a.md", {
+			repoFilePaths: ["docs/guide.md", "docs/tutorials/setup/index.md"],
+		});
+		expect(result.valid).toBe(true);
+	});
+
 	it("rejects javascript links", () => {
 		const content = "# Title\n\n[Bad](javascript:alert('xss'))";
 		const result = markdownAdapter.validateOutput(content, "docs/a.md");
@@ -141,6 +162,15 @@ describe("markdownAdapter.validateOutput", () => {
 		const result = markdownAdapter.validateOutput(content, "docs/guides/a.md");
 		expect(result.valid).toBe(false);
 		expect(result.errors).toContain("Broken relative link: ../../../outside.md");
+	});
+
+	it("rejects missing relative links when repository context is provided", () => {
+		const content = "# Title\n\n[Missing](./missing.md)";
+		const result = markdownAdapter.validateOutput(content, "docs/guides/a.md", {
+			repoFilePaths: ["docs/guides/a.md", "docs/guides/intro.md"],
+		});
+		expect(result.valid).toBe(false);
+		expect(result.errors).toContain("Broken relative link: ./missing.md");
 	});
 
 	it("rejects markdown with unclosed code fences", () => {

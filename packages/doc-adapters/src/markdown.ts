@@ -6,6 +6,7 @@ import type {
 	DocsConfig,
 	FrameworkConventions,
 	RepoFile,
+	ValidationContext,
 	ValidationResult,
 } from "./types.js";
 
@@ -118,20 +119,19 @@ const addHeadingChildren = (
 	fileNode: DocTreeNode,
 	headings: MarkdownHeading[],
 	filePath: string,
-	order: number,
 ): void => {
 	if (headings.length === 0) {
 		return;
 	}
 
 	const headingStack: Array<{ level: number; node: DocTreeNode }> = [];
-	for (const heading of headings) {
+	for (const [headingIndex, heading] of headings.entries()) {
 		const parent = getHeadingParent(headingStack, fileNode, heading.level);
 		const anchor = slugifyHeading(heading.title);
 		const node: DocTreeNode = {
 			title: heading.title,
 			path: anchor.length > 0 ? `${filePath}#${anchor}` : filePath,
-			order,
+			order: headingIndex,
 		};
 		if (parent.children === undefined) {
 			parent.children = [];
@@ -164,40 +164,92 @@ const hasUnclosedCodeFence = (content: string): boolean => {
 };
 
 const isExternalLink = (href: string): boolean => /^[a-z][a-z0-9+.-]*:/i.test(href);
+const hasMarkdownExtension = (path: string): boolean => /\.(md|mdx)$/i.test(path);
 
-const isBrokenRelativeLink = (href: string, filePath: string): boolean => {
-	if (href.startsWith("/") || href.startsWith("#") || isExternalLink(href)) {
-		return false;
-	}
+const toPathSet = (context?: ValidationContext): Set<string> => {
+	const paths = context?.repoFilePaths ?? [];
+	const normalizedPaths = paths
+		.map((path) => normalizePath(path))
+		.filter((path): path is string => path !== undefined);
+	return new Set(normalizedPaths);
+};
 
-	const targetPath = href.split(/[?#]/, 1)[0]?.trim() ?? "";
-	if (targetPath.length === 0) {
-		return false;
-	}
-
-	const baseSegments = filePath
-		.split("/")
-		.slice(0, -1)
-		.filter((segment) => segment.length > 0);
-	const targetSegments = targetPath.split("/").filter((segment) => segment.length > 0);
-	const segments = [...baseSegments, ...targetSegments];
-	let depth = 0;
-
+const normalizePath = (path: string): string | undefined => {
+	const segments = path.split("/").filter((segment) => segment.length > 0);
+	const normalized: string[] = [];
 	for (const segment of segments) {
 		if (segment === ".") {
 			continue;
 		}
 		if (segment === "..") {
-			depth -= 1;
-		} else {
-			depth += 1;
+			if (normalized.length === 0) {
+				return undefined;
+			}
+			normalized.pop();
+			continue;
 		}
-		if (depth < 0) {
-			return true;
-		}
+		normalized.push(segment);
+	}
+	return normalized.join("/");
+};
+
+const resolveLinkPath = (href: string, filePath: string): string | undefined => {
+	const targetPath = href.split(/[?#]/, 1)[0]?.trim() ?? "";
+	if (targetPath.length === 0) {
+		return "";
 	}
 
-	return false;
+	const fileDirectoryPath = filePath
+		.split("/")
+		.slice(0, -1)
+		.filter((segment) => segment.length > 0)
+		.join("/");
+
+	if (targetPath.startsWith("/")) {
+		return normalizePath(targetPath.slice(1));
+	}
+
+	const combinedPath = fileDirectoryPath.length === 0 ? targetPath : `${fileDirectoryPath}/${targetPath}`;
+	return normalizePath(combinedPath);
+};
+
+const getLinkPathCandidates = (resolvedPath: string): string[] => {
+	if (hasMarkdownExtension(resolvedPath)) {
+		return [resolvedPath];
+	}
+	return [
+		resolvedPath,
+		`${resolvedPath}.md`,
+		`${resolvedPath}.mdx`,
+		`${resolvedPath}/index.md`,
+		`${resolvedPath}/index.mdx`,
+	];
+};
+
+const isBrokenRelativeLink = (
+	href: string,
+	filePath: string,
+	knownRepoPaths: Set<string>,
+): boolean => {
+	if (href.startsWith("#") || isExternalLink(href)) {
+		return false;
+	}
+
+	const resolvedPath = resolveLinkPath(href, filePath);
+	if (resolvedPath === "") {
+		return false;
+	}
+
+	if (resolvedPath === undefined) {
+		return true;
+	}
+
+	if (knownRepoPaths.size === 0) {
+		return false;
+	}
+
+	const candidates = getLinkPathCandidates(resolvedPath);
+	return !candidates.some((candidate) => knownRepoPaths.has(candidate));
 };
 
 const sortNodes = (nodes: DocTreeNode[]): void => {
@@ -279,7 +331,7 @@ export const markdownAdapter: DocAdapter = {
 			};
 
 			const nestedHeadings = h1 === undefined ? headings : headings.filter((heading) => heading !== h1);
-			addHeadingChildren(fileNode, nestedHeadings, file.path, index);
+			addHeadingChildren(fileNode, nestedHeadings, file.path);
 			parentNodes.push(fileNode);
 		}
 
@@ -297,8 +349,9 @@ export const markdownAdapter: DocAdapter = {
 		};
 	},
 
-	validateOutput(content: string, _filePath: string): ValidationResult {
+	validateOutput(content: string, filePath: string, context?: ValidationContext): ValidationResult {
 		const errors: string[] = [];
+		const knownRepoPaths = toPathSet(context);
 
 		if (content.trim().length === 0) {
 			errors.push("Content must not be empty");
@@ -316,7 +369,7 @@ export const markdownAdapter: DocAdapter = {
 				errors.push(`Unsupported link protocol: ${href}`);
 			}
 
-			if (isBrokenRelativeLink(href, _filePath)) {
+			if (isBrokenRelativeLink(href, filePath, knownRepoPaths)) {
 				errors.push(`Broken relative link: ${href}`);
 			}
 		}
