@@ -92,6 +92,13 @@ describe("calculateCoalesceDelayMs", () => {
 		expect(calculateCoalesceDelayMs(nowMs - ANALYZE_CHANGES_COALESCE_WINDOW_MS, nowMs)).toBe(0);
 		expect(calculateCoalesceDelayMs(nowMs - ANALYZE_CHANGES_COALESCE_WINDOW_MS - 1, nowMs)).toBe(0);
 	});
+
+	it("clamps negative elapsed time to avoid delay larger than window", () => {
+		const nowMs = 10_000;
+		expect(calculateCoalesceDelayMs(nowMs + 1_000, nowMs)).toBe(
+			ANALYZE_CHANGES_COALESCE_WINDOW_MS,
+		);
+	});
 });
 
 describe("isAlreadyExistingJobError", () => {

@@ -91,6 +91,6 @@ export const calculateCoalesceDelayMs = (
 	nowMs: number = Date.now(),
 	windowMs: number = ANALYZE_CHANGES_COALESCE_WINDOW_MS,
 ): number => {
-	const elapsedMs = nowMs - updatedAtMs;
+	const elapsedMs = Math.max(0, nowMs - updatedAtMs);
 	return elapsedMs >= windowMs ? 0 : windowMs - elapsedMs;
 };
