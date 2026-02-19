@@ -107,7 +107,8 @@ describe("markdownAdapter.parseStructure", () => {
 		const files = [
 			{
 				path: "docs/guide.md",
-				content: "# Guide\n\n````ts\n# Inside code\n```\n## Also inside code\n````\n## Real section",
+				content:
+					"# Guide\n\n````ts\n# Inside code\n```\n## Also inside code\n````\n## Real section",
 			},
 		];
 		const tree = markdownAdapter.parseStructure(files);
