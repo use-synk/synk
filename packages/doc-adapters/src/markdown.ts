@@ -134,7 +134,7 @@ export const markdownAdapter: DocAdapter = {
 			errors.push("Content must not be empty");
 		}
 
-		const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+		const linkRegex = /\[([^\]]+)\]\(([^)]*)\)/g;
 		for (const match of content.matchAll(linkRegex)) {
 			const href = match[2]?.trim();
 			if (href === undefined || href.length === 0) {

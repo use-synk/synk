@@ -107,4 +107,11 @@ describe("markdownAdapter.validateOutput", () => {
 		expect(result.valid).toBe(false);
 		expect(result.errors?.[0]).toContain("Unsupported link protocol");
 	});
+
+	it("rejects markdown links with empty hrefs", () => {
+		const content = "# Title\n\n[Empty]()";
+		const result = markdownAdapter.validateOutput(content, "docs/a.md");
+		expect(result.valid).toBe(false);
+		expect(result.errors).toContain("Markdown links must include a non-empty target.");
+	});
 });
