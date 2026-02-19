@@ -1,5 +1,6 @@
 export const ANALYZE_CHANGES_QUEUE_NAME = "analyze-changes";
 export const ANALYZE_CHANGES_DLQ_NAME = "analyze-changes-dlq";
+export const ANALYZE_CHANGES_COALESCE_WINDOW_MS = 30_000;
 
 /**
  * Custom BullMQ backoff strategy name for analyze-changes jobs.
@@ -23,3 +24,9 @@ export type AnalyzeChangesJobPayload = {
 		prNumber?: number;
 	};
 };
+
+export const buildAnalyzeChangesActiveJobId = (repositoryId: string): string =>
+	`${ANALYZE_CHANGES_QUEUE_NAME}:repo:${repositoryId}:active`;
+
+export const buildAnalyzeChangesPendingPayloadKey = (repositoryId: string): string =>
+	`${ANALYZE_CHANGES_QUEUE_NAME}:repo:${repositoryId}:pending`;

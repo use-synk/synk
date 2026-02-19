@@ -1,7 +1,10 @@
 import {
+	ANALYZE_CHANGES_COALESCE_WINDOW_MS,
 	ANALYZE_CHANGES_JOB_ATTEMPTS,
 	ANALYZE_CHANGES_JOB_BACKOFF_TYPE,
 	ANALYZE_CHANGES_QUEUE_NAME,
+	buildAnalyzeChangesActiveJobId,
+	buildAnalyzeChangesPendingPayloadKey,
 	type AnalyzeChangesJobPayload,
 } from "@synk-ai/shared";
 import { Queue } from "bullmq";
@@ -12,6 +15,68 @@ const REMOVE_COMPLETED_JOBS = { count: 1000 } as const;
 const REMOVE_FAILED_JOBS = { age: 24 * 60 * 60 } as const;
 
 export type AnalyzeChangesEnqueuer = (payload: AnalyzeChangesJobPayload) => Promise<void>;
+type AnalyzeChangesQueueDatabase = {
+	analysisRun: {
+		findFirst(args: {
+			where: {
+				repositoryId: string;
+				triggerCommitSha: string;
+			};
+			select: {
+				id: true;
+			};
+		}): Promise<{ id: string } | null>;
+	};
+};
+
+type PendingAnalyzeChangesPayload = {
+	payload: AnalyzeChangesJobPayload;
+	updatedAtMs: number;
+};
+
+const serializePendingPayload = (value: PendingAnalyzeChangesPayload): string =>
+	JSON.stringify(value);
+
+const isAlreadyExistingJobError = (error: unknown): boolean => {
+	if (!(error instanceof Error)) {
+		return false;
+	}
+	return error.message.toLowerCase().includes("already exists");
+};
+
+const hasExistingRunForCommit = async (
+	db: AnalyzeChangesQueueDatabase,
+	payload: AnalyzeChangesJobPayload,
+): Promise<boolean> => {
+	const existingRun = await db.analysisRun.findFirst({
+		where: {
+			repositoryId: payload.repositoryId,
+			triggerCommitSha: payload.trigger.commitSha,
+		},
+		select: {
+			id: true,
+		},
+	});
+	return existingRun !== null;
+};
+
+const setPendingPayload = async (
+	queue: Queue<AnalyzeChangesJobPayload>,
+	payload: AnalyzeChangesJobPayload,
+): Promise<void> => {
+	const pendingKey = buildAnalyzeChangesPendingPayloadKey(payload.repositoryId);
+	const redisClient = await queue.client;
+	const pending: PendingAnalyzeChangesPayload = {
+		payload,
+		updatedAtMs: Date.now(),
+	};
+	await redisClient.set(
+		pendingKey,
+		serializePendingPayload(pending),
+		"PX",
+		ANALYZE_CHANGES_COALESCE_WINDOW_MS * 20,
+	);
+};
 
 export const createAnalyzeChangesQueue = (redisUrl: string): Queue<AnalyzeChangesJobPayload> =>
 	new Queue<AnalyzeChangesJobPayload>(ANALYZE_CHANGES_QUEUE_NAME, {
@@ -28,8 +93,27 @@ export const createAnalyzeChangesQueue = (redisUrl: string): Queue<AnalyzeChange
 
 export const createAnalyzeChangesEnqueuer = (
 	queue: Queue<AnalyzeChangesJobPayload>,
+	db: AnalyzeChangesQueueDatabase,
 ): AnalyzeChangesEnqueuer => {
 	return async (payload) => {
-		await queue.add(ANALYZE_CHANGES_QUEUE_NAME, payload);
+		if (await hasExistingRunForCommit(db, payload)) {
+			return;
+		}
+
+		const activeJobId = buildAnalyzeChangesActiveJobId(payload.repositoryId);
+		const activeJob = await queue.getJob(activeJobId);
+		if (activeJob !== null) {
+			await setPendingPayload(queue, payload);
+			return;
+		}
+
+		try {
+			await queue.add(ANALYZE_CHANGES_QUEUE_NAME, payload, { jobId: activeJobId });
+		} catch (error) {
+			if (!isAlreadyExistingJobError(error)) {
+				throw error;
+			}
+			await setPendingPayload(queue, payload);
+		}
 	};
 };
