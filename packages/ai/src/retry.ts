@@ -15,7 +15,7 @@ export type RetryEvent = {
 	error: unknown;
 };
 
-const TRANSIENT_STATUS_CODES = new Set([429, 500, 503]);
+const TRANSIENT_STATUS_CODES = new Set([429, 500, 502, 503, 504]);
 
 export const DEFAULT_RETRY_OPTIONS: RetryOptions = {
 	maxAttempts: 3,

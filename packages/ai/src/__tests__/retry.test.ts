@@ -17,6 +17,8 @@ describe("retry helpers", () => {
 	it("recognizes transient errors", () => {
 		expect(isTransientError({ statusCode: 429 })).toBe(true);
 		expect(isTransientError({ status: 500 })).toBe(true);
+		expect(isTransientError({ statusCode: 502 })).toBe(true);
+		expect(isTransientError({ status: 504 })).toBe(true);
 		expect(isTransientError({ statusCode: 404 })).toBe(false);
 	});
 
