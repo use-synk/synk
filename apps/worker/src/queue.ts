@@ -90,6 +90,12 @@ type WorkerOptions = {
  * Custom backoff strategy: maps attempt number → delay in ms.
  * BullMQ calls this when job options specify `backoff.type === ANALYZE_CHANGES_JOB_BACKOFF_TYPE`.
  * `attemptsMade` is 1-indexed: 1 = delay before the 2nd attempt, 2 = before 3rd, etc.
+ *
+ * NOTE: If `type` does not match ANALYZE_CHANGES_JOB_BACKOFF_TYPE (e.g. a job
+ * is enqueued with a different or missing backoff strategy name), the function
+ * silently falls back to JOB_RETRY_FALLBACK_DELAY_MS (10 min). This is a known
+ * operational gap — any misconfigured job will still retry, just with the maximum
+ * delay. Monitor for unexpectedly long retry delays as a signal of misconfiguration.
  */
 const synkExponentialBackoff = (attemptsMade: number, type?: string): number => {
 	if (type !== ANALYZE_CHANGES_JOB_BACKOFF_TYPE) {
@@ -124,8 +130,10 @@ export const createAnalyzeChangesQueueEvents = (connection: ConnectionOptions): 
 
 /**
  * Dead-letter queue for analyze-changes jobs that have exhausted all retries
- * or failed with an unrecoverable error. Jobs are preserved indefinitely for
- * post-mortem inspection and potential manual requeue.
+ * or failed with an unrecoverable error. Jobs are retained for post-mortem
+ * inspection and potential manual requeue. A bounded window of 1 000 completed
+ * entries is kept to prevent unbounded growth in high-failure scenarios, while
+ * failed entries are preserved indefinitely so no information is lost.
  */
 export const createAnalyzeChangesDlqQueue = (
 	connection: ConnectionOptions,
@@ -134,7 +142,7 @@ export const createAnalyzeChangesDlqQueue = (
 		connection,
 		defaultJobOptions: {
 			attempts: 1,
-			removeOnComplete: false,
+			removeOnComplete: { count: 1_000 },
 			removeOnFail: false,
 		},
 	});
