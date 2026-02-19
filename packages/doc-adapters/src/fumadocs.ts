@@ -11,15 +11,21 @@ import type {
 	ValidationResult,
 } from "./types.js";
 
-const DEFAULT_DOCS_PATH = "pages/docs";
-const NEXTRA_DEPS = ["nextra", "nextra-theme-docs"] as const;
-const META_FILENAME = "_meta.json";
+const DEFAULT_DOCS_PATH = "content/docs";
+const FUMADOCS_DEPS = ["fumadocs-core", "fumadocs-ui"] as const;
+const META_FILENAME = "meta.json";
 
-type MetaValue = string | { title?: string; display?: string; href?: string; type?: string };
+type FumadocsMeta = {
+	title?: string;
+	icon?: string;
+	description?: string;
+	pages?: string[];
+};
+
 const isMetaFilePath = (path: string): boolean =>
 	path === META_FILENAME || path.endsWith(`/${META_FILENAME}`);
 
-const hasNextraInDeps = (packageJson: string): boolean => {
+const hasFumadocsInDeps = (packageJson: string): boolean => {
 	try {
 		const pkg = JSON.parse(packageJson) as {
 			dependencies?: Record<string, string>;
@@ -29,35 +35,79 @@ const hasNextraInDeps = (packageJson: string): boolean => {
 			...pkg.dependencies,
 			...pkg.devDependencies,
 		};
-		return NEXTRA_DEPS.some((dep) => dep in deps);
+		return FUMADOCS_DEPS.some((dep) => dep in deps);
 	} catch {
 		return false;
 	}
 };
 
-const hasNextraConfig = (tree: RepoFile[]): boolean =>
+const hasSourceConfig = (tree: RepoFile[]): boolean =>
 	tree.some(
 		(f) =>
-			f.path === "next.config.mjs" || f.path === "next.config.js" || f.path === "next.config.ts",
+			f.path === "source.config.ts" ||
+			f.path === "source.config.js" ||
+			f.path === "source.config.mjs",
 	);
 
-const hasNextraStructure = (tree: RepoFile[]): boolean => {
-	const hasDocs = tree.some(
-		(f) =>
-			f.path.startsWith("pages/docs/") || f.path.startsWith("content/") || f.path === "pages/docs",
-	);
-	const hasMeta = tree.some(
-		(f) =>
-			(f.path.startsWith("pages/docs/") || f.path.startsWith("content/")) && isMetaFilePath(f.path),
-	);
-	return hasDocs && hasMeta;
+const isMarkdownFilePath = (path: string): boolean => /\.(md|mdx)$/i.test(path);
+
+const toDirectory = (path: string): string => {
+	const slashIndex = path.lastIndexOf("/");
+	if (slashIndex <= 0) {
+		return "";
+	}
+	return path.slice(0, slashIndex);
 };
 
-const parseMetaJson = (content: string): Record<string, MetaValue> | null => {
+const hasFumadocsStructure = (tree: RepoFile[]): boolean => {
+	const metaDirs = new Set<string>();
+	for (const file of tree) {
+		if (!isMetaFilePath(file.path)) {
+			continue;
+		}
+		metaDirs.add(toDirectory(file.path));
+	}
+	if (metaDirs.size === 0) {
+		return false;
+	}
+
+	return tree.some((file) => {
+		if (!isMarkdownFilePath(file.path)) {
+			return false;
+		}
+		for (const dir of metaDirs) {
+			if (file.path.startsWith(`${dir}/`)) {
+				return true;
+			}
+		}
+		return false;
+	});
+};
+
+const parseMetaJson = (content: string): FumadocsMeta | null => {
 	try {
 		const parsed = JSON.parse(content) as unknown;
 		if (parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)) {
-			return parsed as Record<string, MetaValue>;
+			const candidate = parsed as {
+				title?: unknown;
+				icon?: unknown;
+				description?: unknown;
+				pages?: unknown;
+			};
+			if (candidate.pages !== undefined) {
+				if (!Array.isArray(candidate.pages)) {
+					return null;
+				}
+				if (!candidate.pages.every((entry) => typeof entry === "string")) {
+					return null;
+				}
+			}
+			return {
+				...(typeof candidate.title === "string" && { title: candidate.title }),
+				...(typeof candidate.icon === "string" && { icon: candidate.icon }),
+				...(typeof candidate.description === "string" && { description: candidate.description }),
+				...(candidate.pages !== undefined && { pages: candidate.pages as string[] }),
+			};
 		}
 	} catch {
 		// ignore
@@ -65,27 +115,15 @@ const parseMetaJson = (content: string): Record<string, MetaValue> | null => {
 	return null;
 };
 
-const metaValueToTitle = (value: MetaValue): string | null => {
-	if (typeof value === "string") {
-		return value;
-	}
-	if (value !== null && typeof value === "object" && "title" in value) {
-		return typeof value.title === "string" ? value.title : null;
-	}
-	return null;
-};
+const isSeparator = (entry: string): boolean =>
+	typeof entry === "string" && entry.startsWith("---") && entry.endsWith("---");
 
-const isHiddenInMeta = (value: MetaValue): boolean => {
-	if (typeof value === "string") {
-		return false;
-	}
-	return (value as { display?: string })?.display === "hidden";
-};
+const isRestEntry = (entry: string): boolean =>
+	typeof entry === "string" && entry.startsWith("...");
 
-const isExternalLink = (value: MetaValue): boolean =>
-	typeof value === "object" && value !== null && "href" in value;
-
-const extractFrontmatter = (content: string): { title?: string; description?: string } | null => {
+const extractFrontmatter = (
+	content: string,
+): { title?: string; description?: string; icon?: string } | null => {
 	const match = content.match(/^---\s*\n([\s\S]*?)\n---/);
 	if (match === null) {
 		return null;
@@ -94,7 +132,7 @@ const extractFrontmatter = (content: string): { title?: string; description?: st
 	if (block === undefined) {
 		return null;
 	}
-	const result: { title?: string; description?: string } = {};
+	const result: { title?: string; description?: string; icon?: string } = {};
 	for (const line of block.split("\n")) {
 		const titleMatch = line.match(/^title:\s*(.+)$/);
 		if (titleMatch) {
@@ -106,6 +144,12 @@ const extractFrontmatter = (content: string): { title?: string; description?: st
 		if (descMatch) {
 			const val = descMatch[1]?.trim().replace(/^["']|["']$/g, "");
 			if (val !== undefined && val !== "") result.description = val;
+			continue;
+		}
+		const iconMatch = line.match(/^icon:\s*(.+)$/);
+		if (iconMatch) {
+			const val = iconMatch[1]?.trim().replace(/^["']|["']$/g, "");
+			if (val !== undefined && val !== "") result.icon = val;
 		}
 	}
 	return result;
@@ -142,6 +186,8 @@ const hasUnclosedCodeFence = (content: string): boolean => {
 	return activeFence !== undefined;
 };
 
+type MarkdownHeading = { level: number; title: string };
+
 const slugifyHeading = (title: string): string =>
 	title
 		.toLowerCase()
@@ -150,8 +196,6 @@ const slugifyHeading = (title: string): string =>
 		.replace(/\s+/g, "-")
 		.replace(/-+/g, "-")
 		.replace(/^-+|-+$/g, "");
-
-type MarkdownHeading = { level: number; title: string };
 
 const extractHeadings = (content: string): MarkdownHeading[] => {
 	const headings: MarkdownHeading[] = [];
@@ -225,6 +269,9 @@ const extractMarkdownLinks = (content: string): string[] => {
 		}
 
 		for (const match of line.matchAll(linkRegex)) {
+			if (typeof match.index === "number" && match.index > 0 && line[match.index - 1] === "!") {
+				continue;
+			}
 			const href = match[2]?.trim();
 			if (href !== undefined) {
 				links.push(href);
@@ -235,8 +282,58 @@ const extractMarkdownLinks = (content: string): string[] => {
 	return links;
 };
 
+const addPageOrFolderNode = (
+	metaByDir: Map<string, FumadocsMeta>,
+	docFilesByDir: Map<string, DocFile[]>,
+	docByKey: Map<string, DocFile>,
+	dirPath: string,
+	key: string,
+	order: number,
+): DocTreeNode | null => {
+	if (key.length === 0) return null;
+	const subDirPath = dirPath ? `${dirPath}/${key}` : key;
+	const nestedMeta = metaByDir.get(subDirPath);
+	const nestedDocs = docFilesByDir.get(subDirPath) ?? [];
+	const doc = docByKey.get(key);
+
+	if (nestedMeta !== undefined || nestedDocs.length > 0) {
+		const children = buildTreeFromMeta(metaByDir, docFilesByDir, subDirPath);
+		const nestedIndexDoc = nestedDocs.find((f) => /\/index\.(md|mdx)$/i.test(f.path));
+		const indexDoc = nestedIndexDoc ?? nestedDocs[0];
+
+		if (children.length > 0) {
+			const title = nestedMeta?.title ?? key.replace(/-/g, " ");
+			const node: DocTreeNode = { title, children, order };
+			if (indexDoc?.path !== undefined) node.path = indexDoc.path;
+			return node;
+		}
+		const title = nestedMeta?.title ?? key.replace(/-/g, " ");
+		const node: DocTreeNode = { title, order };
+		if (indexDoc?.path !== undefined) node.path = indexDoc.path;
+		return node;
+	}
+	if (doc === undefined) {
+		return null;
+	}
+
+	const fileNode: DocTreeNode = {
+		title: pathToTitle(doc.path),
+		order,
+		path: doc.path,
+	};
+	const headings = extractHeadings(doc.content);
+	const h1 = headings.find((h) => h.level === 1);
+	fileNode.title = h1?.title ?? fileNode.title;
+	addHeadingChildren(
+		fileNode,
+		headings.filter((h) => h !== h1),
+		doc.path,
+	);
+	return fileNode;
+};
+
 const buildTreeFromMeta = (
-	metaByDir: Map<string, Record<string, MetaValue>>,
+	metaByDir: Map<string, FumadocsMeta>,
 	docFilesByDir: Map<string, DocFile[]>,
 	dirPath: string,
 ): DocTreeNode[] => {
@@ -252,55 +349,80 @@ const buildTreeFromMeta = (
 		docByKey.set(name, f);
 	}
 
-	const orderedKeys = meta !== undefined ? Object.keys(meta) : [];
+	const pages = meta?.pages ?? [];
 	const seen = new Set<string>();
 	const nodes: DocTreeNode[] = [];
 
-	for (const key of orderedKeys) {
-		if (seen.has(key)) continue;
-		seen.add(key);
-		const value = meta?.[key];
-		if (value !== undefined && isHiddenInMeta(value)) {
-			continue;
+	const allKeys = new Set(docByKey.keys());
+	const dirPrefix = dirPath ? `${dirPath}/` : "";
+	const addFirstSegment = (subDir: string): void => {
+		const firstSegment = subDir.slice(dirPath ? dirPath.length + 1 : 0).split("/")[0];
+		if (firstSegment !== undefined && firstSegment.length > 0) {
+			allKeys.add(firstSegment);
 		}
-		if (value !== undefined && isExternalLink(value)) {
-			continue;
+	};
+	for (const subDir of docFilesByDir.keys()) {
+		if (subDir.startsWith(dirPrefix) || (dirPath === "" && subDir.includes("/"))) {
+			addFirstSegment(subDir);
 		}
-		const title = metaValueToTitle(value ?? "") ?? key.replace(/-/g, " ");
-		const subDirPath = dirPath ? `${dirPath}/${key}` : key;
-		const nestedMeta = metaByDir.get(subDirPath);
-		const nestedDocs = docFilesByDir.get(subDirPath);
+	}
+	for (const subDir of metaByDir.keys()) {
+		if (subDir.startsWith(dirPrefix) || (dirPath === "" && subDir.includes("/"))) {
+			addFirstSegment(subDir);
+		}
+	}
 
-		if (nestedMeta !== undefined || (nestedDocs !== undefined && nestedDocs.length > 0)) {
-			const children = buildTreeFromMeta(metaByDir, docFilesByDir, subDirPath);
-			if (children.length > 0) {
-				const node: DocTreeNode = { title, children, order: nodes.length };
-				const nestedIndexDoc = nestedDocs?.find((f) => /\/index\.(md|mdx)$/i.test(f.path));
-				if (nestedIndexDoc?.path !== undefined) {
-					node.path = nestedIndexDoc.path;
-				}
-				nodes.push(node);
-			} else {
-				const indexDoc = docByKey.get("index") ?? docByKey.get(key);
-				const node: DocTreeNode = { title, order: nodes.length };
-				if (indexDoc?.path !== undefined) node.path = indexDoc.path;
-				nodes.push(node);
+	for (let orderIndex = 0; orderIndex < pages.length; orderIndex++) {
+		const entry = pages[orderIndex];
+		if (entry === undefined) continue;
+
+		if (isSeparator(entry)) {
+			const label = entry.slice(3, -3).trim();
+			if (label.length > 0) {
+				nodes.push({ title: label, order: orderIndex });
 			}
-		} else {
-			const doc = docByKey.get(key) ?? docByKey.get("index");
-			const fileNode: DocTreeNode = { title, order: nodes.length };
-			if (doc?.path !== undefined) fileNode.path = doc.path;
-			if (doc !== undefined) {
-				const headings = extractHeadings(doc.content);
-				const h1 = headings.find((h) => h.level === 1);
-				fileNode.title = h1?.title ?? title;
-				addHeadingChildren(
-					fileNode,
-					headings.filter((h) => h !== h1),
-					doc.path,
+			continue;
+		}
+
+		if (isRestEntry(entry)) {
+			const restFolder = entry === "..." ? null : entry.slice(3);
+			const keysToAdd = [...allKeys]
+				.filter(
+					(k) =>
+						!seen.has(k) &&
+						(restFolder === null || k === restFolder || k.startsWith(`${restFolder}/`)),
+				)
+				.sort((a, b) => a.localeCompare(b));
+			for (const key of keysToAdd) {
+				seen.add(key);
+				const node = addPageOrFolderNode(
+					metaByDir,
+					docFilesByDir,
+					docByKey,
+					dirPath,
+					key,
+					nodes.length,
 				);
+				if (node !== null) {
+					nodes.push(node);
+				}
 			}
-			nodes.push(fileNode);
+			continue;
+		}
+
+		if (seen.has(entry)) continue;
+		seen.add(entry);
+
+		const node = addPageOrFolderNode(
+			metaByDir,
+			docFilesByDir,
+			docByKey,
+			dirPath,
+			entry,
+			nodes.length,
+		);
+		if (node !== null) {
+			nodes.push(node);
 		}
 	}
 
@@ -371,30 +493,32 @@ const isBrokenLink = (href: string, filePath: string, known: Set<string>): boole
 	return !getLinkCandidates(resolved).some((c) => known.has(c));
 };
 
-export const nextraAdapter: DocAdapter = {
-	frameworkId: "nextra",
+const extractDirFromSourceConfig = (content: string): string | null => {
+	const match = content.match(/dir:\s*['"]([^'"]+)['"]/);
+	return match?.[1] ?? null;
+};
+
+export const fumadocsAdapter: DocAdapter = {
+	frameworkId: "fumadocs",
 
 	async detect(tree: RepoFile[], context?: DetectionContext): Promise<boolean> {
-		if (context?.packageJson !== undefined && hasNextraInDeps(context.packageJson)) {
+		if (context?.packageJson !== undefined && hasFumadocsInDeps(context.packageJson)) {
 			return true;
 		}
-		return hasNextraConfig(tree) && hasNextraStructure(tree);
+		return hasSourceConfig(tree) && hasFumadocsStructure(tree);
 	},
 
 	getDocPaths(config: DocsConfig): string[] {
-		const base = config.path ?? DEFAULT_DOCS_PATH;
-		return [
-			`${base}/**/*.md`,
-			`${base}/**/*.mdx`,
-			`${base}/**/${META_FILENAME}`,
-			"content/**/*.md",
-			"content/**/*.mdx",
-			"content/**/_meta.json",
-		];
+		let base = config.path;
+		if (base === undefined && config.sourceConfigContent !== undefined) {
+			base = extractDirFromSourceConfig(config.sourceConfigContent) ?? undefined;
+		}
+		base = base ?? DEFAULT_DOCS_PATH;
+		return [`${base}/**/*.md`, `${base}/**/*.mdx`, `${base}/**/${META_FILENAME}`];
 	},
 
 	parseStructure(files: DocFile[]): DocTree {
-		const metaByDir = new Map<string, Record<string, MetaValue>>();
+		const metaByDir = new Map<string, FumadocsMeta>();
 		const docFilesByDir = new Map<string, DocFile[]>();
 
 		const isDocFile = (path: string): boolean =>
@@ -434,10 +558,11 @@ export const nextraAdapter: DocAdapter = {
 	getConventions(): FrameworkConventions {
 		return {
 			frontmatterFormat: "yaml",
-			componentPatterns: ["<Callout>", "<Tabs>", "<Steps>"],
+			componentPatterns: ["<Callout>", "<Tabs>", "<Steps>", "<Card>"],
 			linkingConventions: ["relative paths", "next/link for internal navigation"],
 			fileNamingRules: ["kebab-case", "index.mdx for directory index"],
-			description: "Nextra MDX. Frontmatter: title, description. Components: Callout, Tabs, Steps.",
+			description:
+				"Fumadocs MDX. Frontmatter: title, description, icon. Components: Callout, Tabs, Steps, Card.",
 		};
 	},
 
@@ -451,7 +576,7 @@ export const nextraAdapter: DocAdapter = {
 
 		const frontmatter = extractFrontmatter(content);
 		if (frontmatter === null) {
-			errors.push("Nextra pages require YAML frontmatter (--- ... ---)");
+			errors.push("Fumadocs pages require YAML frontmatter (--- ... ---)");
 		} else {
 			if (frontmatter.title === undefined || frontmatter.title.length === 0) {
 				errors.push("Frontmatter must include 'title'");
