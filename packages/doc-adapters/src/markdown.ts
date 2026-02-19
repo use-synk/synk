@@ -167,7 +167,7 @@ export const markdownAdapter: DocAdapter = {
 
 		for (const href of extractMarkdownLinks(content)) {
 			if (href.length === 0) {
-				errors.push("Markdown links must include a non-empty target.");
+				errors.push("Markdown links must include a non-empty target");
 				continue;
 			}
 
@@ -181,7 +181,7 @@ export const markdownAdapter: DocAdapter = {
 		}
 
 		if (hasUnclosedCodeFence(content)) {
-			errors.push("Markdown contains an unclosed code fence.");
+			errors.push("Content contains an unclosed code fence");
 		}
 
 		if (errors.length === 0) {
