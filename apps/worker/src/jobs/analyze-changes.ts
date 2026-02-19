@@ -55,7 +55,7 @@ type TokenUsage = {
 	total: number;
 };
 
-type AggregatedTokenUsage = {
+export type AggregatedTokenUsage = {
 	triage: TokenUsage;
 	generation: TokenUsage;
 	total: TokenUsage;
@@ -75,7 +75,7 @@ type GenerationResult = {
 	tokenUsage: TokenUsage;
 };
 
-type ResolvedDocsConfig = {
+export type ResolvedDocsConfig = {
 	docs: DocsConfig;
 	ignorePaths: string[];
 };
@@ -112,7 +112,10 @@ type AnalyzeChangesServices = {
 	}) => Promise<PullRequestResult>;
 };
 
-const normalizeTokenUsage = (value: Partial<TokenUsage> | undefined): TokenUsage => {
+// The following pure utility functions are exported for unit testing.
+// They are internal implementation details and not considered public API.
+
+export const normalizeTokenUsage = (value: Partial<TokenUsage> | undefined): TokenUsage => {
 	const prompt = value?.prompt ?? 0;
 	const completion = value?.completion ?? 0;
 	return {
@@ -122,7 +125,7 @@ const normalizeTokenUsage = (value: Partial<TokenUsage> | undefined): TokenUsage
 	};
 };
 
-const aggregateTokenUsage = (
+export const aggregateTokenUsage = (
 	triageUsage: TokenUsage,
 	generationUsage: readonly TokenUsage[],
 ): AggregatedTokenUsage => {
@@ -148,7 +151,7 @@ const aggregateTokenUsage = (
 	};
 };
 
-const parseOwnerAndRepo = (fullName: string): { owner: string; repo: string } => {
+export const parseOwnerAndRepo = (fullName: string): { owner: string; repo: string } => {
 	const [owner, repo] = fullName.split("/");
 	if (owner === undefined || repo === undefined || owner.length === 0 || repo.length === 0) {
 		throw new Error(`Invalid repository fullName '${fullName}'. Expected owner/repo.`);
@@ -156,7 +159,7 @@ const parseOwnerAndRepo = (fullName: string): { owner: string; repo: string } =>
 	return { owner, repo };
 };
 
-const parseInstallationId = (providerInstallationId: string): number => {
+export const parseInstallationId = (providerInstallationId: string): number => {
 	const installationId = Number.parseInt(providerInstallationId, 10);
 	if (!Number.isInteger(installationId) || installationId <= 0) {
 		throw new Error(
@@ -198,7 +201,7 @@ const createDocsConfig = (input: {
 	return docs;
 };
 
-const parseDocsConfigFromObject = (value: unknown): ResolvedDocsConfig | null => {
+export const parseDocsConfigFromObject = (value: unknown): ResolvedDocsConfig | null => {
 	if (typeof value !== "object" || value === null) {
 		return null;
 	}
@@ -226,7 +229,7 @@ const parseDocsConfigFromObject = (value: unknown): ResolvedDocsConfig | null =>
 	return { docs, ignorePaths };
 };
 
-const parseFramework = (framework: string | undefined): DocsConfig["framework"] => {
+export const parseFramework = (framework: string | undefined): DocsConfig["framework"] => {
 	switch (framework) {
 		case "auto":
 		case "nextra":
@@ -239,7 +242,7 @@ const parseFramework = (framework: string | undefined): DocsConfig["framework"] 
 	}
 };
 
-const parseSynkAiYaml = (content: string): ResolvedDocsConfig | null => {
+export const parseSynkAiYaml = (content: string): ResolvedDocsConfig | null => {
 	const docs: DocsConfig = {};
 	const ignorePaths: string[] = [];
 	let topLevelSection: string | undefined;
