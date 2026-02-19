@@ -1,5 +1,6 @@
 import type { DocAdapter } from "./adapter.js";
 import type {
+	DetectionContext,
 	DocFile,
 	DocTree,
 	DocTreeNode,
@@ -65,7 +66,10 @@ const slugifyHeading = (title: string): string =>
 		.replace(/[^\w\s-]/g, "")
 		.replace(/\s+/g, "-");
 
-const updateCodeFenceState = (activeFence: string | undefined, line: string): string | undefined => {
+const updateCodeFenceState = (
+	activeFence: string | undefined,
+	line: string,
+): string | undefined => {
 	const fenceMatch = line.trim().match(/^(```+|~~~+)/);
 	const fence = fenceMatch?.[1];
 	if (fence === undefined) {
@@ -208,7 +212,8 @@ const resolveLinkPath = (href: string, filePath: string): string | undefined => 
 		return normalizePath(targetPath.slice(1));
 	}
 
-	const combinedPath = fileDirectoryPath.length === 0 ? targetPath : `${fileDirectoryPath}/${targetPath}`;
+	const combinedPath =
+		fileDirectoryPath.length === 0 ? targetPath : `${fileDirectoryPath}/${targetPath}`;
 	return normalizePath(combinedPath);
 };
 
@@ -273,7 +278,7 @@ const sortNodes = (nodes: DocTreeNode[]): void => {
 export const markdownAdapter: DocAdapter = {
 	frameworkId: "markdown",
 
-	async detect(tree: RepoFile[]): Promise<boolean> {
+	async detect(tree: RepoFile[], _context?: DetectionContext): Promise<boolean> {
 		return hasDocsDir(tree) || hasReadme(tree) || hasMdFilesInCommonLocations(tree);
 	},
 
@@ -329,7 +334,8 @@ export const markdownAdapter: DocAdapter = {
 				order: index,
 			};
 
-			const nestedHeadings = h1 === undefined ? headings : headings.filter((heading) => heading !== h1);
+			const nestedHeadings =
+				h1 === undefined ? headings : headings.filter((heading) => heading !== h1);
 			addHeadingChildren(fileNode, nestedHeadings, file.path);
 			parentNodes.push(fileNode);
 		}

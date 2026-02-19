@@ -9,6 +9,15 @@ export interface RepoFile {
 }
 
 /**
+ * Optional context for framework detection.
+ * Used when the caller has fetched additional files (e.g. package.json).
+ */
+export interface DetectionContext {
+	/** Raw content of package.json for dependency detection */
+	packageJson?: string;
+}
+
+/**
  * Documentation file with content, used for structure parsing.
  */
 export interface DocFile {

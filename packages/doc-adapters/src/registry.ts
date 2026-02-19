@@ -1,6 +1,7 @@
 import type { DocAdapter } from "./adapter.js";
 import { markdownAdapter } from "./markdown.js";
-import type { RepoFile } from "./types.js";
+import { nextraAdapter } from "./nextra.js";
+import type { DetectionContext, RepoFile } from "./types.js";
 
 /** Known framework identifiers. Markdown is always available as fallback. */
 export const FRAMEWORK_IDS = ["nextra", "fumadocs", "docusaurus", "markdown"] as const;
@@ -10,7 +11,7 @@ export type FrameworkId = (typeof FRAMEWORK_IDS)[number];
 const createPendingAdapter = (frameworkId: Exclude<FrameworkId, "markdown">): DocAdapter => ({
 	frameworkId,
 
-	async detect(_tree: RepoFile[]): Promise<boolean> {
+	async detect(_tree: RepoFile[], _context?: DetectionContext): Promise<boolean> {
 		return false;
 	},
 
@@ -37,7 +38,7 @@ const createPendingAdapter = (frameworkId: Exclude<FrameworkId, "markdown">): Do
 
 /** Adapters in detection priority order (highest first). Markdown is last as fallback. */
 const ADAPTERS_BY_PRIORITY: DocAdapter[] = [
-	createPendingAdapter("nextra"),
+	nextraAdapter,
 	createPendingAdapter("fumadocs"),
 	createPendingAdapter("docusaurus"),
 	markdownAdapter,
@@ -62,10 +63,14 @@ export function getAdapter(framework: string): DocAdapter {
 /**
  * Runs adapters in priority order and returns the first that detects the repo.
  * Falls back to plain markdown if no framework-specific adapter matches.
+ * @param context - Optional context (e.g. package.json) for dependency-based detection
  */
-export async function detectAdapter(tree: RepoFile[]): Promise<DocAdapter> {
+export async function detectAdapter(
+	tree: RepoFile[],
+	context?: DetectionContext,
+): Promise<DocAdapter> {
 	for (const adapter of ADAPTERS_BY_PRIORITY) {
-		const detected = await adapter.detect(tree);
+		const detected = await adapter.detect(tree, context);
 		if (detected) {
 			return adapter;
 		}

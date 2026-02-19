@@ -1,4 +1,5 @@
 import type {
+	DetectionContext,
 	DocFile,
 	DocTree,
 	DocsConfig,
@@ -18,8 +19,9 @@ export interface DocAdapter {
 
 	/**
 	 * Returns true if this framework is detected in the repository tree.
+	 * @param context - Optional context (e.g. package.json) for dependency-based detection
 	 */
-	detect(tree: RepoFile[]): Promise<boolean>;
+	detect(tree: RepoFile[], context?: DetectionContext): Promise<boolean>;
 
 	/**
 	 * Returns glob patterns for documentation source files.
