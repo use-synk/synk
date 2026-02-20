@@ -3,5 +3,4 @@ export type { GitHubWebhookRouteOptions } from "./github.routes.js";
 export type {
 	GitHubInstallationRepository,
 	ListInstallationRepositories,
-	WebhookDatabase,
 } from "./types.js";

@@ -1,7 +1,10 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { db } from "@synk-ai/db";
 import { HTTPException } from "hono/http-exception";
 import type z from "zod";
+import type {
+	WebhookEventLogRepository,
+	WebhookRepository,
+} from "../../../domain/ports/index.js";
 import type { AnalyzeChangesEnqueuer } from "../../../queues/analyze-changes.js";
 import {
 	installationEventSchema,
@@ -16,14 +19,11 @@ import {
 	syncInstallationRepositories,
 	upsertRepositories,
 } from "./repository-helpers.js";
-import type { ListInstallationRepositories, WebhookDatabase } from "./types.js";
+import type { ListInstallationRepositories } from "./types.js";
 
 const PROVIDER_GITHUB = "github" as const;
 const INSTALLATION_ACTIVE = "active" as const;
 const INSTALLATION_SUSPENDED = "suspended" as const;
-const INSTALLATION_DELETED = "deleted" as const;
-const REPOSITORY_ACTIVE = "active" as const;
-const REPOSITORY_REMOVED = "removed" as const;
 const GITHUB_DELETED_REF_SHA = "0000000000000000000000000000000000000000";
 
 type EventHandleResult = { ok: true } | { ok: false; message: string };
@@ -33,6 +33,8 @@ export type GitHubWebhookServiceOptions = {
 	installationOrganizationId?: string;
 	enqueueAnalyzeChanges: AnalyzeChangesEnqueuer;
 	listInstallationRepositories: ListInstallationRepositories;
+	webhookRepository: WebhookRepository;
+	webhookEventLogRepository?: WebhookEventLogRepository;
 };
 
 export class GitHubWebhookService {
@@ -40,10 +42,6 @@ export class GitHubWebhookService {
 	private readonly SIGN_ALGORITHM = "sha256";
 
 	constructor(private readonly options: GitHubWebhookServiceOptions) {}
-
-	private get db(): WebhookDatabase {
-		return db;
-	}
 
 	/**
 	 * Validates the signature of a webhook payload.
@@ -116,14 +114,9 @@ export class GitHubWebhookService {
 			}
 		}
 
-		const existing = await this.db.providerInstallation.findUnique({
-			where: {
-				provider_providerInstallationId: {
-					provider: PROVIDER_GITHUB,
-					providerInstallationId,
-				},
-			},
-			select: { id: true, organizationId: true },
+		const existing = await this.options.webhookRepository.findInstallation({
+			provider: PROVIDER_GITHUB,
+			providerInstallationId,
 		});
 
 		const organizationId = existing?.organizationId ?? this.options.installationOrganizationId;
@@ -137,30 +130,15 @@ export class GitHubWebhookService {
 		}
 
 		const status = action === "suspend" ? INSTALLATION_SUSPENDED : INSTALLATION_ACTIVE;
-		const upserted = await this.db.providerInstallation.upsert({
-			where: {
-				provider_providerInstallationId: {
-					provider: PROVIDER_GITHUB,
-					providerInstallationId,
-				},
-			},
-			create: {
-				organizationId,
-				provider: PROVIDER_GITHUB,
-				providerInstallationId,
-				providerAccountId: identity.accountId,
-				accountLogin: identity.accountLogin,
-				accountType: identity.accountType,
-				status,
-				deletedAt: null,
-			},
-			update: {
-				providerAccountId: identity.accountId,
-				accountLogin: identity.accountLogin,
-				accountType: identity.accountType,
-				status,
-				deletedAt: null,
-			},
+		const upserted = await this.options.webhookRepository.upsertInstallation({
+			organizationId,
+			provider: PROVIDER_GITHUB,
+			providerInstallationId,
+			providerAccountId: identity.accountId,
+			accountLogin: identity.accountLogin,
+			accountType: identity.accountType,
+			status,
+			deletedAt: null,
 		});
 
 		if (action !== "created" || installation?.id === undefined) {
@@ -168,7 +146,7 @@ export class GitHubWebhookService {
 		}
 
 		await syncInstallationRepositories(
-			this.db,
+			this.options.webhookRepository,
 			this.options.listInstallationRepositories,
 			upserted.id,
 			installation.id,
@@ -189,14 +167,9 @@ export class GitHubWebhookService {
 			return { ok: false, message: "Installation ID is required." };
 		}
 
-		const databaseInstallation = await this.db.providerInstallation.findUnique({
-			where: {
-				provider_providerInstallationId: {
-					provider: PROVIDER_GITHUB,
-					providerInstallationId,
-				},
-			},
-			select: { id: true },
+		const databaseInstallation = await this.options.webhookRepository.findInstallation({
+			provider: PROVIDER_GITHUB,
+			providerInstallationId,
 		});
 		if (databaseInstallation === null) {
 			return { ok: true };
@@ -209,7 +182,11 @@ export class GitHubWebhookService {
 				this.options.listInstallationRepositories,
 			);
 			if (hydrated.complete.length > 0) {
-				await upsertRepositories(this.db, databaseInstallation.id, hydrated.complete);
+				await upsertRepositories(
+					this.options.webhookRepository,
+					databaseInstallation.id,
+					hydrated.complete,
+				);
 			}
 			if (hydrated.missingProviderRepositoryIds.length > 0) {
 				throw new HTTPException(422, {
@@ -221,7 +198,7 @@ export class GitHubWebhookService {
 
 		if (action === "removed") {
 			const ids = getRepositoryIds(parseRes.data.repositories_removed ?? []);
-			await markRepositoriesAsRemoved(this.db, providerInstallationId, ids);
+			await markRepositoriesAsRemoved(this.options.webhookRepository, providerInstallationId, ids);
 		}
 
 		return { ok: true };
@@ -247,7 +224,11 @@ export class GitHubWebhookService {
 			return { ok: true };
 		}
 
-		const repo = await this.findActiveRepository(providerInstallationId, providerRepositoryId);
+		const repo = await this.options.webhookRepository.findActiveRepository({
+			provider: PROVIDER_GITHUB,
+			providerInstallationId,
+			providerRepositoryId,
+		});
 		if (repo === null) return { ok: true };
 		if (ref !== `refs/heads/${repo.defaultBranch}`) return { ok: true };
 
@@ -284,7 +265,11 @@ export class GitHubWebhookService {
 			return { ok: true };
 		}
 
-		const repo = await this.findActiveRepository(providerInstallationId, providerRepositoryId);
+		const repo = await this.options.webhookRepository.findActiveRepository({
+			provider: PROVIDER_GITHUB,
+			providerInstallationId,
+			providerRepositoryId,
+		});
 		if (repo === null) return { ok: true };
 		if (baseRef !== repo.defaultBranch) return { ok: true };
 
@@ -311,34 +296,9 @@ export class GitHubWebhookService {
 	 * @throws {Error} - If the installation status or repository updates fail.
 	 */
 	private async handleDeleteInstallation(providerInstallationId: string): Promise<void> {
-		await Promise.all([
-			this.db.providerInstallation.updateMany({
-				where: { provider: PROVIDER_GITHUB, providerInstallationId },
-				data: { status: INSTALLATION_DELETED, deletedAt: new Date() },
-			}),
-			this.db.providerRepository.updateMany({
-				where: {
-					installation: { provider: PROVIDER_GITHUB, providerInstallationId },
-				},
-				data: { status: REPOSITORY_REMOVED, isActive: false },
-			}),
-		]);
-	}
-
-	private async findActiveRepository(providerInstallationId: string, providerRepositoryId: string) {
-		return this.db.providerRepository.findFirst({
-			where: {
-				provider: PROVIDER_GITHUB,
-				providerRepositoryId,
-				isActive: true,
-				status: REPOSITORY_ACTIVE,
-				installation: {
-					provider: PROVIDER_GITHUB,
-					providerInstallationId,
-					status: INSTALLATION_ACTIVE,
-				},
-			},
-			select: { id: true, installationId: true, defaultBranch: true },
+		await this.options.webhookRepository.markInstallationDeleted({
+			provider: PROVIDER_GITHUB,
+			providerInstallationId,
 		});
 	}
 

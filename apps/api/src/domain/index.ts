@@ -21,6 +21,9 @@ export type {
 	RunAccessQuery,
 	RunRepository,
 	UpdateRepositoryCommand,
+	WebhookEventLogRepository,
+	WebhookProvider,
+	WebhookRepository,
 } from "./ports/index.js";
 export type {
 	DashboardServiceContract,

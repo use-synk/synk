@@ -1,10 +1,9 @@
 import type { RepositoryPayload } from "./github.schemas.js";
+import type { WebhookRepository } from "../../../domain/ports/index.js";
 import type { GitHubInstallationRepository, ListInstallationRepositories } from "./types.js";
-import type { WebhookDatabase } from "./types.js";
 
 const PROVIDER_GITHUB = "github" as const;
 const REPOSITORY_ACTIVE = "active" as const;
-const REPOSITORY_REMOVED = "removed" as const;
 
 export type PersistableRepository = {
 	providerRepositoryId: string;
@@ -64,50 +63,32 @@ export const toPersistableRepositoryFromGitHub = (
 });
 
 const upsertOne = async (
-	db: Pick<WebhookDatabase, "providerRepository">,
+	repository: Pick<WebhookRepository, "upsertRepository">,
 	installationId: string,
-	repository: PersistableRepository,
+	persistableRepository: PersistableRepository,
 ): Promise<void> => {
-	await db.providerRepository.upsert({
-		where: {
-			provider_providerRepositoryId: {
-				provider: PROVIDER_GITHUB,
-				providerRepositoryId: repository.providerRepositoryId,
-			},
-		},
-		create: {
-			installationId,
-			provider: PROVIDER_GITHUB,
-			providerRepositoryId: repository.providerRepositoryId,
-			ownerLogin: repository.ownerLogin,
-			name: repository.name,
-			fullName: repository.fullName,
-			defaultBranch: repository.defaultBranch,
-			status: REPOSITORY_ACTIVE,
-			isActive: true,
-			lastSyncedAt: new Date(),
-		},
-		update: {
-			installationId,
-			ownerLogin: repository.ownerLogin,
-			name: repository.name,
-			fullName: repository.fullName,
-			defaultBranch: repository.defaultBranch,
-			status: REPOSITORY_ACTIVE,
-			isActive: true,
-			lastSyncedAt: new Date(),
-		},
+	await repository.upsertRepository({
+		installationId,
+		provider: PROVIDER_GITHUB,
+		providerRepositoryId: persistableRepository.providerRepositoryId,
+		ownerLogin: persistableRepository.ownerLogin,
+		name: persistableRepository.name,
+		fullName: persistableRepository.fullName,
+		defaultBranch: persistableRepository.defaultBranch,
+		status: REPOSITORY_ACTIVE,
+		isActive: true,
+		lastSyncedAt: new Date(),
 	});
 };
 
 export const upsertRepositories = async (
-	db: Pick<WebhookDatabase, "providerRepository">,
+	repository: Pick<WebhookRepository, "upsertRepository">,
 	installationId: string,
 	repositories: readonly PersistableRepository[],
 ): Promise<void> => {
 	const batchSize = 25;
 	for (const batch of chunkArray(repositories, batchSize)) {
-		await Promise.all(batch.map((r) => upsertOne(db, installationId, r)));
+		await Promise.all(batch.map((r) => upsertOne(repository, installationId, r)));
 	}
 };
 
@@ -155,30 +136,24 @@ export const hydrateRepositories = async (
 };
 
 export const markRepositoriesAsRemoved = async (
-	db: Pick<WebhookDatabase, "providerRepository">,
+	repository: Pick<WebhookRepository, "markRepositoriesRemoved">,
 	providerInstallationId: string,
 	repositoryIds: readonly string[],
 ): Promise<void> => {
-	if (repositoryIds.length === 0) return;
-	await db.providerRepository.updateMany({
-		where: {
-			installation: {
-				provider: PROVIDER_GITHUB,
-				providerInstallationId,
-			},
-			providerRepositoryId: { in: [...repositoryIds] },
-		},
-		data: { status: REPOSITORY_REMOVED, isActive: false },
+	await repository.markRepositoriesRemoved({
+		provider: PROVIDER_GITHUB,
+		providerInstallationId,
+		providerRepositoryIds: repositoryIds,
 	});
 };
 
 export const syncInstallationRepositories = async (
-	db: Pick<WebhookDatabase, "providerRepository">,
+	repository: Pick<WebhookRepository, "upsertRepository">,
 	listInstallationRepositories: ListInstallationRepositories,
 	installationId: string,
 	providerInstallationNumericId: number,
 ): Promise<void> => {
 	const repositories = await listInstallationRepositories(providerInstallationNumericId);
 	const persistable = repositories.map(toPersistableRepositoryFromGitHub);
-	await upsertRepositories(db, installationId, persistable);
+	await upsertRepositories(repository, installationId, persistable);
 };

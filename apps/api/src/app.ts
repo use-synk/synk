@@ -5,6 +5,7 @@ import { API_PREFIX } from "./consts.js";
 import type { ApiEnvironment } from "./env.js";
 import type { Logger } from "./logger.js";
 import type { AppDependencies } from "./composition/dependencies.js";
+import { createPrismaWebhookRepositories } from "./infrastructure/prisma/webhook.repositories.js";
 import { createErrorHandler } from "./middleware/error-handler.js";
 import { createLoggingMiddleware } from "./middleware/logging.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
@@ -29,6 +30,7 @@ type AppOptions = {
 
 export const createApp = (options: AppOptions): Hono<AppEnv> => {
 	const { env, logger, enqueueAnalyzeChanges, dependencies } = options;
+	const webhookRepositories = createPrismaWebhookRepositories();
 	const githubCredentials = credentialsFromEnvironment(env);
 	const listInstallationRepositories: ListInstallationRepositories =
 		options.listInstallationRepositories ??
@@ -70,6 +72,8 @@ export const createApp = (options: AppOptions): Hono<AppEnv> => {
 			webhookSecret: env.GITHUB_WEBHOOK_SECRET,
 			enqueueAnalyzeChanges,
 			listInstallationRepositories,
+			webhookRepository: webhookRepositories.webhookRepository,
+			webhookEventLogRepository: webhookRepositories.webhookEventLogRepository,
 			...(env.GITHUB_WEBHOOK_ORGANIZATION_ID !== undefined
 				? { installationOrganizationId: env.GITHUB_WEBHOOK_ORGANIZATION_ID }
 				: {}),
