@@ -10,6 +10,7 @@ import {
 	patchRepositoryBodySchema,
 	triggerManualRunBodySchema,
 } from "./dashboard.schemas.js";
+import { createDashboardRepositories } from "./dashboard.repositories.js";
 import { DashboardService } from "./dashboard.service.js";
 
 /**
@@ -23,6 +24,11 @@ export function createDashboardRoutes({
 	enqueueAnalyzeChanges: AnalyzeChangesEnqueuer;
 }) {
 	const router = new Hono<AuthenticatedAppEnv>();
+	const repositories = createDashboardRepositories();
+	const service = new DashboardService({
+		...repositories,
+		enqueueAnalyzeChanges,
+	});
 
 	// After this middleware, the context will include the authenticated
 	// user and session. Unauthenticated requests won't reach the routes below.
@@ -49,8 +55,11 @@ export function createDashboardRoutes({
 
 		const { isActive } = bodyResult.data;
 
-		const service = new DashboardService();
-		const result = await service.patchRepository(repoId, userId, { isActive });
+		const result = await service.patchRepository({
+			repositoryId: repoId,
+			userId,
+			...(isActive === undefined ? {} : { isActive }),
+		});
 
 		return ctx.json({
 			data: {
@@ -74,8 +83,6 @@ export function createDashboardRoutes({
 		const userId = ctx.get("user").id;
 		const repoId = ctx.req.param("repoId");
 
-		const service = new DashboardService();
-
 		const query = ctx.req.query();
 		const queryResult = listRepositoryRunsQuerySchema.safeParse(query);
 
@@ -86,10 +93,16 @@ export function createDashboardRoutes({
 		}
 
 		const { page = 1, pageSize = 10, status = [] } = queryResult.data;
-		const result = await service.listRepositoryRuns(repoId, userId, { page, pageSize, status });
+		const result = await service.listRepositoryRuns({
+			repositoryId: repoId,
+			userId,
+			page,
+			pageSize,
+			status,
+		});
 
 		return ctx.json({
-			data: result.runs.map((r) => ({
+			data: result.items.map((r) => ({
 				...r,
 				createdAt: r.createdAt.toISOString(),
 			})),
@@ -126,23 +139,15 @@ export function createDashboardRoutes({
 
 		const { commitSha, ref } = bodyResult.data;
 
-		const service = new DashboardService();
-		const result = await service.triggerManualRun(
-			repoId,
+		const result = await service.triggerManualRun({
+			repositoryId: repoId,
 			userId,
-			enqueueAnalyzeChanges,
 			commitSha,
-			ref,
-		);
+			...(ref === undefined ? {} : { ref }),
+		});
 
 		return ctx.json({
-			data: {
-				repositoryId: repoId,
-				triggerType: "manual",
-				triggerRef: result.triggerRef,
-				triggerCommitSha: commitSha,
-				accepted: true,
-			},
+			data: result,
 		});
 	});
 
@@ -158,7 +163,6 @@ export function createDashboardRoutes({
 		const userId = ctx.get("user").id;
 		const runId = ctx.req.param("runId");
 
-		const service = new DashboardService();
 		const result = await service.getRunDetail(runId, userId);
 
 		return ctx.json({
@@ -186,8 +190,6 @@ export function createDashboardRoutes({
 		const userId = ctx.get("user").id;
 		const installationId = ctx.req.param("installationId");
 
-		const service = new DashboardService();
-
 		const query = ctx.req.query();
 		const queryResult = listInstallationRepositoriesQuerySchema.safeParse(query);
 
@@ -198,14 +200,14 @@ export function createDashboardRoutes({
 		}
 
 		const { page = 1, pageSize = 10 } = queryResult.data;
-		const result = await service.listInstallationRepositories(
+		const result = await service.listInstallationRepositories({
 			installationId,
 			userId,
 			page,
 			pageSize,
-		);
+		});
 
-		const data = result.repositories.map((r) => ({
+		const data = result.items.map((r) => ({
 			...r,
 			updatedAt: r.updatedAt.toISOString(),
 		}));
