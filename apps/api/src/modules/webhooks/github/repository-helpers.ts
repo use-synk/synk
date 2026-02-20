@@ -30,10 +30,10 @@ export const toPersistableRepository = (
 	repository: RepositoryPayload,
 ): PersistableRepository | null => {
 	const providerRepositoryId = repository.id !== undefined ? String(repository.id) : null;
-	const ownerLogin = repository.owner?.login?.trim() ?? null;
-	const name = repository.name?.trim() ?? null;
-	const fullName = repository.full_name?.trim() ?? null;
-	const defaultBranch = repository.default_branch?.trim() ?? null;
+	const ownerLogin = repository.owner?.login?.trim() || null;
+	const name = repository.name?.trim() || null;
+	const fullName = repository.full_name?.trim() || null;
+	const defaultBranch = repository.default_branch?.trim() || null;
 	if (
 		providerRepositoryId === null ||
 		ownerLogin === null ||
