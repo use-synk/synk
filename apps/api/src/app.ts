@@ -2,6 +2,7 @@ import { createInstallationOctokit, credentialsFromEnvironment } from "@synk-ai/
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { API_PREFIX } from "./consts.js";
+import { buildAppDependencies, type AppDependencies } from "./composition/dependencies.js";
 import type { ApiEnvironment } from "./env.js";
 import type { Logger } from "./logger.js";
 import { createErrorHandler } from "./middleware/error-handler.js";
@@ -22,11 +23,14 @@ type AppOptions = {
 	env: ApiEnvironment;
 	logger: Logger;
 	enqueueAnalyzeChanges: AnalyzeChangesEnqueuer;
+	dependencies?: AppDependencies;
 	listInstallationRepositories?: ListInstallationRepositories;
 };
 
 export const createApp = (options: AppOptions): Hono<AppEnv> => {
 	const { env, logger, enqueueAnalyzeChanges } = options;
+	const dependencies =
+		options.dependencies ?? buildAppDependencies({ enqueueAnalyzeChanges });
 	const githubCredentials = credentialsFromEnvironment(env);
 	const listInstallationRepositories: ListInstallationRepositories =
 		options.listInstallationRepositories ??
@@ -57,7 +61,7 @@ export const createApp = (options: AppOptions): Hono<AppEnv> => {
 		`${API_PREFIX}/dashboard`,
 		createDashboardRoutes({
 			...routeCtx,
-			enqueueAnalyzeChanges,
+			dashboardService: dependencies.dashboardService,
 		}),
 	);
 

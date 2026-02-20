@@ -1,9 +1,8 @@
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import z from "zod";
-import { createPrismaDashboardRepositories } from "../../infrastructure/prisma/dashboard.repositories.js";
+import type { DashboardServiceContract } from "../../domain/services/index.js";
 import { createRequireAuthMiddleware } from "../../middleware/auth.js";
-import type { AnalyzeChangesEnqueuer } from "../../queues/analyze-changes.js";
 import type { AuthenticatedAppEnv, RouteContext } from "../../types.js";
 import {
 	listInstallationRepositoriesQuerySchema,
@@ -11,7 +10,6 @@ import {
 	patchRepositoryBodySchema,
 	triggerManualRunBodySchema,
 } from "./dashboard.schemas.js";
-import { DashboardService } from "./dashboard.service.js";
 
 /**
  * @todo We will need to further refactor this to split the routes into
@@ -19,16 +17,11 @@ import { DashboardService } from "./dashboard.service.js";
  */
 export function createDashboardRoutes({
 	auth,
-	enqueueAnalyzeChanges,
+	dashboardService,
 }: RouteContext & {
-	enqueueAnalyzeChanges: AnalyzeChangesEnqueuer;
+	dashboardService: DashboardServiceContract;
 }) {
 	const router = new Hono<AuthenticatedAppEnv>();
-	const repositories = createPrismaDashboardRepositories();
-	const service = new DashboardService({
-		...repositories,
-		enqueueAnalyzeChanges,
-	});
 
 	// After this middleware, the context will include the authenticated
 	// user and session. Unauthenticated requests won't reach the routes below.
@@ -55,7 +48,7 @@ export function createDashboardRoutes({
 
 		const { isActive } = bodyResult.data;
 
-		const result = await service.patchRepository({
+		const result = await dashboardService.patchRepository({
 			repositoryId: repoId,
 			userId,
 			...(isActive === undefined ? {} : { isActive }),
@@ -93,7 +86,7 @@ export function createDashboardRoutes({
 		}
 
 		const { page = 1, pageSize = 10, status = [] } = queryResult.data;
-		const result = await service.listRepositoryRuns({
+		const result = await dashboardService.listRepositoryRuns({
 			repositoryId: repoId,
 			userId,
 			page,
@@ -139,7 +132,7 @@ export function createDashboardRoutes({
 
 		const { commitSha, ref } = bodyResult.data;
 
-		const result = await service.triggerManualRun({
+		const result = await dashboardService.triggerManualRun({
 			repositoryId: repoId,
 			userId,
 			commitSha,
@@ -163,7 +156,7 @@ export function createDashboardRoutes({
 		const userId = ctx.get("user").id;
 		const runId = ctx.req.param("runId");
 
-		const result = await service.getRunDetail(runId, userId);
+		const result = await dashboardService.getRunDetail(runId, userId);
 
 		return ctx.json({
 			data: {
@@ -200,7 +193,7 @@ export function createDashboardRoutes({
 		}
 
 		const { page = 1, pageSize = 10 } = queryResult.data;
-		const result = await service.listInstallationRepositories({
+		const result = await dashboardService.listInstallationRepositories({
 			installationId,
 			userId,
 			page,
