@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { createMiddleware } from "hono/factory";
-import type { AppEnv } from "../types.js";
+import type { AppEnv } from "../types";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

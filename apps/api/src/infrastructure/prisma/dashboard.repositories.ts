@@ -3,8 +3,8 @@ import type {
 	AuthorizationRepository,
 	DashboardRepository,
 	RunRepository,
-} from "../../domain/ports/index.js";
-import { AccessDeniedError } from "../../domain/errors/access-denied-error.js";
+} from "../../domain/ports/index";
+import { AccessDeniedError } from "../../domain/errors/access-denied-error";
 
 export type DashboardRepositories = {
 	authorizationRepository: AuthorizationRepository;

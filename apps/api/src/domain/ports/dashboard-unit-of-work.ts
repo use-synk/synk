@@ -1,6 +1,6 @@
-import type { AuthorizationRepository } from "./authorization-repository.js";
-import type { DashboardRepository } from "./dashboard-repository.js";
-import type { RunRepository } from "./run-repository.js";
+import type { AuthorizationRepository } from "./authorization-repository";
+import type { DashboardRepository } from "./dashboard-repository";
+import type { RunRepository } from "./run-repository";
 
 export type DashboardUnitOfWorkContext = {
 	authorizationRepository: AuthorizationRepository;

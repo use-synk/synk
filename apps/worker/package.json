@@ -4,11 +4,11 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"dev": "node --env-file=.env --import tsx/esm --watch src/worker.ts",
-		"build": "tsc",
+		"dev": "bun --env-file=.env --watch src/worker.ts",
+		"build": "bun build src/worker.ts --outdir dist --format esm --target bun --sourcemap",
 		"lint": "biome check .",
-		"typecheck": "tsc --noEmit",
-		"test": "vitest run --coverage"
+		"typecheck": "bunx tsc --noEmit",
+		"test": "bun test --coverage"
 	},
 	"dependencies": {
 		"@synk-ai/db": "workspace:*",
@@ -21,10 +21,7 @@
 	},
 	"devDependencies": {
 		"@types/node": "^22.17.2",
-		"@vitest/coverage-v8": "^3.0.0",
 		"pino-pretty": "^13.0.0",
-		"tsx": "^4.20.5",
-		"typescript": "5.9.2",
-		"vitest": "^3.0.0"
+		"typescript": "5.9.2"
 	}
 }

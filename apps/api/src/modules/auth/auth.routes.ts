@@ -1,6 +1,6 @@
 import { Hono } from "hono";
-import type { AppEnv } from "../../types.js";
-import type { AuthService } from "./auth.service.js";
+import type { AppEnv } from "../../types";
+import type { AuthService } from "./auth.service";
 
 export function createAuthRoutes({ auth }: AuthService) {
 	const route = new Hono<AppEnv>();

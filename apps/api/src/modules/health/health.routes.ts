@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import type { AppEnv, RouteContext } from "../../types.js";
+import type { AppEnv, RouteContext } from "../../types";
 
 export function createHealthRoutes({ gitSha }: RouteContext) {
 	const route = new Hono<AppEnv>();

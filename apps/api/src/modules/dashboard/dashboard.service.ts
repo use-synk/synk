@@ -6,7 +6,7 @@ import type {
 	ListRepositoryRunsInput,
 	PatchRepositoryInput,
 	TriggerManualRunInput,
-} from "../../domain/services/dashboard-service.js";
+} from "../../domain/services/dashboard-service";
 
 export class DashboardService implements DashboardServiceContract {
 	constructor(private readonly deps: DashboardServiceDependencies) {}

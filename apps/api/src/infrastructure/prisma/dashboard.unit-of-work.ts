@@ -1,6 +1,6 @@
 import { db } from "@synk-ai/db";
-import type { DashboardUnitOfWork } from "../../domain/ports/index.js";
-import { createPrismaDashboardRepositories } from "./dashboard.repositories.js";
+import type { DashboardUnitOfWork } from "../../domain/ports/index";
+import { createPrismaDashboardRepositories } from "./dashboard.repositories";
 
 export const createPrismaDashboardUnitOfWork = (): DashboardUnitOfWork => ({
 	withTransaction: async (operation) =>

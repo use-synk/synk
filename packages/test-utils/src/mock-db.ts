@@ -1,5 +1,8 @@
-import { vi } from "vitest";
-import type { Mock } from "vitest";
+import { mock } from "bun:test";
+import type { Mock } from "bun:test";
+
+// biome-ignore lint/suspicious/noExplicitAny: we want to allow any type of argument
+type AnyMock = Mock<(...args: any[]) => any>;
 
 /**
  * Standard method names present on every Prisma model delegate.
@@ -29,14 +32,14 @@ type PrismaMethodName = (typeof PRISMA_DELEGATE_METHODS)[number];
 
 /**
  * A mocked Prisma model delegate with all standard methods replaced by
- * vitest `Mock` instances. Allows `.mockResolvedValue()`, `.mockReturnValue()`,
- * and all other vitest mock APIs on each method.
+ * bun:test `Mock` instances. Allows `.mockResolvedValue()`, `.mockReturnValue()`,
+ * and all other bun:test mock APIs on each method.
  */
-export type MockPrismaDelegate = Record<PrismaMethodName, Mock>;
+export type MockPrismaDelegate = Record<PrismaMethodName, AnyMock>;
 
 const createMockDelegate = (): MockPrismaDelegate =>
 	Object.fromEntries(
-		PRISMA_DELEGATE_METHODS.map((method) => [method, vi.fn()]),
+		PRISMA_DELEGATE_METHODS.map((method) => [method, mock()]),
 	) as MockPrismaDelegate;
 
 /**
@@ -65,27 +68,27 @@ export type MockDb = {
 	readonly member: MockPrismaDelegate;
 	readonly invitation: MockPrismaDelegate;
 	// Prisma client methods
-	readonly $connect: Mock;
-	readonly $disconnect: Mock;
-	readonly $transaction: Mock;
-	readonly $executeRaw: Mock;
-	readonly $queryRaw: Mock;
-	readonly $executeRawUnsafe: Mock;
-	readonly $queryRawUnsafe: Mock;
+	readonly $connect: AnyMock;
+	readonly $disconnect: AnyMock;
+	readonly $transaction: AnyMock;
+	readonly $executeRaw: AnyMock;
+	readonly $queryRaw: AnyMock;
+	readonly $executeRawUnsafe: AnyMock;
+	readonly $queryRawUnsafe: AnyMock;
 };
 
 /**
  * Creates a fresh `MockDb` instance with all model methods initialised as
- * `vi.fn()`. Call this in `vi.hoisted()` or at the top of a test file.
+ * `mock()`. Call this at the top of a test file.
  *
  * @example
  * ```ts
  * const mockDb = createMockDb();
  *
- * vi.mock("@synk-ai/db", () => ({ db: mockDb }));
+ * mock.module("@synk-ai/db", () => ({ db: mockDb }));
  *
  * beforeEach(() => {
- *   vi.clearAllMocks();
+ *   mock.restore();
  *   mockDb.session.findFirst.mockResolvedValue({ token: "t", userId: "u", expiresAt: new Date() });
  * });
  * ```
@@ -103,11 +106,11 @@ export const createMockDb = (): MockDb => ({
 	organization: createMockDelegate(),
 	member: createMockDelegate(),
 	invitation: createMockDelegate(),
-	$connect: vi.fn(),
-	$disconnect: vi.fn(),
-	$transaction: vi.fn(),
-	$executeRaw: vi.fn(),
-	$queryRaw: vi.fn(),
-	$executeRawUnsafe: vi.fn(),
-	$queryRawUnsafe: vi.fn(),
+	$connect: mock(),
+	$disconnect: mock(),
+	$transaction: mock(),
+	$executeRaw: mock(),
+	$queryRaw: mock(),
+	$executeRawUnsafe: mock(),
+	$queryRawUnsafe: mock(),
 });

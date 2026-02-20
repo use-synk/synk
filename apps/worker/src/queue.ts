@@ -5,7 +5,7 @@ import {
 	type AnalyzeChangesJobPayload,
 } from "@synk-ai/shared";
 import { type ConnectionOptions, type Processor, Queue, QueueEvents, Worker } from "bullmq";
-import type { Logger } from "./logger.js";
+import type { Logger } from "./logger";
 
 const REDIS_RETRY_BASE_DELAY_MS = 250;
 const REDIS_RETRY_MAX_DELAY_MS = 5_000;

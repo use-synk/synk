@@ -1,14 +1,12 @@
-import { serve } from "@hono/node-server";
-import type { ServerType } from "@hono/node-server";
 import { db } from "@synk-ai/db";
-import { createApp } from "./app.js";
-import { buildAppDependencies } from "./composition/dependencies.js";
-import { parseApiEnvironment } from "./env.js";
-import { createLogger } from "./logger.js";
+import { createApp } from "./app";
+import { buildAppDependencies } from "./composition/dependencies";
+import { parseApiEnvironment } from "./env";
+import { createLogger } from "./logger";
 import {
 	createAnalyzeChangesEnqueuer,
 	createAnalyzeChangesQueue,
-} from "./queues/analyze-changes.js";
+} from "./queues/analyze-changes";
 
 const SHUTDOWN_TIMEOUT_MS = 10_000;
 
@@ -21,12 +19,13 @@ const startServer = (): void => {
 
 	const app = createApp({ env, logger, enqueueAnalyzeChanges, dependencies });
 
-	const server: ServerType = serve(
-		{ fetch: app.fetch, port: env.PORT, hostname: env.HOST },
-		(info) => {
-			logger.info({ port: info.port, host: env.HOST }, "API server started");
-		},
-	);
+	const server = Bun.serve({
+		fetch: app.fetch,
+		port: env.PORT,
+		hostname: env.HOST,
+	});
+
+	logger.info({ port: server.port, host: env.HOST }, "API server started");
 
 	let isShuttingDown = false;
 
@@ -47,15 +46,7 @@ const startServer = (): void => {
 
 		try {
 			await analyzeChangesQueue.close();
-			await new Promise<void>((resolve, reject) => {
-				server.close((error) => {
-					if (error !== undefined) {
-						reject(error);
-						return;
-					}
-					resolve();
-				});
-			});
+			await server.stop();
 			clearTimeout(timeout);
 			logger.info("server closed");
 			process.exit(0);

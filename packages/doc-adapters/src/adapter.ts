@@ -7,7 +7,7 @@ import type {
 	RepoFile,
 	ValidationContext,
 	ValidationResult,
-} from "./types.js";
+} from "./types";
 
 /**
  * Adapter contract for documentation frameworks.

@@ -1,1 +1,1 @@
-export { createDashboardRoutes } from "./dashboard.routes.js";
+export { createDashboardRoutes } from "./dashboard.routes";

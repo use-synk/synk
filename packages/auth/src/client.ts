@@ -3,7 +3,7 @@
 import type { BetterAuthClientOptions } from "better-auth";
 import { organizationClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
-import { roles } from "./ac/org.js";
+import { roles } from "./ac/org";
 
 /**
  * Creates a Better Auth client with the organization plugin configured.

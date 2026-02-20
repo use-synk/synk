@@ -13,8 +13,8 @@
 	"scripts": {
 		"build": "tsc -p tsconfig.json",
 		"lint": "biome check .",
-		"typecheck": "tsc --noEmit",
-		"test": "vitest run --coverage"
+		"typecheck": "bunx tsc --noEmit",
+		"test": "bun test --coverage"
 	},
 	"dependencies": {
 		"@openrouter/ai-sdk-provider": "^2.0.0",
@@ -24,8 +24,6 @@
 	},
 	"devDependencies": {
 		"@types/node": "^22.17.2",
-		"@vitest/coverage-v8": "^3.0.0",
-		"typescript": "5.9.2",
-		"vitest": "^3.0.0"
+		"typescript": "5.9.2"
 	}
 }

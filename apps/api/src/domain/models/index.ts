@@ -8,4 +8,4 @@ export type {
 	RunDetail,
 	RunListFilter,
 	RunListItem,
-} from "./dashboard.js";
+} from "./dashboard";

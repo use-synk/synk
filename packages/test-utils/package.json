@@ -15,14 +15,10 @@
 		"lint": "biome check .",
 		"lint:write": "biome check . --write",
 		"lint:unsafe": "biome check . --write --unsafe",
-		"typecheck": "tsc --noEmit"
-	},
-	"peerDependencies": {
-		"vitest": ">=3.0.0"
+		"typecheck": "bunx tsc --noEmit"
 	},
 	"devDependencies": {
 		"@types/node": "^22.17.2",
-		"typescript": "5.9.2",
-		"vitest": "^3.0.0"
+		"typescript": "5.9.2"
 	}
 }

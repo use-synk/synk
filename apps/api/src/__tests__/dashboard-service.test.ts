@@ -1,7 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 import { HTTPException } from "hono/http-exception";
-import { DashboardService } from "../modules/dashboard/dashboard.service.js";
-import type { DashboardServiceDependencies } from "../domain/services/dashboard-service.js";
+import { DashboardService } from "../modules/dashboard/dashboard.service";
+import type { DashboardServiceDependencies } from "../domain/services/dashboard-service";
 
 const INSTALLATION_ID = "11111111-1111-4111-8111-111111111111";
 const REPOSITORY_ID = "22222222-2222-4222-8222-222222222222";
@@ -10,16 +10,16 @@ const NOW = new Date("2026-02-19T20:00:00.000Z");
 
 const createDependencies = (): DashboardServiceDependencies => {
 	const authorizationRepository: DashboardServiceDependencies["authorizationRepository"] = {
-		hasInstallationAccess: vi.fn(async () => true),
-		hasRepositoryAccess: vi.fn(async () => true),
-		hasRunAccess: vi.fn(async () => true),
-		assertInstallationAccess: vi.fn(async () => undefined),
-		assertRepositoryAccess: vi.fn(async () => undefined),
-		assertRunAccess: vi.fn(async () => undefined),
+		hasInstallationAccess: mock(async () => true),
+		hasRepositoryAccess: mock(async () => true),
+		hasRunAccess: mock(async () => true),
+		assertInstallationAccess: mock(async () => undefined),
+		assertRepositoryAccess: mock(async () => undefined),
+		assertRunAccess: mock(async () => undefined),
 	};
 
 	const dashboardRepository: DashboardServiceDependencies["dashboardRepository"] = {
-		updateRepository: vi.fn(
+		updateRepository: mock(
 			async (command: Parameters<DashboardServiceDependencies["dashboardRepository"]["updateRepository"]>[0]) =>
 				({
 					id: command.repositoryId,
@@ -33,9 +33,9 @@ const createDependencies = (): DashboardServiceDependencies => {
 					updatedAt: NOW,
 				}),
 		),
-		listInstallationRepositories: vi.fn(async () => ({ items: [], total: 0 })),
-		listRepositoryRuns: vi.fn(async () => ({ items: [], total: 0 })),
-		findRepositoryForManualRun: vi.fn(async () => ({
+		listInstallationRepositories: mock(async () => ({ items: [], total: 0 })),
+		listRepositoryRuns: mock(async () => ({ items: [], total: 0 })),
+		findRepositoryForManualRun: mock(async () => ({
 			status: "active" as const,
 			isActive: true,
 			defaultBranch: "main",
@@ -44,11 +44,11 @@ const createDependencies = (): DashboardServiceDependencies => {
 	};
 
 	const runRepository: DashboardServiceDependencies["runRepository"] = {
-		findRunDetail: vi.fn(async () => null),
+		findRunDetail: mock(async () => null),
 	};
 
 	const unitOfWork: DashboardServiceDependencies["unitOfWork"] = {
-		withTransaction: vi.fn(async (operation) =>
+		withTransaction: mock(async (operation) =>
 			operation({
 				authorizationRepository,
 				dashboardRepository,
@@ -62,7 +62,7 @@ const createDependencies = (): DashboardServiceDependencies => {
 		dashboardRepository,
 		runRepository,
 		unitOfWork,
-		enqueueAnalyzeChanges: vi.fn(async () => undefined),
+		enqueueAnalyzeChanges: mock(async () => undefined),
 	};
 };
 
@@ -118,7 +118,7 @@ describe("DashboardService", () => {
 
 	it("triggerManualRun rejects inactive repositories", async () => {
 		const deps = createDependencies();
-		deps.dashboardRepository.findRepositoryForManualRun = vi.fn(async () => ({
+		deps.dashboardRepository.findRepositoryForManualRun = mock(async () => ({
 			status: "removed" as const,
 			isActive: false,
 			defaultBranch: "main",

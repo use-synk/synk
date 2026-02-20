@@ -1,4 +1,4 @@
-import type { DiffFile } from "../../diff.js";
+import type { DiffFile } from "../../diff";
 
 interface GitHubFixtureFile {
 	filename: string;

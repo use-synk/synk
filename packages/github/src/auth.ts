@@ -1,7 +1,7 @@
 import { createAppAuth } from "@octokit/auth-app";
 import { Octokit } from "@octokit/rest";
 
-import type { GitHubCredentialsEnvironment } from "./env.js";
+import type { GitHubCredentialsEnvironment } from "./env";
 
 export interface GitHubAppCredentials {
 	appId: number;

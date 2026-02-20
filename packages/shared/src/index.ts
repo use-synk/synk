@@ -3,13 +3,13 @@ export {
 	nodeEnvironmentSchema,
 	parseEnvironment,
 	sharedEnvironmentSchema,
-} from "./env.js";
+} from "./env";
 export {
 	parseSynkAiConfigFromYaml,
 	synkAiConfigSchema,
 	type ParsedSynkAiConfig,
 	type SynkAiConfig,
-} from "./synk-config.js";
+} from "./synk-config";
 export {
 	runStatusSchema,
 	runStatusValues,
@@ -17,7 +17,7 @@ export {
 	triggerTypeValues,
 	type RunStatus,
 	type TriggerType,
-} from "./schemas.js";
+} from "./schemas";
 export {
 	ANALYZE_CHANGES_COALESCE_WINDOW_MS,
 	ANALYZE_CHANGES_DLQ_NAME,
@@ -27,7 +27,7 @@ export {
 	buildAnalyzeChangesActiveJobId,
 	buildAnalyzeChangesPendingPayloadKey,
 	type AnalyzeChangesJobPayload,
-} from "./queue.js";
+} from "./queue";
 export {
 	calculateCoalesceDelayMs,
 	getRepositoryActiveJob,
@@ -38,4 +38,4 @@ export {
 	type PendingAnalyzeChangesPayload,
 	type QueueJobLike,
 	type RepositoryQueueLike,
-} from "./queue-coalescing.js";
+} from "./queue-coalescing";

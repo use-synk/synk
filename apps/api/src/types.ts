@@ -1,5 +1,5 @@
-import type { Logger } from "./logger.js";
-import type { AuthService, createAuthService } from "./modules/auth/auth.service.js";
+import type { Logger } from "./logger";
+import type { AuthService, createAuthService } from "./modules/auth/auth.service";
 
 export type DashboardAuth = {
 	userId: string;

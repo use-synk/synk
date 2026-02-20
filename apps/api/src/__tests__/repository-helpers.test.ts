@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { toPersistableRepository } from "../modules/webhooks/github/repository-helpers.js";
+import { describe, expect, it } from "bun:test";
+import { toPersistableRepository } from "../modules/webhooks/github/repository-helpers";
 
 describe("toPersistableRepository", () => {
 	it("returns null when required string fields are whitespace only", () => {

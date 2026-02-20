@@ -1,24 +1,24 @@
 import { createInstallationOctokit, credentialsFromEnvironment } from "@synk-ai/github";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { API_PREFIX } from "./consts.js";
-import type { ApiEnvironment } from "./env.js";
-import type { Logger } from "./logger.js";
-import type { AppDependencies } from "./composition/dependencies.js";
-import { createPrismaWebhookRepositories } from "./infrastructure/prisma/webhook.repositories.js";
-import { createErrorHandler } from "./middleware/error-handler.js";
-import { createLoggingMiddleware } from "./middleware/logging.js";
-import { requestIdMiddleware } from "./middleware/request-id.js";
-import { createAuthRoutes } from "./modules/auth/auth.routes.js";
-import { createAuthService } from "./modules/auth/auth.service.js";
-import { createDashboardRoutes } from "./modules/dashboard/dashboard.routes.js";
-import { createHealthRoutes } from "./modules/health/health.routes.js";
+import { API_PREFIX } from "./consts";
+import type { ApiEnvironment } from "./env";
+import type { Logger } from "./logger";
+import type { AppDependencies } from "./composition/dependencies";
+import { createPrismaWebhookRepositories } from "./infrastructure/prisma/webhook.repositories";
+import { createErrorHandler } from "./middleware/error-handler";
+import { createLoggingMiddleware } from "./middleware/logging";
+import { requestIdMiddleware } from "./middleware/request-id";
+import { createAuthRoutes } from "./modules/auth/auth.routes";
+import { createAuthService } from "./modules/auth/auth.service";
+import { createDashboardRoutes } from "./modules/dashboard/dashboard.routes";
+import { createHealthRoutes } from "./modules/health/health.routes";
 import {
 	type ListInstallationRepositories,
 	createGitHubWebhookRoutes,
-} from "./modules/webhooks/index.js";
-import type { AnalyzeChangesEnqueuer } from "./queues/analyze-changes.js";
-import type { AppEnv, RouteContext } from "./types.js";
+} from "./modules/webhooks/index";
+import type { AnalyzeChangesEnqueuer } from "./queues/analyze-changes";
+import type { AppEnv, RouteContext } from "./types";
 
 type AppOptions = {
 	env: ApiEnvironment;

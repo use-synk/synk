@@ -1,15 +1,15 @@
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import z from "zod";
-import type { DashboardServiceContract } from "../../domain/services/index.js";
-import { createRequireAuthMiddleware } from "../../middleware/auth.js";
-import type { AuthenticatedAppEnv, RouteContext } from "../../types.js";
+import type { DashboardServiceContract } from "../../domain/services/index";
+import { createRequireAuthMiddleware } from "../../middleware/auth";
+import type { AuthenticatedAppEnv, RouteContext } from "../../types";
 import {
 	listInstallationRepositoriesQuerySchema,
 	listRepositoryRunsQuerySchema,
 	patchRepositoryBodySchema,
 	triggerManualRunBodySchema,
-} from "./dashboard.schemas.js";
+} from "./dashboard.schemas";
 
 /**
  * @todo We will need to further refactor this to split the routes into

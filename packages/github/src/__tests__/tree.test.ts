@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock, jest, setSystemTime } from "bun:test";
 
 import {
 	GitHubRepositoryContentError,
@@ -6,11 +6,11 @@ import {
 	fetchFileContent,
 	fetchMultipleFiles,
 	fetchRepoTree,
-} from "../tree.js";
+} from "../tree";
 
 describe("fetchRepoTree", () => {
 	it("fetches a recursive tree and returns only file entries", async () => {
-		const getTree = vi.fn(async () => ({
+		const getTree = mock(async () => ({
 			data: {
 				tree: [
 					{ path: "docs", type: "tree", sha: "sha-docs" },
@@ -25,10 +25,10 @@ describe("fetchRepoTree", () => {
 			rest: {
 				git: {
 					getTree,
-					getBlob: vi.fn(),
+					getBlob: mock(),
 				},
 				repos: {
-					getContent: vi.fn(),
+					getContent: mock(),
 				},
 			},
 		};
@@ -48,7 +48,7 @@ describe("fetchRepoTree", () => {
 	});
 
 	it("throws a typed error when GitHub returns a truncated recursive tree", async () => {
-		const getTree = vi.fn(async () => ({
+		const getTree = mock(async () => ({
 			data: {
 				tree: [{ path: "README.md", type: "blob", sha: "sha-readme", size: 120 }],
 				truncated: true,
@@ -60,10 +60,10 @@ describe("fetchRepoTree", () => {
 			rest: {
 				git: {
 					getTree,
-					getBlob: vi.fn(),
+					getBlob: mock(),
 				},
 				repos: {
-					getContent: vi.fn(),
+					getContent: mock(),
 				},
 			},
 		};
@@ -80,7 +80,7 @@ describe("fetchRepoTree", () => {
 
 describe("fetchFileContent", () => {
 	it("returns decoded file content from the contents API", async () => {
-		const getContent = vi.fn(async () => ({
+		const getContent = mock(async () => ({
 			data: {
 				type: "file",
 				path: "docs/intro.md",
@@ -95,8 +95,8 @@ describe("fetchFileContent", () => {
 		const octokit = {
 			rest: {
 				git: {
-					getTree: vi.fn(),
-					getBlob: vi.fn(),
+					getTree: mock(),
+					getBlob: mock(),
 				},
 				repos: {
 					getContent,
@@ -126,7 +126,7 @@ describe("fetchFileContent", () => {
 	});
 
 	it("falls back to the blob API when contents API omits large file content", async () => {
-		const getContent = vi.fn(async () => ({
+		const getContent = mock(async () => ({
 			data: {
 				type: "file",
 				path: "docs/large.md",
@@ -137,7 +137,7 @@ describe("fetchFileContent", () => {
 			},
 			headers: {},
 		}));
-		const getBlob = vi.fn(async () => ({
+		const getBlob = mock(async () => ({
 			data: {
 				encoding: "base64",
 				content: "bGFyZ2UgY29udGVudA==",
@@ -148,7 +148,7 @@ describe("fetchFileContent", () => {
 		const octokit = {
 			rest: {
 				git: {
-					getTree: vi.fn(),
+					getTree: mock(),
 					getBlob,
 				},
 				repos: {
@@ -168,15 +168,15 @@ describe("fetchFileContent", () => {
 	});
 
 	it("throws a typed error when the path points to a directory", async () => {
-		const getContent = vi.fn(async () => ({
+		const getContent = mock(async () => ({
 			data: [{ type: "file", path: "docs/intro.md" }],
 			headers: {},
 		}));
 		const octokit = {
 			rest: {
 				git: {
-					getTree: vi.fn(),
-					getBlob: vi.fn(),
+					getTree: mock(),
+					getBlob: mock(),
 				},
 				repos: {
 					getContent,
@@ -193,7 +193,7 @@ describe("fetchFileContent", () => {
 	});
 
 	it("throws a typed error when GitHub returns an unsupported content encoding", async () => {
-		const getContent = vi.fn(async () => ({
+		const getContent = mock(async () => ({
 			data: {
 				type: "file",
 				path: "docs/intro.md",
@@ -207,8 +207,8 @@ describe("fetchFileContent", () => {
 		const octokit = {
 			rest: {
 				git: {
-					getTree: vi.fn(),
-					getBlob: vi.fn(),
+					getTree: mock(),
+					getBlob: mock(),
 				},
 				repos: {
 					getContent,
@@ -228,7 +228,7 @@ describe("fetchFileContent", () => {
 	});
 
 	it("throws a typed error when blob fallback is required but file sha is missing", async () => {
-		const getContent = vi.fn(async () => ({
+		const getContent = mock(async () => ({
 			data: {
 				type: "file",
 				path: "docs/large.md",
@@ -242,8 +242,8 @@ describe("fetchFileContent", () => {
 		const octokit = {
 			rest: {
 				git: {
-					getTree: vi.fn(),
-					getBlob: vi.fn(),
+					getTree: mock(),
+					getBlob: mock(),
 				},
 				repos: {
 					getContent,
@@ -260,7 +260,7 @@ describe("fetchFileContent", () => {
 	});
 
 	it("throws a typed error when blob fallback returns no content", async () => {
-		const getContent = vi.fn(async () => ({
+		const getContent = mock(async () => ({
 			data: {
 				type: "file",
 				path: "docs/large.md",
@@ -271,7 +271,7 @@ describe("fetchFileContent", () => {
 			},
 			headers: {},
 		}));
-		const getBlob = vi.fn(async () => ({
+		const getBlob = mock(async () => ({
 			data: {
 				encoding: "base64",
 				content: "",
@@ -281,7 +281,7 @@ describe("fetchFileContent", () => {
 		const octokit = {
 			rest: {
 				git: {
-					getTree: vi.fn(),
+					getTree: mock(),
 					getBlob,
 				},
 				repos: {
@@ -301,8 +301,8 @@ describe("fetchFileContent", () => {
 
 describe("fetchMultipleFiles", () => {
 	it("backs off when rate limit is low while batch fetching", async () => {
-		vi.useFakeTimers();
-		vi.setSystemTime(new Date("2026-02-19T00:00:00.000Z"));
+		jest.useFakeTimers();
+		setSystemTime(new Date("2026-02-19T00:00:00.000Z"));
 
 		const getContent = vi
 			.fn<
@@ -350,8 +350,8 @@ describe("fetchMultipleFiles", () => {
 		const octokit = {
 			rest: {
 				git: {
-					getTree: vi.fn(),
-					getBlob: vi.fn(),
+					getTree: mock(),
+					getBlob: mock(),
 				},
 				repos: {
 					getContent,
@@ -366,12 +366,12 @@ describe("fetchMultipleFiles", () => {
 			ref: "main",
 		});
 
-		await vi.advanceTimersByTimeAsync(1_500);
+		await jest.advanceTimersByTimeAsync(1_500);
 		const result = await resultPromise;
 
 		expect(getContent).toHaveBeenCalledTimes(2);
 		expect(result).toHaveLength(2);
 
-		vi.useRealTimers();
+		jest.useRealTimers();
 	});
 });

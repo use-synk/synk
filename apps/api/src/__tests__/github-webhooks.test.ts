@@ -2,31 +2,31 @@ import { createHmac } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { HTTPException } from "hono/http-exception";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { db } from "@synk-ai/db";
 import type { MockDb } from "@synk-ai/test-utils";
 
-vi.mock("@synk-ai/db", async () => {
+mock.module("@synk-ai/db", async () => {
 	const { createMockDb } = await import("@synk-ai/test-utils");
 	return { db: createMockDb() };
 });
 
 const mockDb = db as unknown as MockDb;
 
-vi.mock("../modules/auth/auth.service.js", () => ({
+mock.module("../modules/auth/auth.service.js", () => ({
 	createAuthService: () => ({
-		auth: { api: { getSession: vi.fn(async () => null) } },
+		auth: { api: { getSession: mock(async () => null) } },
 	}),
 }));
 
-import { createApp } from "../app.js";
-import type { AppDependencies } from "../composition/dependencies.js";
-import { createLogger } from "../logger.js";
-import type { AnalyzeChangesEnqueuer } from "../queues/analyze-changes.js";
+import { createApp } from "../app";
+import type { AppDependencies } from "../composition/dependencies";
+import { createLogger } from "../logger";
+import type { AnalyzeChangesEnqueuer } from "../queues/analyze-changes";
 import type {
 	GitHubInstallationRepository,
 	ListInstallationRepositories,
-} from "../modules/webhooks/github/index.js";
+} from "../modules/webhooks/github/index";
 
 const WEBHOOK_SECRET = "test-webhook-secret";
 
@@ -45,21 +45,21 @@ const createSignature = (body: string): string =>
 
 const createNoopDependencies = (): AppDependencies => ({
 	dashboardService: {
-		patchRepository: vi.fn(async () => {
+		patchRepository: mock(async () => {
 			throw new Error("dashboardService.patchRepository should not be called in webhook tests");
 		}),
-		listInstallationRepositories: vi.fn(async () => {
+		listInstallationRepositories: mock(async () => {
 			throw new Error(
 				"dashboardService.listInstallationRepositories should not be called in webhook tests",
 			);
 		}),
-		listRepositoryRuns: vi.fn(async () => {
+		listRepositoryRuns: mock(async () => {
 			throw new Error("dashboardService.listRepositoryRuns should not be called in webhook tests");
 		}),
-		triggerManualRun: vi.fn(async () => {
+		triggerManualRun: mock(async () => {
 			throw new Error("dashboardService.triggerManualRun should not be called in webhook tests");
 		}),
-		getRunDetail: vi.fn(async () => {
+		getRunDetail: mock(async () => {
 			throw new Error("dashboardService.getRunDetail should not be called in webhook tests");
 		}),
 	},
@@ -122,15 +122,15 @@ const dispatchWebhook = async (
 
 describe("POST /api/webhooks/github", () => {
 	let enqueueAnalyzeChanges: AnalyzeChangesEnqueuer;
-	let enqueueMock: ReturnType<typeof vi.fn>;
-	let listInstallationRepositoriesMock: ReturnType<typeof vi.fn>;
+	let enqueueMock: ReturnType<typeof mock>;
+	let listInstallationRepositoriesMock: ReturnType<typeof mock>;
 
 	beforeEach(() => {
-		vi.clearAllMocks();
+		mock.restore();
 
-		enqueueMock = vi.fn(async () => undefined);
+		enqueueMock = mock(async () => undefined);
 		enqueueAnalyzeChanges = enqueueMock;
-		listInstallationRepositoriesMock = vi.fn(
+		listInstallationRepositoriesMock = mock(
 			async (): Promise<readonly GitHubInstallationRepository[]> => [],
 		);
 
