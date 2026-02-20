@@ -11,13 +11,15 @@ export class ApiError extends Error {
 }
 
 export const apiFetch = async (path: string, init?: RequestInit): Promise<unknown> => {
+	const normalizedHeaders = new Headers(init?.headers);
+	if (!normalizedHeaders.has("Content-Type")) {
+		normalizedHeaders.set("Content-Type", "application/json");
+	}
+
 	const response = await fetch(`${env.NEXT_PUBLIC_API_URL}${path}`, {
 		credentials: "include",
 		...init,
-		headers: {
-			"Content-Type": "application/json",
-			...init?.headers,
-		},
+		headers: normalizedHeaders,
 	});
 
 	if (!response.ok) {
