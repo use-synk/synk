@@ -304,20 +304,7 @@ describe("fetchMultipleFiles", () => {
 		jest.useFakeTimers();
 		setSystemTime(new Date("2026-02-19T00:00:00.000Z"));
 
-		const getContent = vi
-			.fn<
-				() => Promise<{
-					data: {
-						type: string;
-						path: string;
-						sha: string;
-						size: number;
-						encoding: string;
-						content: string;
-					};
-					headers: { "x-ratelimit-remaining": string; "x-ratelimit-reset": string };
-				}>
-			>()
+		const getContent = mock()
 			.mockResolvedValueOnce({
 				data: {
 					type: "file",
@@ -366,7 +353,7 @@ describe("fetchMultipleFiles", () => {
 			ref: "main",
 		});
 
-		await jest.advanceTimersByTimeAsync(1_500);
+		jest.advanceTimersByTime(1_500);
 		const result = await resultPromise;
 
 		expect(getContent).toHaveBeenCalledTimes(2);

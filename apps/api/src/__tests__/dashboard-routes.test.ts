@@ -1,15 +1,14 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { HTTPException } from "hono/http-exception";
-import { createApp } from "../app";
+import { createMockDb } from "@synk-ai/test-utils";
 import type { AppDependencies } from "../composition/dependencies";
 import { AccessDeniedError } from "../domain/errors/access-denied-error";
 import type { DashboardServiceContract } from "../domain/services/index";
 import { createLogger } from "../logger";
 
-mock.module("@synk-ai/db", async () => {
-	const { createMockDb } = await import("@synk-ai/test-utils");
-	return { db: createMockDb() };
-});
+const mockDb = createMockDb();
+
+mock.module("@synk-ai/db", () => ({ db: mockDb }));
 
 const SESSION_TOKEN = "session-token";
 const INSTALLATION_ID = "11111111-1111-4111-8111-111111111111";
@@ -42,6 +41,8 @@ mock.module("../modules/auth/auth.service.js", () => ({
 		},
 	}),
 }));
+
+const { createApp } = await import("../app");
 
 const createDashboardServiceMock = () => {
 	const patchRepository = mock(async (input: Parameters<DashboardServiceContract["patchRepository"]>[0]) => ({
@@ -265,7 +266,7 @@ describe("dashboard routes", () => {
 		expect(dashboardService.listRepositoryRuns).toHaveBeenCalledWith({
 			repositoryId: REPOSITORY_ID,
 			userId: USER_ID,
-			filter: { page: 1, pageSize: 10, status: [] },
+			filter: { page: 1, pageSize: 10 },
 		});
 	});
 
@@ -284,7 +285,26 @@ describe("dashboard routes", () => {
 		expect(dashboardService.listRepositoryRuns).toHaveBeenCalledWith({
 			repositoryId: REPOSITORY_ID,
 			userId: USER_ID,
-			filter: { page: 3, pageSize: 50, status: [] },
+			filter: { page: 3, pageSize: 50 },
+		});
+	});
+
+	it("parses repeated run status filters from query string", async () => {
+		const dashboardService = createDashboardServiceMock();
+		const app = createTestApp(dashboardService);
+
+		const response = await app.request(
+			`/api/v1/dashboard/repos/${REPOSITORY_ID}/runs?page=1&pageSize=10&status=running&status=failed`,
+			{
+				headers: authHeaders(),
+			},
+		);
+
+		expect(response.status).toBe(200);
+		expect(dashboardService.listRepositoryRuns).toHaveBeenCalledWith({
+			repositoryId: REPOSITORY_ID,
+			userId: USER_ID,
+			filter: { page: 1, pageSize: 10, status: ["running", "failed"] },
 		});
 	});
 
@@ -418,6 +438,40 @@ describe("dashboard routes", () => {
 		expect(dashboardService.patchRepository).not.toHaveBeenCalled();
 	});
 
+	it("returns 400 for empty repository update payload", async () => {
+		const dashboardService = createDashboardServiceMock();
+		const app = createTestApp(dashboardService);
+
+		const response = await app.request(`/api/v1/dashboard/repos/${REPOSITORY_ID}`, {
+			method: "PATCH",
+			headers: {
+				...authHeaders(),
+				"content-type": "application/json",
+			},
+			body: JSON.stringify({}),
+		});
+
+		expect(response.status).toBe(400);
+		expect(dashboardService.patchRepository).not.toHaveBeenCalled();
+	});
+
+	it("returns 400 for unknown fields in repository update payload", async () => {
+		const dashboardService = createDashboardServiceMock();
+		const app = createTestApp(dashboardService);
+
+		const response = await app.request(`/api/v1/dashboard/repos/${REPOSITORY_ID}`, {
+			method: "PATCH",
+			headers: {
+				...authHeaders(),
+				"content-type": "application/json",
+			},
+			body: JSON.stringify({ isActive: true, unexpected: "value" }),
+		});
+
+		expect(response.status).toBe(400);
+		expect(dashboardService.patchRepository).not.toHaveBeenCalled();
+	});
+
 	it("returns 400 for malformed JSON in manual run request", async () => {
 		const dashboardService = createDashboardServiceMock();
 		const app = createTestApp(dashboardService);
@@ -429,6 +483,26 @@ describe("dashboard routes", () => {
 				"content-type": "application/json",
 			},
 			body: "{",
+		});
+
+		expect(response.status).toBe(400);
+		expect(dashboardService.triggerManualRun).not.toHaveBeenCalled();
+	});
+
+	it("returns 400 for unknown fields in manual run payload", async () => {
+		const dashboardService = createDashboardServiceMock();
+		const app = createTestApp(dashboardService);
+
+		const response = await app.request(`/api/v1/dashboard/repos/${REPOSITORY_ID}/runs`, {
+			method: "POST",
+			headers: {
+				...authHeaders(),
+				"content-type": "application/json",
+			},
+			body: JSON.stringify({
+				commitSha: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+				unexpected: "value",
+			}),
 		});
 
 		expect(response.status).toBe(400);

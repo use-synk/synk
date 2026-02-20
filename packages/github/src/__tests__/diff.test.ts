@@ -85,8 +85,7 @@ describe("fetchPushDiff", () => {
 
 describe("fetchPRDiff", () => {
 	it("paginates PR files in batches of 100 and normalizes results", async () => {
-		const listFiles = vi
-			.fn<() => Promise<{ data: typeof PR_FILES_PAGE_ONE_FIXTURE }>>()
+		const listFiles = mock()
 			.mockResolvedValueOnce({ data: PR_FILES_PAGE_ONE_FIXTURE })
 			.mockResolvedValueOnce({ data: PR_FILES_PAGE_TWO_FIXTURE });
 
