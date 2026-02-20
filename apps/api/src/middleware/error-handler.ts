@@ -1,5 +1,6 @@
 import type { ErrorHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
+import { AccessDeniedError } from "../domain/errors/access-denied-error.js";
 import type { Logger } from "../logger.js";
 import type { AppEnv } from "../types.js";
 
@@ -30,6 +31,13 @@ export const createErrorHandler =
 			return c.json<ErrorResponse>(
 				{ error: { code: toErrorCode(err.status), message: err.message } },
 				err.status,
+			);
+		}
+		if (err instanceof AccessDeniedError) {
+			logger.warn({ status: 403 }, err.message);
+			return c.json<ErrorResponse>(
+				{ error: { code: toErrorCode(403), message: err.message } },
+				403,
 			);
 		}
 

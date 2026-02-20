@@ -1,16 +1,32 @@
 import { createHmac } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { HTTPException } from "hono/http-exception";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { db } from "@synk-ai/db";
+import type { MockDb } from "@synk-ai/test-utils";
+
+vi.mock("@synk-ai/db", async () => {
+	const { createMockDb } = await import("@synk-ai/test-utils");
+	return { db: createMockDb() };
+});
+
+const mockDb = db as unknown as MockDb;
+
+vi.mock("../modules/auth/auth.service.js", () => ({
+	createAuthService: () => ({
+		auth: { api: { getSession: vi.fn(async () => null) } },
+	}),
+}));
+
 import { createApp } from "../app.js";
+import type { AppDependencies } from "../composition/dependencies.js";
 import { createLogger } from "../logger.js";
 import type { AnalyzeChangesEnqueuer } from "../queues/analyze-changes.js";
-import type { DashboardDatabase } from "../routes/dashboard.js";
 import type {
 	GitHubInstallationRepository,
 	ListInstallationRepositories,
-	WebhookDatabase,
-} from "../routes/github-webhooks.js";
+} from "../modules/webhooks/github/index.js";
 
 const WEBHOOK_SECRET = "test-webhook-secret";
 
@@ -27,60 +43,39 @@ const readFixture = (name: string): Record<string, unknown> => {
 const createSignature = (body: string): string =>
 	`sha256=${createHmac("sha256", WEBHOOK_SECRET).update(body).digest("hex")}`;
 
-const createMockDatabase = (): WebhookDatabase & DashboardDatabase => {
-	return {
-		providerInstallation: {
-			findUnique: vi.fn(async () => null),
-			upsert: vi.fn(async () => ({ id: "installation-1" })),
-			updateMany: vi.fn(async () => ({ count: 1 })),
-			findFirst: vi.fn(async () => ({ id: "installation-1" })),
-		},
-		providerRepository: {
-			upsert: vi.fn(async () => ({})),
-			findFirst: vi.fn(async () => ({
-				id: "repo-1",
-				installationId: "installation-1",
-				defaultBranch: "main",
-				status: "active" as const,
-				isActive: true,
-				docsConfig: {},
-				updatedAt: new Date("2026-02-19T20:00:00.000Z"),
-			})),
-			updateMany: vi.fn(async () => ({ count: 1 })),
-			count: vi.fn(async () => 0),
-			findMany: vi.fn(async () => []),
-			update: vi.fn(async () => ({
-				id: "repo-1",
-				installationId: "installation-1",
-				defaultBranch: "main",
-				status: "active" as const,
-				isActive: true,
-				docsConfig: {},
-				updatedAt: new Date("2026-02-19T20:00:00.000Z"),
-			})),
-		},
-		session: {
-			findFirst: vi.fn(async () => null),
-		},
-		analysisRun: {
-			count: vi.fn(async () => 0),
-			findMany: vi.fn(async () => []),
-			findFirst: vi.fn(async () => null),
-		},
-	};
-};
+const createNoopDependencies = (): AppDependencies => ({
+	dashboardService: {
+		patchRepository: vi.fn(async () => {
+			throw new Error("dashboardService.patchRepository should not be called in webhook tests");
+		}),
+		listInstallationRepositories: vi.fn(async () => {
+			throw new Error(
+				"dashboardService.listInstallationRepositories should not be called in webhook tests",
+			);
+		}),
+		listRepositoryRuns: vi.fn(async () => {
+			throw new Error("dashboardService.listRepositoryRuns should not be called in webhook tests");
+		}),
+		triggerManualRun: vi.fn(async () => {
+			throw new Error("dashboardService.triggerManualRun should not be called in webhook tests");
+		}),
+		getRunDetail: vi.fn(async () => {
+			throw new Error("dashboardService.getRunDetail should not be called in webhook tests");
+		}),
+	},
+});
 
 const makeApp = (
-	db: WebhookDatabase & DashboardDatabase,
 	enqueueAnalyzeChanges: AnalyzeChangesEnqueuer,
 	listInstallationRepositories: ListInstallationRepositories,
 ) => {
 	const logger = createLogger("silent", false);
+	const dependencies = createNoopDependencies();
 
 	return createApp({
 		logger,
-		db,
 		enqueueAnalyzeChanges,
+		dependencies,
 		listInstallationRepositories,
 		env: {
 			NODE_ENV: "test",
@@ -102,7 +97,7 @@ const dispatchWebhook = async (
 	app: ReturnType<typeof makeApp>,
 	event: string,
 	payload: Record<string, unknown>,
-	options: { signature?: string; requestId?: string } = {},
+	options: { signature?: string; requestId?: string; deliveryId?: string } = {},
 ): Promise<Response> => {
 	const body = JSON.stringify(payload);
 	const signature = options.signature ?? createSignature(body);
@@ -114,6 +109,9 @@ const dispatchWebhook = async (
 	if (options.requestId !== undefined) {
 		headers["x-request-id"] = options.requestId;
 	}
+	if (options.deliveryId !== undefined) {
+		headers["x-github-delivery"] = options.deliveryId;
+	}
 
 	return app.request("/api/webhooks/github", {
 		method: "POST",
@@ -123,22 +121,37 @@ const dispatchWebhook = async (
 };
 
 describe("POST /api/webhooks/github", () => {
-	let db: WebhookDatabase & DashboardDatabase;
 	let enqueueAnalyzeChanges: AnalyzeChangesEnqueuer;
 	let enqueueMock: ReturnType<typeof vi.fn>;
 	let listInstallationRepositoriesMock: ReturnType<typeof vi.fn>;
 
 	beforeEach(() => {
-		db = createMockDatabase();
+		vi.clearAllMocks();
+
 		enqueueMock = vi.fn(async () => undefined);
 		enqueueAnalyzeChanges = enqueueMock;
 		listInstallationRepositoriesMock = vi.fn(
 			async (): Promise<readonly GitHubInstallationRepository[]> => [],
 		);
+
+		mockDb.providerInstallation.findUnique.mockResolvedValue(null);
+		mockDb.providerInstallation.upsert.mockResolvedValue({ id: "installation-1" });
+		mockDb.providerInstallation.updateMany.mockResolvedValue({ count: 1 });
+		mockDb.providerRepository.upsert.mockResolvedValue({});
+		mockDb.providerRepository.findFirst.mockResolvedValue({
+			id: "repo-1",
+			installationId: "installation-1",
+			defaultBranch: "main",
+		});
+		mockDb.providerRepository.updateMany.mockResolvedValue({ count: 1 });
+		mockDb.webhookDelivery.upsert.mockResolvedValue({
+			id: "delivery-1",
+		});
+		mockDb.webhookDelivery.updateMany.mockResolvedValue({ count: 1 });
 	});
 
 	it("rejects requests with missing signature", async () => {
-		const app = makeApp(db, enqueueAnalyzeChanges, listInstallationRepositoriesMock);
+		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
 		const response = await app.request("/api/webhooks/github", {
 			method: "POST",
 			headers: {
@@ -152,8 +165,87 @@ describe("POST /api/webhooks/github", () => {
 		expect(enqueueMock).not.toHaveBeenCalled();
 	});
 
+	it("persists and completes webhook delivery logs when delivery id is provided", async () => {
+		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
+		const response = await dispatchWebhook(app, "push", readFixture("push-main.json"), {
+			deliveryId: "delivery-123",
+		});
+
+		expect(response.status).toBe(200);
+		expect(mockDb.webhookDelivery.upsert).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: {
+					provider_deliveryId: {
+						provider: "github",
+						deliveryId: "delivery-123",
+					},
+				},
+				create: expect.objectContaining({
+					eventType: "push",
+					signatureValid: true,
+					status: "received",
+				}),
+			}),
+		);
+		expect(mockDb.webhookDelivery.updateMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: { provider: "github", deliveryId: "delivery-123" },
+				data: expect.objectContaining({ status: "processed" }),
+			}),
+		);
+	});
+
+	it("continues webhook processing when delivery log creation fails", async () => {
+		mockDb.webhookDelivery.upsert.mockRejectedValueOnce(new Error("delivery log unavailable"));
+		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
+		const response = await dispatchWebhook(app, "push", readFixture("push-main.json"), {
+			deliveryId: "delivery-log-failure",
+		});
+
+		expect(response.status).toBe(200);
+		expect(enqueueMock).toHaveBeenCalledOnce();
+	});
+
+	it("marks delivery log as failed for invalid signatures", async () => {
+		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
+		const payload = readFixture("push-main.json");
+		const response = await dispatchWebhook(app, "push", payload, {
+			deliveryId: "delivery-failed-1",
+			signature: "sha256=deadbeef",
+		});
+
+		expect(response.status).toBe(401);
+		expect(mockDb.webhookDelivery.upsert).toHaveBeenCalledOnce();
+		expect(mockDb.webhookDelivery.updateMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: { provider: "github", deliveryId: "delivery-failed-1" },
+				data: expect.objectContaining({
+					status: "failed",
+					error: "Invalid webhook signature",
+				}),
+			}),
+		);
+	});
+
+	it("preserves the original error when markDelivery fails in catch path", async () => {
+		mockDb.providerInstallation.findUnique.mockRejectedValueOnce(
+			new HTTPException(418, { message: "upstream webhook failure" }),
+		);
+		mockDb.webhookDelivery.updateMany.mockRejectedValueOnce(
+			new Error("delivery status update failed"),
+		);
+		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
+		const response = await dispatchWebhook(
+			app,
+			"installation_repositories",
+			readFixture("installation-repositories-added.json"),
+			{ deliveryId: "delivery-preserve-original-error" },
+		);
+
+		expect(response.status).toBe(418);
+	});
+
 	it("creates or updates installations for installation events", async () => {
-		const app = makeApp(db, enqueueAnalyzeChanges, listInstallationRepositoriesMock);
 		const repositories: readonly GitHubInstallationRepository[] = [
 			{
 				id: 54321,
@@ -164,6 +256,7 @@ describe("POST /api/webhooks/github", () => {
 			},
 		];
 		listInstallationRepositoriesMock.mockResolvedValue(repositories);
+		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
 		const response = await dispatchWebhook(
 			app,
 			"installation",
@@ -171,11 +264,11 @@ describe("POST /api/webhooks/github", () => {
 		);
 
 		expect(response.status).toBe(200);
-		expect(db.providerInstallation.findUnique).toHaveBeenCalledOnce();
-		expect(db.providerInstallation.upsert).toHaveBeenCalledOnce();
+		expect(mockDb.providerInstallation.findUnique).toHaveBeenCalledOnce();
+		expect(mockDb.providerInstallation.upsert).toHaveBeenCalledOnce();
 		expect(listInstallationRepositoriesMock).toHaveBeenCalledWith(12345);
-		expect(db.providerRepository.upsert).toHaveBeenCalledTimes(1);
-		expect(db.providerInstallation.upsert).toHaveBeenCalledWith(
+		expect(mockDb.providerRepository.upsert).toHaveBeenCalledTimes(1);
+		expect(mockDb.providerInstallation.upsert).toHaveBeenCalledWith(
 			expect.objectContaining({
 				create: expect.objectContaining({
 					providerAccountId: "9876",
@@ -193,11 +286,11 @@ describe("POST /api/webhooks/github", () => {
 	});
 
 	it("enqueues for push events on active repository default branch", async () => {
-		const app = makeApp(db, enqueueAnalyzeChanges, listInstallationRepositoriesMock);
+		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
 		const response = await dispatchWebhook(app, "push", readFixture("push-main.json"));
 
 		expect(response.status).toBe(200);
-		expect(db.providerRepository.findFirst).toHaveBeenCalledOnce();
+		expect(mockDb.providerRepository.findFirst).toHaveBeenCalledOnce();
 		expect(enqueueMock).toHaveBeenCalledWith({
 			installationId: "installation-1",
 			repositoryId: "repo-1",
@@ -210,7 +303,7 @@ describe("POST /api/webhooks/github", () => {
 	});
 
 	it("does not enqueue push events for non-default branches", async () => {
-		const app = makeApp(db, enqueueAnalyzeChanges, listInstallationRepositoriesMock);
+		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
 		const payload = readFixture("push-main.json");
 		payload.ref = "refs/heads/feature-x";
 
@@ -221,7 +314,7 @@ describe("POST /api/webhooks/github", () => {
 	});
 
 	it("does not enqueue push events for deleted branches", async () => {
-		const app = makeApp(db, enqueueAnalyzeChanges, listInstallationRepositoriesMock);
+		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
 		const payload = readFixture("push-main.json");
 		payload.after = "0000000000000000000000000000000000000000";
 
@@ -232,7 +325,7 @@ describe("POST /api/webhooks/github", () => {
 	});
 
 	it("enqueues for merged pull_request events targeting active repo default branch", async () => {
-		const app = makeApp(db, enqueueAnalyzeChanges, listInstallationRepositoriesMock);
+		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
 		const response = await dispatchWebhook(
 			app,
 			"pull_request",
@@ -253,24 +346,23 @@ describe("POST /api/webhooks/github", () => {
 	});
 
 	it("marks installations as deleted for installation.deleted", async () => {
-		const app = makeApp(db, enqueueAnalyzeChanges, listInstallationRepositoriesMock);
 		const payload = readFixture("installation-created.json");
 		payload.action = "deleted";
-
+		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
 		const response = await dispatchWebhook(app, "installation", payload);
 
 		expect(response.status).toBe(200);
-		expect(db.providerInstallation.updateMany).toHaveBeenCalledOnce();
-		expect(db.providerRepository.updateMany).toHaveBeenCalledOnce();
+		expect(mockDb.providerInstallation.updateMany).toHaveBeenCalledOnce();
+		expect(mockDb.providerRepository.updateMany).toHaveBeenCalledOnce();
 		expect(enqueueMock).not.toHaveBeenCalled();
 	});
 
 	it("upserts repositories for installation_repositories.added events", async () => {
-		const app = makeApp(db, enqueueAnalyzeChanges, listInstallationRepositoriesMock);
-		db.providerInstallation.findUnique = vi.fn(async () => ({
+		mockDb.providerInstallation.findUnique.mockResolvedValueOnce({
 			id: "installation-1",
 			organizationId: "org-default",
-		}));
+		});
+		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
 		const response = await dispatchWebhook(
 			app,
 			"installation_repositories",
@@ -278,8 +370,8 @@ describe("POST /api/webhooks/github", () => {
 		);
 
 		expect(response.status).toBe(200);
-		expect(db.providerRepository.upsert).toHaveBeenCalledTimes(1);
-		expect(db.providerRepository.upsert).toHaveBeenCalledWith(
+		expect(mockDb.providerRepository.upsert).toHaveBeenCalledTimes(1);
+		expect(mockDb.providerRepository.upsert).toHaveBeenCalledWith(
 			expect.objectContaining({
 				create: expect.objectContaining({
 					providerRepositoryId: "67890",
@@ -292,11 +384,11 @@ describe("POST /api/webhooks/github", () => {
 	});
 
 	it("deactivates repositories for installation_repositories.removed events", async () => {
-		const app = makeApp(db, enqueueAnalyzeChanges, listInstallationRepositoriesMock);
-		db.providerInstallation.findUnique = vi.fn(async () => ({
+		mockDb.providerInstallation.findUnique.mockResolvedValueOnce({
 			id: "installation-1",
 			organizationId: "org-default",
-		}));
+		});
+		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
 		const response = await dispatchWebhook(
 			app,
 			"installation_repositories",
@@ -304,7 +396,7 @@ describe("POST /api/webhooks/github", () => {
 		);
 
 		expect(response.status).toBe(200);
-		expect(db.providerRepository.updateMany).toHaveBeenCalledWith(
+		expect(mockDb.providerRepository.updateMany).toHaveBeenCalledWith(
 			expect.objectContaining({
 				where: expect.objectContaining({
 					providerRepositoryId: { in: ["67890"] },
@@ -318,12 +410,11 @@ describe("POST /api/webhooks/github", () => {
 	});
 
 	it("deactivates repositories for removed events with id-only payload entries", async () => {
-		const app = makeApp(db, enqueueAnalyzeChanges, listInstallationRepositoriesMock);
-		db.providerInstallation.findUnique = vi.fn(async () => ({
+		mockDb.providerInstallation.findUnique.mockResolvedValueOnce({
 			id: "installation-1",
 			organizationId: "org-default",
-		}));
-
+		});
+		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
 		const response = await dispatchWebhook(
 			app,
 			"installation_repositories",
@@ -331,7 +422,7 @@ describe("POST /api/webhooks/github", () => {
 		);
 
 		expect(response.status).toBe(200);
-		expect(db.providerRepository.updateMany).toHaveBeenCalledWith(
+		expect(mockDb.providerRepository.updateMany).toHaveBeenCalledWith(
 			expect.objectContaining({
 				where: expect.objectContaining({
 					providerRepositoryId: { in: ["67890"] },
@@ -341,11 +432,10 @@ describe("POST /api/webhooks/github", () => {
 	});
 
 	it("hydrates added repositories when webhook payload omits repository details", async () => {
-		const app = makeApp(db, enqueueAnalyzeChanges, listInstallationRepositoriesMock);
-		db.providerInstallation.findUnique = vi.fn(async () => ({
+		mockDb.providerInstallation.findUnique.mockResolvedValueOnce({
 			id: "installation-1",
 			organizationId: "org-default",
-		}));
+		});
 		listInstallationRepositoriesMock.mockResolvedValue([
 			{
 				id: 67890,
@@ -355,7 +445,7 @@ describe("POST /api/webhooks/github", () => {
 				owner: { login: "acme" },
 			},
 		]);
-
+		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
 		const response = await dispatchWebhook(
 			app,
 			"installation_repositories",
@@ -364,7 +454,7 @@ describe("POST /api/webhooks/github", () => {
 
 		expect(response.status).toBe(200);
 		expect(listInstallationRepositoriesMock).toHaveBeenCalledWith(12345);
-		expect(db.providerRepository.upsert).toHaveBeenCalledWith(
+		expect(mockDb.providerRepository.upsert).toHaveBeenCalledWith(
 			expect.objectContaining({
 				create: expect.objectContaining({
 					providerRepositoryId: "67890",
@@ -374,32 +464,35 @@ describe("POST /api/webhooks/github", () => {
 		);
 	});
 
-	it("returns 422 when added repository details cannot be resolved", async () => {
-		const app = makeApp(db, enqueueAnalyzeChanges, listInstallationRepositoriesMock);
-		db.providerInstallation.findUnique = vi.fn(async () => ({
+	it("returns ok:false when added repository details cannot be resolved", async () => {
+		mockDb.providerInstallation.findUnique.mockResolvedValueOnce({
 			id: "installation-1",
 			organizationId: "org-default",
-		}));
-		listInstallationRepositoriesMock.mockResolvedValue([]);
-
+		});
+		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
 		const response = await dispatchWebhook(
 			app,
 			"installation_repositories",
 			readFixture("installation-repositories-added-partial.json"),
 		);
 
-		expect(response.status).toBe(422);
-		expect(db.providerRepository.upsert).not.toHaveBeenCalled();
+		expect(response.status).toBe(200);
+		expect(mockDb.providerRepository.upsert).not.toHaveBeenCalled();
+		await expect(response.json()).resolves.toEqual({
+			status: {
+				ok: false,
+				message:
+					"Missing repository details for installation_repositories.added: 67890",
+			},
+		});
 	});
 
-	it("persists resolvable repositories before returning 422 for unresolved ones", async () => {
-		const app = makeApp(db, enqueueAnalyzeChanges, listInstallationRepositoriesMock);
-		db.providerInstallation.findUnique = vi.fn(async () => ({
+	it("persists resolvable repositories and returns ok:false for unresolved ones", async () => {
+		mockDb.providerInstallation.findUnique.mockResolvedValueOnce({
 			id: "installation-1",
 			organizationId: "org-default",
-		}));
-		listInstallationRepositoriesMock.mockResolvedValue([]);
-
+		});
+		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
 		const response = await dispatchWebhook(app, "installation_repositories", {
 			action: "added",
 			installation: { id: 12345 },
@@ -415,9 +508,9 @@ describe("POST /api/webhooks/github", () => {
 			],
 		});
 
-		expect(response.status).toBe(422);
-		expect(db.providerRepository.upsert).toHaveBeenCalledTimes(1);
-		expect(db.providerRepository.upsert).toHaveBeenCalledWith(
+		expect(response.status).toBe(200);
+		expect(mockDb.providerRepository.upsert).toHaveBeenCalledTimes(1);
+		expect(mockDb.providerRepository.upsert).toHaveBeenCalledWith(
 			expect.objectContaining({
 				create: expect.objectContaining({
 					providerRepositoryId: "111",
@@ -425,14 +518,20 @@ describe("POST /api/webhooks/github", () => {
 				}),
 			}),
 		);
+		await expect(response.json()).resolves.toEqual({
+			status: {
+				ok: false,
+				message: "Missing repository details for installation_repositories.added: 222",
+			},
+		});
 	});
 
 	it("handles replayed installation_repositories.added events idempotently", async () => {
-		const app = makeApp(db, enqueueAnalyzeChanges, listInstallationRepositoriesMock);
-		db.providerInstallation.findUnique = vi.fn(async () => ({
+		mockDb.providerInstallation.findUnique.mockResolvedValue({
 			id: "installation-1",
 			organizationId: "org-default",
-		}));
+		});
+		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
 		const payload = readFixture("installation-repositories-added.json");
 
 		const firstResponse = await dispatchWebhook(app, "installation_repositories", payload);
@@ -440,12 +539,12 @@ describe("POST /api/webhooks/github", () => {
 
 		expect(firstResponse.status).toBe(200);
 		expect(secondResponse.status).toBe(200);
-		expect(db.providerRepository.upsert).toHaveBeenCalledTimes(2);
+		expect(mockDb.providerRepository.upsert).toHaveBeenCalledTimes(2);
 		expect(enqueueMock).not.toHaveBeenCalled();
 	});
 
 	it("returns 400 when X-GitHub-Event header is missing", async () => {
-		const app = makeApp(db, enqueueAnalyzeChanges, listInstallationRepositoriesMock);
+		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
 		const payload = readFixture("push-main.json");
 		const body = JSON.stringify(payload);
 		const signature = createSignature(body);
@@ -463,7 +562,7 @@ describe("POST /api/webhooks/github", () => {
 	});
 
 	it("returns 400 for invalid JSON payload", async () => {
-		const app = makeApp(db, enqueueAnalyzeChanges, listInstallationRepositoriesMock);
+		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
 		const body = "{";
 		const signature = createSignature(body);
 		const response = await app.request("/api/webhooks/github", {
@@ -480,8 +579,26 @@ describe("POST /api/webhooks/github", () => {
 		expect(enqueueMock).not.toHaveBeenCalled();
 	});
 
+	it("returns 400 for JSON array payload", async () => {
+		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
+		const body = "[]";
+		const signature = createSignature(body);
+		const response = await app.request("/api/webhooks/github", {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				"x-github-event": "push",
+				"x-hub-signature-256": signature,
+			},
+			body,
+		});
+
+		expect(response.status).toBe(400);
+		expect(enqueueMock).not.toHaveBeenCalled();
+	});
+
 	it("does not enqueue when pull_request is closed but not merged", async () => {
-		const app = makeApp(db, enqueueAnalyzeChanges, listInstallationRepositoriesMock);
+		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
 		const payload = readFixture("pull-request-merged.json");
 		payload.pull_request = {
 			merged: false,
@@ -496,7 +613,7 @@ describe("POST /api/webhooks/github", () => {
 	});
 
 	it("preserves a valid incoming x-request-id header", async () => {
-		const app = makeApp(db, enqueueAnalyzeChanges, listInstallationRepositoriesMock);
+		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
 		const requestId = "cd3446de-f91f-4033-bbd2-1568366e6837";
 		const response = await dispatchWebhook(app, "push", readFixture("push-main.json"), {
 			requestId,
@@ -507,7 +624,7 @@ describe("POST /api/webhooks/github", () => {
 	});
 
 	it("returns 200 for unhandled event types without enqueueing", async () => {
-		const app = makeApp(db, enqueueAnalyzeChanges, listInstallationRepositoriesMock);
+		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
 		const response = await dispatchWebhook(app, "issues", { action: "opened" });
 
 		expect(response.status).toBe(200);
@@ -515,8 +632,8 @@ describe("POST /api/webhooks/github", () => {
 	});
 
 	it("does not enqueue when repository is inactive or unknown", async () => {
-		db.providerRepository.findFirst = vi.fn(async () => null);
-		const app = makeApp(db, enqueueAnalyzeChanges, listInstallationRepositoriesMock);
+		mockDb.providerRepository.findFirst.mockResolvedValueOnce(null);
+		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
 		const response = await dispatchWebhook(app, "push", readFixture("push-main.json"));
 
 		expect(response.status).toBe(200);
@@ -525,10 +642,12 @@ describe("POST /api/webhooks/github", () => {
 
 	it("ignores installation create events without a resolvable organization", async () => {
 		const logger = createLogger("silent", false);
+		const dependencies = createNoopDependencies();
 		const app = createApp({
 			logger,
-			db,
 			enqueueAnalyzeChanges,
+			dependencies,
+			listInstallationRepositories: listInstallationRepositoriesMock,
 			env: {
 				NODE_ENV: "test",
 				PORT: 3000,
@@ -541,7 +660,6 @@ describe("POST /api/webhooks/github", () => {
 				GITHUB_PRIVATE_KEY: "-----BEGIN PRIVATE KEY-----\\nabc\\n-----END PRIVATE KEY-----",
 				GITHUB_WEBHOOK_SECRET: WEBHOOK_SECRET,
 			},
-			listInstallationRepositories: listInstallationRepositoriesMock,
 		});
 
 		const response = await dispatchWebhook(
@@ -551,7 +669,7 @@ describe("POST /api/webhooks/github", () => {
 		);
 
 		expect(response.status).toBe(200);
-		expect(db.providerInstallation.upsert).not.toHaveBeenCalled();
+		expect(mockDb.providerInstallation.upsert).not.toHaveBeenCalled();
 		expect(enqueueMock).not.toHaveBeenCalled();
 	});
 });

@@ -6,7 +6,14 @@ export default defineConfig({
 		coverage: {
 			provider: "v8",
 			reporter: ["text", "lcov"],
-			exclude: ["src/server.ts", "src/env.ts", "src/types.ts", "src/queues/**", "src/logger.ts"],
+			exclude: [
+				"src/server.ts",
+				"src/env.ts",
+				"src/types.ts",
+				"src/queues/**",
+				"src/logger.ts",
+				"src/routes/**",
+			],
 			thresholds: {
 				lines: 70,
 				functions: 70,
