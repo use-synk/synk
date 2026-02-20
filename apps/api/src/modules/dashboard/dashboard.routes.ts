@@ -36,7 +36,12 @@ export function createDashboardRoutes({
 		const userId = ctx.get("user").id;
 		const repoId = ctx.req.param("repoId");
 
-		const body = await ctx.req.json();
+		let body: unknown;
+		try {
+			body = await ctx.req.json();
+		} catch {
+			throw new HTTPException(400, { message: "Invalid JSON payload" });
+		}
 
 		const bodyResult = patchRepositoryBodySchema.safeParse(body);
 
@@ -120,7 +125,12 @@ export function createDashboardRoutes({
 		const userId = ctx.get("user").id;
 		const repoId = ctx.req.param("repoId");
 
-		const body = await ctx.req.json();
+		let body: unknown;
+		try {
+			body = await ctx.req.json();
+		} catch {
+			throw new HTTPException(400, { message: "Invalid JSON payload" });
+		}
 		const bodyResult = triggerManualRunBodySchema.safeParse(body);
 
 		if (!bodyResult.success) {

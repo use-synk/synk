@@ -389,4 +389,38 @@ describe("dashboard routes", () => {
 		expect(response.status).toBe(400);
 		expect(dashboardService.triggerManualRun).not.toHaveBeenCalled();
 	});
+
+	it("returns 400 for malformed JSON in repository update request", async () => {
+		const dashboardService = createDashboardServiceMock();
+		const app = createTestApp(dashboardService);
+
+		const response = await app.request(`/api/v1/dashboard/repos/${REPOSITORY_ID}`, {
+			method: "PATCH",
+			headers: {
+				...authHeaders(),
+				"content-type": "application/json",
+			},
+			body: "{",
+		});
+
+		expect(response.status).toBe(400);
+		expect(dashboardService.patchRepository).not.toHaveBeenCalled();
+	});
+
+	it("returns 400 for malformed JSON in manual run request", async () => {
+		const dashboardService = createDashboardServiceMock();
+		const app = createTestApp(dashboardService);
+
+		const response = await app.request(`/api/v1/dashboard/repos/${REPOSITORY_ID}/runs`, {
+			method: "POST",
+			headers: {
+				...authHeaders(),
+				"content-type": "application/json",
+			},
+			body: "{",
+		});
+
+		expect(response.status).toBe(400);
+		expect(dashboardService.triggerManualRun).not.toHaveBeenCalled();
+	});
 });
