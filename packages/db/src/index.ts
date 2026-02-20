@@ -26,5 +26,6 @@ export const createPrismaClient = (): PrismaClient => {
 	});
 };
 
+export { Prisma } from "./generated/prisma/client.js";
 export const db = createPrismaClient();
 export type DatabaseClient = ReturnType<typeof createPrismaClient>;

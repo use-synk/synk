@@ -1,17 +1,17 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, mock, setSystemTime } from "bun:test";
 
 import { createDocUpdatePR } from "../pr.js";
 
 const createOctokitMock = () => {
-	const getRef = vi.fn(async () => ({ data: { object: { sha: "base-commit-sha" } } }));
-	const getCommit = vi.fn(async () => ({ data: { tree: { sha: "base-tree-sha" } } }));
-	const createTree = vi.fn(async () => ({ data: { sha: "new-tree-sha" } }));
-	const createCommit = vi.fn(async () => ({ data: { sha: "new-commit-sha" } }));
-	const createRef = vi.fn(async () => ({}));
-	const createPull = vi.fn(async () => ({ data: { number: 42, html_url: "https://github.com/acme/docs/pull/42" } }));
-	const addLabels = vi.fn(async () => ({}));
-	const addAssignees = vi.fn(async () => ({}));
-	const requestReviewers = vi.fn(async () => ({}));
+	const getRef = mock(async () => ({ data: { object: { sha: "base-commit-sha" } } }));
+	const getCommit = mock(async () => ({ data: { tree: { sha: "base-tree-sha" } } }));
+	const createTree = mock(async () => ({ data: { sha: "new-tree-sha" } }));
+	const createCommit = mock(async () => ({ data: { sha: "new-commit-sha" } }));
+	const createRef = mock(async () => ({}));
+	const createPull = mock(async () => ({ data: { number: 42, html_url: "https://github.com/acme/docs/pull/42" } }));
+	const addLabels = mock(async () => ({}));
+	const addAssignees = mock(async () => ({}));
+	const requestReviewers = mock(async () => ({}));
 
 	return {
 		octokit: {
@@ -47,12 +47,11 @@ const createOctokitMock = () => {
 
 describe("createDocUpdatePR", () => {
 	afterEach(() => {
-		vi.useRealTimers();
+		setSystemTime();
 	});
 
 	it("creates one commit from tree API updates and opens a PR", async () => {
-		vi.useFakeTimers();
-		vi.setSystemTime(new Date("2026-02-19T12:34:56.000Z"));
+		setSystemTime(new Date("2026-02-19T12:34:56.000Z"));
 		const {
 			octokit,
 			getRef,
@@ -275,8 +274,7 @@ describe("createDocUpdatePR", () => {
 	});
 
 	it("retries with a suffixed branch name when the first ref already exists", async () => {
-		vi.useFakeTimers();
-		vi.setSystemTime(new Date("2026-02-19T12:34:56.000Z"));
+		setSystemTime(new Date("2026-02-19T12:34:56.000Z"));
 		const { octokit, createRef } = createOctokitMock();
 		createRef
 			.mockRejectedValueOnce(Object.assign(new Error("Reference already exists"), { status: 422 }))
@@ -310,8 +308,7 @@ describe("createDocUpdatePR", () => {
 	});
 
 	it("does not retry on unrelated 422 validation errors", async () => {
-		vi.useFakeTimers();
-		vi.setSystemTime(new Date("2026-02-19T12:34:56.000Z"));
+		setSystemTime(new Date("2026-02-19T12:34:56.000Z"));
 		const { octokit, createRef } = createOctokitMock();
 		const validationError = Object.assign(new Error("Validation Failed"), {
 			status: 422,

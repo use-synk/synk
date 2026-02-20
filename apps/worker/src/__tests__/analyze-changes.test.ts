@@ -1,48 +1,29 @@
 import { UnrecoverableError, type Job } from "bullmq";
 import type { Logger } from "pino";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 
 // ---------------------------------------------------------------------------
-// Module mocks — vi.mock is hoisted to the top by vitest's transform, so any
-// variables used inside factory functions must themselves be hoisted with
-// vi.hoisted() to be accessible before the mock factories run.
+// Module mocks — mock.module is hoisted by Bun's bundler. Variables declared
+// at module scope are accessible inside mock.module factory functions.
 // ---------------------------------------------------------------------------
 
-const {
-	mockFindUniqueRepository,
-	mockUpdateProviderRepository,
-	mockUpsertAnalysisRun,
-	mockUpdateAnalysisRun,
-	mockParseGitHubCredentialsEnvironment,
-	mockCredentialsFromEnvironment,
-	mockCreateInstallationOctokit,
-	mockFetchPushDiff,
-	mockFetchPRDiff,
-	mockFilterDiff,
-	mockFetchFileContent,
-	mockFetchRepoTree,
-	mockFetchMultipleFiles,
-	mockDetectAdapter,
-	mockGetAdapter,
-} = vi.hoisted(() => ({
-	mockFindUniqueRepository: vi.fn(),
-	mockUpdateProviderRepository: vi.fn().mockResolvedValue({}),
-	mockUpsertAnalysisRun: vi.fn(),
-	mockUpdateAnalysisRun: vi.fn(),
-	mockParseGitHubCredentialsEnvironment: vi.fn(),
-	mockCredentialsFromEnvironment: vi.fn(),
-	mockCreateInstallationOctokit: vi.fn(),
-	mockFetchPushDiff: vi.fn(),
-	mockFetchPRDiff: vi.fn(),
-	mockFilterDiff: vi.fn(),
-	mockFetchFileContent: vi.fn(),
-	mockFetchRepoTree: vi.fn(),
-	mockFetchMultipleFiles: vi.fn(),
-	mockDetectAdapter: vi.fn(),
-	mockGetAdapter: vi.fn(),
-}));
+const mockFindUniqueRepository = mock();
+const mockUpdateProviderRepository = mock().mockResolvedValue({});
+const mockUpsertAnalysisRun = mock();
+const mockUpdateAnalysisRun = mock();
+const mockParseGitHubCredentialsEnvironment = mock();
+const mockCredentialsFromEnvironment = mock();
+const mockCreateInstallationOctokit = mock();
+const mockFetchPushDiff = mock();
+const mockFetchPRDiff = mock();
+const mockFilterDiff = mock();
+const mockFetchFileContent = mock();
+const mockFetchRepoTree = mock();
+const mockFetchMultipleFiles = mock();
+const mockDetectAdapter = mock();
+const mockGetAdapter = mock();
 
-vi.mock("@synk-ai/db", () => ({
+mock.module("@synk-ai/db", () => ({
 	db: {
 		providerRepository: {
 			findUnique: mockFindUniqueRepository,
@@ -55,7 +36,7 @@ vi.mock("@synk-ai/db", () => ({
 	},
 }));
 
-vi.mock("@synk-ai/github", () => ({
+mock.module("@synk-ai/github", () => ({
 	parseGitHubCredentialsEnvironment: mockParseGitHubCredentialsEnvironment,
 	credentialsFromEnvironment: mockCredentialsFromEnvironment,
 	createInstallationOctokit: mockCreateInstallationOctokit,
@@ -67,7 +48,7 @@ vi.mock("@synk-ai/github", () => ({
 	fetchMultipleFiles: mockFetchMultipleFiles,
 }));
 
-vi.mock("@synk-ai/doc-adapters", () => ({
+mock.module("@synk-ai/doc-adapters", () => ({
 	detectAdapter: mockDetectAdapter,
 	getAdapter: mockGetAdapter,
 }));
@@ -97,10 +78,10 @@ import {
 // by processAnalyzeChangesJob are provided; the rest are cast away.
 const makeLogger = (): Logger =>
 	({
-		info: vi.fn(),
-		warn: vi.fn(),
-		error: vi.fn(),
-		child: vi.fn().mockReturnThis(),
+		info: mock(),
+		warn: mock(),
+		error: mock(),
+		child: mock().mockReturnThis(),
 	}) as unknown as Logger;
 
 // makeJob creates a minimal mock of the BullMQ Job object. Only the fields
@@ -150,8 +131,8 @@ const makeRepository = (overrides: Partial<{ provider: string }> = {}) => ({
 
 const makeAdapter = () => ({
 	frameworkId: "nextra",
-	getDocPaths: vi.fn().mockReturnValue([]),
-	parseStructure: vi.fn().mockReturnValue({}),
+	getDocPaths: mock().mockReturnValue([]),
+	parseStructure: mock().mockReturnValue({}),
 });
 
 const notFoundError = () => Object.assign(new Error("Not Found"), { status: 404 });
@@ -450,7 +431,7 @@ describe("mergeResolvedConfig", () => {
 
 describe("processAnalyzeChangesJob", () => {
 	beforeEach(() => {
-		vi.resetAllMocks();
+		mock.restore();
 
 		mockParseGitHubCredentialsEnvironment.mockReturnValue({});
 		mockCredentialsFromEnvironment.mockReturnValue({ appId: "1", privateKey: "k" });
@@ -509,14 +490,14 @@ describe("processAnalyzeChangesJob", () => {
 		mockFilterDiff.mockReturnValue([{ filename: "src/index.ts" }]);
 
 		const mockServices = {
-			runTriage: vi.fn().mockResolvedValue({
+			runTriage: mock().mockResolvedValue({
 				needsUpdate: false,
 				affectedDocFiles: [],
 				reasoning: "no change",
 				tokenUsage: { prompt: 5, completion: 3, total: 8 },
 			}),
-			runGeneration: vi.fn(),
-			createPullRequest: vi.fn(),
+			runGeneration: mock(),
+			createPullRequest: mock(),
 		};
 
 		await processAnalyzeChangesJob(makeJob(), makeLogger(), mockServices);
@@ -549,20 +530,20 @@ describe("processAnalyzeChangesJob", () => {
 		mockGetAdapter.mockReturnValue(adapter);
 
 		const mockServices = {
-			runTriage: vi.fn().mockResolvedValue({
+			runTriage: mock().mockResolvedValue({
 				needsUpdate: true,
 				affectedDocFiles: ["docs/index.md"],
 				reasoning: "change detected",
 				tokenUsage: { prompt: 10, completion: 5, total: 15 },
 			}),
 			// Generation returns the same content → no meaningful change
-			runGeneration: vi.fn().mockResolvedValue({
+			runGeneration: mock().mockResolvedValue({
 				path: "docs/index.md",
 				content: originalContent,
 				reasoning: "unchanged",
 				tokenUsage: { prompt: 5, completion: 3, total: 8 },
 			}),
-			createPullRequest: vi.fn(),
+			createPullRequest: mock(),
 		};
 
 		await processAnalyzeChangesJob(makeJob(), makeLogger(), mockServices);
@@ -592,19 +573,19 @@ describe("processAnalyzeChangesJob", () => {
 		mockGetAdapter.mockReturnValue(adapter);
 
 		const mockServices = {
-			runTriage: vi.fn().mockResolvedValue({
+			runTriage: mock().mockResolvedValue({
 				needsUpdate: true,
 				affectedDocFiles: ["docs/index.md"],
 				reasoning: "change",
 				tokenUsage: { prompt: 10, completion: 5, total: 15 },
 			}),
-			runGeneration: vi.fn().mockResolvedValue({
+			runGeneration: mock().mockResolvedValue({
 				path: "docs/index.md",
 				content: "# Updated",
 				reasoning: "updated",
 				tokenUsage: { prompt: 5, completion: 3, total: 8 },
 			}),
-			createPullRequest: vi.fn().mockResolvedValue({
+			createPullRequest: mock().mockResolvedValue({
 				prNumber: 1,
 				prUrl: "https://github.com/acme/app/pull/1",
 			}),
@@ -656,19 +637,19 @@ describe("processAnalyzeChangesJob", () => {
 		mockGetAdapter.mockReturnValue(adapter);
 
 		const mockServices = {
-			runTriage: vi.fn().mockResolvedValue({
+			runTriage: mock().mockResolvedValue({
 				needsUpdate: true,
 				affectedDocFiles: ["docs/index.md"],
 				reasoning: "change",
 				tokenUsage: { prompt: 10, completion: 5, total: 15 },
 			}),
-			runGeneration: vi.fn().mockResolvedValue({
+			runGeneration: mock().mockResolvedValue({
 				path: "docs/index.md",
 				content: "# Updated",
 				reasoning: "updated",
 				tokenUsage: { prompt: 5, completion: 3, total: 8 },
 			}),
-			createPullRequest: vi.fn().mockResolvedValue({
+			createPullRequest: mock().mockResolvedValue({
 				prNumber: 2,
 				prUrl: "https://github.com/acme/app/pull/2",
 				branchName: "synk-ai/docs-abcdef0-20260219-000000",
@@ -723,19 +704,19 @@ describe("processAnalyzeChangesJob", () => {
 		mockGetAdapter.mockReturnValue(adapter);
 
 		const mockServices = {
-			runTriage: vi.fn().mockResolvedValue({
+			runTriage: mock().mockResolvedValue({
 				needsUpdate: true,
 				affectedDocFiles: ["docs/index.md"],
 				reasoning: "change",
 				tokenUsage: { prompt: 10, completion: 5, total: 15 },
 			}),
-			runGeneration: vi.fn().mockResolvedValue({
+			runGeneration: mock().mockResolvedValue({
 				path: "docs/index.md",
 				content: "# Updated",
 				reasoning: "updated",
 				tokenUsage: { prompt: 5, completion: 3, total: 8 },
 			}),
-			createPullRequest: vi.fn().mockResolvedValue({
+			createPullRequest: mock().mockResolvedValue({
 				prNumber: 100,
 				prUrl: "https://github.com/acme/docs-site/pull/100",
 			}),
@@ -777,19 +758,19 @@ describe("processAnalyzeChangesJob", () => {
 		mockGetAdapter.mockReturnValue(adapter);
 
 		const mockServices = {
-			runTriage: vi.fn().mockResolvedValue({
+			runTriage: mock().mockResolvedValue({
 				needsUpdate: true,
 				affectedDocFiles: ["docs/index.md"],
 				reasoning: "change detected",
 				tokenUsage: { prompt: 10, completion: 5, total: 15 },
 			}),
-			runGeneration: vi.fn().mockResolvedValue({
+			runGeneration: mock().mockResolvedValue({
 				path: "docs/index.md",
 				content: "# New and improved",
 				reasoning: "updated",
 				tokenUsage: { prompt: 20, completion: 10, total: 30 },
 			}),
-			createPullRequest: vi.fn().mockResolvedValue({
+			createPullRequest: mock().mockResolvedValue({
 				prNumber: 42,
 				prUrl: "https://github.com/pr/42",
 			}),
@@ -817,9 +798,9 @@ describe("processAnalyzeChangesJob", () => {
 		mockFetchRepoTree.mockRejectedValue(pipelineError);
 
 		const mockServices = {
-			runTriage: vi.fn(),
-			runGeneration: vi.fn(),
-			createPullRequest: vi.fn(),
+			runTriage: mock(),
+			runGeneration: mock(),
+			createPullRequest: mock(),
 		};
 
 		await expect(processAnalyzeChangesJob(makeJob(), makeLogger(), mockServices)).rejects.toThrow(
@@ -914,9 +895,9 @@ describe("processAnalyzeChangesJob", () => {
 		mockUpdateAnalysisRun.mockRejectedValue(new Error("DB connection lost"));
 
 		const mockServices = {
-			runTriage: vi.fn(),
-			runGeneration: vi.fn(),
-			createPullRequest: vi.fn(),
+			runTriage: mock(),
+			runGeneration: mock(),
+			createPullRequest: mock(),
 		};
 
 		// The original error must propagate — not the DB error.
@@ -937,9 +918,9 @@ describe("processAnalyzeChangesJob", () => {
 		await expect(processAnalyzeChangesJob(makeJob(), logger)).rejects.toBeDefined();
 
 		expect(logger.child).toHaveBeenCalled();
-		const child = (logger.child as ReturnType<typeof vi.fn>).mock.results[0]?.value as {
-			warn: ReturnType<typeof vi.fn>;
-			error: ReturnType<typeof vi.fn>;
+		const child = (logger.child as ReturnType<typeof mock>).mock.results[0]?.value as {
+			warn: ReturnType<typeof mock>;
+			error: ReturnType<typeof mock>;
 		};
 		expect(child.warn).toHaveBeenCalledWith(
 			expect.objectContaining({ isFinalAttempt: false, classification: "retryable" }),
@@ -963,8 +944,8 @@ describe("processAnalyzeChangesJob", () => {
 		const finalJob = makeJob({ attemptsMade: ANALYZE_CHANGES_JOB_ATTEMPTS - 1 });
 		await expect(processAnalyzeChangesJob(finalJob, logger)).rejects.toBeDefined();
 
-		const child = (logger.child as ReturnType<typeof vi.fn>).mock.results[0]?.value as {
-			error: ReturnType<typeof vi.fn>;
+		const child = (logger.child as ReturnType<typeof mock>).mock.results[0]?.value as {
+			error: ReturnType<typeof mock>;
 		};
 		expect(child.error).toHaveBeenCalledWith(
 			expect.objectContaining({ isFinalAttempt: true, classification: "retryable" }),

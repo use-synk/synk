@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 
 import {
 	DEFAULT_DIFF_IGNORE_PATTERNS,
@@ -16,14 +16,14 @@ import {
 
 describe("fetchPushDiff", () => {
 	it("fetches a compare diff and normalizes returned files", async () => {
-		const compareCommitsWithBasehead = vi.fn(async () => ({
+		const compareCommitsWithBasehead = mock(async () => ({
 			data: { files: PUSH_COMPARE_FILES_FIXTURE },
 		}));
 
 		const octokit = {
 			rest: {
 				repos: { compareCommitsWithBasehead },
-				pulls: { listFiles: vi.fn() },
+				pulls: { listFiles: mock() },
 			},
 		};
 
@@ -43,11 +43,11 @@ describe("fetchPushDiff", () => {
 	});
 
 	it("returns an empty array when the compare response omits files", async () => {
-		const compareCommitsWithBasehead = vi.fn(async () => ({ data: {} }));
+		const compareCommitsWithBasehead = mock(async () => ({ data: {} }));
 		const octokit = {
 			rest: {
 				repos: { compareCommitsWithBasehead },
-				pulls: { listFiles: vi.fn() },
+				pulls: { listFiles: mock() },
 			},
 		};
 
@@ -62,13 +62,13 @@ describe("fetchPushDiff", () => {
 	});
 
 	it("accepts positional arguments for roadmap-compatible call sites", async () => {
-		const compareCommitsWithBasehead = vi.fn(async () => ({
+		const compareCommitsWithBasehead = mock(async () => ({
 			data: { files: PUSH_COMPARE_FILES_FIXTURE },
 		}));
 		const octokit = {
 			rest: {
 				repos: { compareCommitsWithBasehead },
-				pulls: { listFiles: vi.fn() },
+				pulls: { listFiles: mock() },
 			},
 		};
 
@@ -92,7 +92,7 @@ describe("fetchPRDiff", () => {
 
 		const octokit = {
 			rest: {
-				repos: { compareCommitsWithBasehead: vi.fn() },
+				repos: { compareCommitsWithBasehead: mock() },
 				pulls: { listFiles },
 			},
 		};
@@ -138,10 +138,10 @@ describe("fetchPRDiff", () => {
 	});
 
 	it("accepts positional arguments for roadmap-compatible call sites", async () => {
-		const listFiles = vi.fn(async () => ({ data: PR_FILES_PAGE_TWO_FIXTURE }));
+		const listFiles = mock(async () => ({ data: PR_FILES_PAGE_TWO_FIXTURE }));
 		const octokit = {
 			rest: {
-				repos: { compareCommitsWithBasehead: vi.fn() },
+				repos: { compareCommitsWithBasehead: mock() },
 				pulls: { listFiles },
 			},
 		};

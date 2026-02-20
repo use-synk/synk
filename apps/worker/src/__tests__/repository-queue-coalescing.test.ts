@@ -7,7 +7,7 @@ import {
 	parsePendingPayloadRecord,
 	type AnalyzeChangesJobPayload,
 } from "@synk-ai/shared";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 
 const payload: AnalyzeChangesJobPayload = {
 	installationId: "installation-1",
@@ -43,10 +43,10 @@ describe("parsePendingPayloadRecord", () => {
 
 describe("getRepositoryActiveJob", () => {
 	it("returns null and removes completed fixed-id jobs", async () => {
-		const remove = vi.fn(async () => undefined);
-		const getState = vi.fn(async () => "completed");
+		const remove = mock(async () => undefined);
+		const getState = mock(async () => "completed");
 		const queue = {
-			getJob: vi.fn(async () => ({
+			getJob: mock(async () => ({
 				getState,
 				remove,
 			})),
@@ -61,13 +61,13 @@ describe("getRepositoryActiveJob", () => {
 	});
 
 	it("returns non-terminal jobs without removal", async () => {
-		const remove = vi.fn(async () => undefined);
+		const remove = mock(async () => undefined);
 		const activeJob = {
-			getState: vi.fn(async () => "active"),
+			getState: mock(async () => "active"),
 			remove,
 		};
 		const queue = {
-			getJob: vi.fn(async () => activeJob),
+			getJob: mock(async () => activeJob),
 		};
 
 		const job = await getRepositoryActiveJob(queue, payload.repositoryId);

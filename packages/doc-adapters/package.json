@@ -14,12 +14,10 @@
 		"build": "tsc -p tsconfig.json",
 		"lint": "biome check .",
 		"typecheck": "tsc --noEmit",
-		"test": "vitest run --coverage"
+		"test": "bun test --coverage"
 	},
 	"devDependencies": {
 		"@types/node": "^22.17.2",
-		"@vitest/coverage-v8": "^3.0.0",
-		"typescript": "5.9.2",
-		"vitest": "^3.0.0"
+		"typescript": "5.9.2"
 	}
 }

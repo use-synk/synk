@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { toPersistableRepository } from "../modules/webhooks/github/repository-helpers.js";
 
 describe("toPersistableRepository", () => {

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 
 import { summarizeDiff } from "../diff-summary.js";
 import type { DiffFile } from "../diff.js";
@@ -92,7 +92,7 @@ describe("summarizeDiff", () => {
 			makeDiffFile({ filename: "src/large.ts", patch: veryLargePatch }),
 		];
 		const fastModelSummarizer = {
-			summarize: vi.fn(async () =>
+			summarize: mock(async () =>
 				[
 					"Structured diff summary:",
 					"Changed files: src/large.ts",
@@ -146,7 +146,7 @@ describe("summarizeDiff", () => {
 
 		const result = await summarizeDiff(diff, maxTokens, {
 			fastModelSummarizer: {
-				summarize: vi.fn(async () => "This output is much larger than the budget."),
+				summarize: mock(async () => "This output is much larger than the budget."),
 			},
 		});
 
@@ -170,7 +170,7 @@ describe("summarizeDiff", () => {
 			},
 		];
 		const fastModelSummarizer = {
-			summarize: vi.fn(async () => "Structured diff summary"),
+			summarize: mock(async () => "Structured diff summary"),
 		};
 
 		await summarizeDiff(diff, 40, { fastModelSummarizer });

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
 import { FRAMEWORK_IDS, detectAdapter, detectFramework, getAdapter } from "../registry.js";
 

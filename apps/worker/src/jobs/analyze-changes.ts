@@ -1,4 +1,4 @@
-import { db } from "@synk-ai/db";
+import { db, Prisma } from "@synk-ai/db";
 import {
 	type DocAdapter,
 	type DocFile,
@@ -623,7 +623,7 @@ const storeResolvedDocsConfig = async (
 	};
 	await db.providerRepository.update({
 		where: { id: repositoryId },
-		data: { docsConfig: configJson },
+		data: { docsConfig: configJson as unknown as Prisma.InputJsonValue },
 	});
 };
 
@@ -648,7 +648,7 @@ const updateRunStatus = async (
 			docPrUrl: data.docPrUrl ?? null,
 			docPrNumber: data.docPrNumber ?? null,
 			tokenUsage: data.tokenUsage ?? {},
-			result: data.result ?? {},
+			result: (data.result ?? {}) as unknown as Prisma.InputJsonValue,
 			completedAt: status === RUN_STATUS_RUNNING ? null : new Date(),
 		},
 	});

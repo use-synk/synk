@@ -6,7 +6,7 @@
 		"declaration": true,
 		"declarationMap": true,
 		"sourceMap": true,
-		"types": ["node"]
+		"types": ["node", "bun-types"]
 	},
 	"include": ["src/**/*.ts"]
 }

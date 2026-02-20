@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { HTTPException } from "hono/http-exception";
 import { createApp } from "../app.js";
 import type { AppDependencies } from "../composition/dependencies.js";
@@ -6,7 +6,7 @@ import { AccessDeniedError } from "../domain/errors/access-denied-error.js";
 import type { DashboardServiceContract } from "../domain/services/index.js";
 import { createLogger } from "../logger.js";
 
-vi.mock("@synk-ai/db", async () => {
+mock.module("@synk-ai/db", async () => {
 	const { createMockDb } = await import("@synk-ai/test-utils");
 	return { db: createMockDb() };
 });
@@ -24,18 +24,16 @@ type SessionResult = {
 	session: { token: string; userId: string; expiresAt: Date };
 } | null;
 
-const { getSessionMock } = vi.hoisted(() => ({
-	getSessionMock: vi.fn<() => Promise<SessionResult>>(async () => ({
-		user: { id: USER_ID },
-		session: {
-			token: SESSION_TOKEN,
-			userId: USER_ID,
-			expiresAt: new Date("2099-01-01T00:00:00.000Z"),
-		},
-	})),
+const getSessionMock = mock<() => Promise<SessionResult>>(async () => ({
+	user: { id: USER_ID },
+	session: {
+		token: SESSION_TOKEN,
+		userId: USER_ID,
+		expiresAt: new Date("2099-01-01T00:00:00.000Z"),
+	},
 }));
 
-vi.mock("../modules/auth/auth.service.js", () => ({
+mock.module("../modules/auth/auth.service.js", () => ({
 	createAuthService: () => ({
 		auth: {
 			api: {
@@ -46,7 +44,7 @@ vi.mock("../modules/auth/auth.service.js", () => ({
 }));
 
 const createDashboardServiceMock = () => {
-	const patchRepository = vi.fn<DashboardServiceContract["patchRepository"]>(async (input) => ({
+	const patchRepository = mock(async (input: Parameters<DashboardServiceContract["patchRepository"]>[0]) => ({
 		id: input.repositoryId,
 		installationId: INSTALLATION_ID,
 		fullName: "acme/docs",
@@ -58,9 +56,7 @@ const createDashboardServiceMock = () => {
 		updatedAt: NOW,
 	}));
 
-	const listInstallationRepositories = vi.fn<
-		DashboardServiceContract["listInstallationRepositories"]
-	>(async () => ({
+	const listInstallationRepositories = mock(async () => ({
 		items: [
 			{
 				id: REPOSITORY_ID,
@@ -76,7 +72,7 @@ const createDashboardServiceMock = () => {
 		total: 1,
 	}));
 
-	const listRepositoryRuns = vi.fn<DashboardServiceContract["listRepositoryRuns"]>(async () => ({
+	const listRepositoryRuns = mock(async () => ({
 		items: [
 			{
 				id: RUN_ID,
@@ -95,7 +91,7 @@ const createDashboardServiceMock = () => {
 		total: 1,
 	}));
 
-	const triggerManualRun = vi.fn<DashboardServiceContract["triggerManualRun"]>(async (input) => ({
+	const triggerManualRun = mock(async (input: Parameters<DashboardServiceContract["triggerManualRun"]>[0]) => ({
 		repositoryId: input.repositoryId,
 		triggerType: "manual",
 		triggerRef: input.ref ?? "refs/heads/main",
@@ -103,7 +99,7 @@ const createDashboardServiceMock = () => {
 		accepted: true,
 	}));
 
-	const getRunDetail = vi.fn<DashboardServiceContract["getRunDetail"]>(async () => ({
+	const getRunDetail = mock(async () => ({
 		id: RUN_ID,
 		repositoryId: REPOSITORY_ID,
 		status: "completed",
@@ -140,7 +136,7 @@ const createDashboardServiceMock = () => {
 const createTestApp = (dashboardService: DashboardServiceContract) => {
 	const logger = createLogger("silent", false);
 	const dependencies: AppDependencies = { dashboardService };
-	const enqueueAnalyzeChanges = vi.fn(async () => undefined);
+	const enqueueAnalyzeChanges = mock(async () => undefined);
 
 	return createApp({
 		logger,
@@ -167,7 +163,7 @@ const authHeaders = (): Record<string, string> => ({
 
 describe("dashboard routes", () => {
 	beforeEach(() => {
-		vi.clearAllMocks();
+		mock.restore();
 		getSessionMock.mockResolvedValue({
 			user: { id: USER_ID },
 			session: {

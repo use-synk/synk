@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 import { classifyError } from "../jobs/error-classification.js";
 
 const makeHttpError = (status: number): Error =>

@@ -63,12 +63,8 @@
 	"turbo": {
 		"tasks": {
 			"build": {
-				"outputs": [
-					".next/**",
-					"!.next/cache/**"
-				]
+				"outputs": [".next/**", "!.next/cache/**"]
 			}
 		}
-	},
-	"packageManager": "pnpm@10.28.1"
+	}
 }
