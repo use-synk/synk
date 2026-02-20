@@ -203,6 +203,23 @@ describe("dashboard routes", () => {
 		});
 	});
 
+	it("coerces installation repository pagination query params from strings", async () => {
+		const dashboardService = createDashboardServiceMock();
+		const app = createTestApp(dashboardService);
+
+		const response = await app.request(
+			`/api/v1/dashboard/installations/${INSTALLATION_ID}/repos?page=2&pageSize=25`,
+			{ headers: authHeaders() },
+		);
+
+		expect(response.status).toBe(200);
+		expect(dashboardService.listInstallationRepositories).toHaveBeenCalledWith({
+			installationId: INSTALLATION_ID,
+			userId: USER_ID,
+			pagination: { page: 2, pageSize: 25 },
+		});
+	});
+
 	it("updates repository activation", async () => {
 		const dashboardService = createDashboardServiceMock();
 		const app = createTestApp(dashboardService);
@@ -252,6 +269,25 @@ describe("dashboard routes", () => {
 			repositoryId: REPOSITORY_ID,
 			userId: USER_ID,
 			filter: { page: 1, pageSize: 10, status: [] },
+		});
+	});
+
+	it("coerces repository runs pagination query params from strings", async () => {
+		const dashboardService = createDashboardServiceMock();
+		const app = createTestApp(dashboardService);
+
+		const response = await app.request(
+			`/api/v1/dashboard/repos/${REPOSITORY_ID}/runs?page=3&pageSize=50`,
+			{
+				headers: authHeaders(),
+			},
+		);
+
+		expect(response.status).toBe(200);
+		expect(dashboardService.listRepositoryRuns).toHaveBeenCalledWith({
+			repositoryId: REPOSITORY_ID,
+			userId: USER_ID,
+			filter: { page: 3, pageSize: 50, status: [] },
 		});
 	});
 
