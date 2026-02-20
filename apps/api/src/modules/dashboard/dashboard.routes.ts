@@ -82,7 +82,12 @@ export function createDashboardRoutes({
 		const repoId = ctx.req.param("repoId");
 
 		const query = ctx.req.query();
-		const queryResult = listRepositoryRunsQuerySchema.safeParse(query);
+		const statusValues = ctx.req.queries("status") ?? [];
+		const queryInput = {
+			...query,
+			...(statusValues.length > 0 ? { status: statusValues } : {}),
+		};
+		const queryResult = listRepositoryRunsQuerySchema.safeParse(queryInput);
 
 		if (!queryResult.success) {
 			throw new HTTPException(400, {
@@ -90,8 +95,12 @@ export function createDashboardRoutes({
 			});
 		}
 
-		const { page = 1, pageSize = 10, status = [] } = queryResult.data;
-		const filter = { page, pageSize, status };
+		const { page = 1, pageSize = 10, status } = queryResult.data;
+		const filter = {
+			page,
+			pageSize,
+			...(status === undefined ? {} : { status }),
+		};
 		const result = await dashboardService.listRepositoryRuns({
 			repositoryId: repoId,
 			userId,
