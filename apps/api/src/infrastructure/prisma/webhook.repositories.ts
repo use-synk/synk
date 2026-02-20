@@ -141,11 +141,58 @@ const createPrismaWebhookRepository = (): WebhookRepository => ({
 });
 
 const createPrismaWebhookEventLogRepository = (): WebhookEventLogRepository => ({
-	createDelivery: async (_input) => {
-		// TODO(step 10): wire delivery logging once delivery headers/hash are propagated.
+	createDelivery: async (input) => {
+		await db.webhookDelivery.upsert({
+			where: {
+				provider_deliveryId: {
+					provider: input.provider,
+					deliveryId: input.deliveryId,
+				},
+			},
+			create: {
+				provider: input.provider,
+				deliveryId: input.deliveryId,
+				eventType: input.eventType,
+				...(input.providerInstallationId === undefined
+					? {}
+					: { providerInstallationId: input.providerInstallationId }),
+				...(input.providerRepositoryId === undefined
+					? {}
+					: { providerRepositoryId: input.providerRepositoryId }),
+				signatureValid: input.signatureValid,
+				payloadHash: input.payloadHash,
+				receivedAt: input.receivedAt,
+				status: "received",
+			},
+			update: {
+				eventType: input.eventType,
+				...(input.providerInstallationId === undefined
+					? {}
+					: { providerInstallationId: input.providerInstallationId }),
+				...(input.providerRepositoryId === undefined
+					? {}
+					: { providerRepositoryId: input.providerRepositoryId }),
+				signatureValid: input.signatureValid,
+				payloadHash: input.payloadHash,
+				receivedAt: input.receivedAt,
+				status: "received",
+				processedAt: null,
+				error: null,
+			},
+		});
 	},
-	markProcessed: async (_input) => {
-		// TODO(step 10): wire delivery status updates once delivery IDs are persisted.
+	markProcessed: async (input) => {
+		await db.webhookDelivery.updateMany({
+			where: {
+				provider: input.provider,
+				deliveryId: input.deliveryId,
+			},
+			data: {
+				status: input.status,
+				processedAt: new Date(),
+				...(input.error === undefined ? { error: null } : { error: input.error }),
+			},
+		});
 	},
 });
 

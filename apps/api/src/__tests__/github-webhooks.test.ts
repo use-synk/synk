@@ -96,7 +96,7 @@ const dispatchWebhook = async (
 	app: ReturnType<typeof makeApp>,
 	event: string,
 	payload: Record<string, unknown>,
-	options: { signature?: string; requestId?: string } = {},
+	options: { signature?: string; requestId?: string; deliveryId?: string } = {},
 ): Promise<Response> => {
 	const body = JSON.stringify(payload);
 	const signature = options.signature ?? createSignature(body);
@@ -107,6 +107,9 @@ const dispatchWebhook = async (
 	};
 	if (options.requestId !== undefined) {
 		headers["x-request-id"] = options.requestId;
+	}
+	if (options.deliveryId !== undefined) {
+		headers["x-github-delivery"] = options.deliveryId;
 	}
 
 	return app.request("/api/webhooks/github", {
@@ -140,6 +143,10 @@ describe("POST /api/webhooks/github", () => {
 			defaultBranch: "main",
 		});
 		mockDb.providerRepository.updateMany.mockResolvedValue({ count: 1 });
+		mockDb.webhookDelivery.upsert.mockResolvedValue({
+			id: "delivery-1",
+		});
+		mockDb.webhookDelivery.updateMany.mockResolvedValue({ count: 1 });
 	});
 
 	it("rejects requests with missing signature", async () => {
@@ -155,6 +162,57 @@ describe("POST /api/webhooks/github", () => {
 
 		expect(response.status).toBe(401);
 		expect(enqueueMock).not.toHaveBeenCalled();
+	});
+
+	it("persists and completes webhook delivery logs when delivery id is provided", async () => {
+		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
+		const response = await dispatchWebhook(app, "push", readFixture("push-main.json"), {
+			deliveryId: "delivery-123",
+		});
+
+		expect(response.status).toBe(200);
+		expect(mockDb.webhookDelivery.upsert).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: {
+					provider_deliveryId: {
+						provider: "github",
+						deliveryId: "delivery-123",
+					},
+				},
+				create: expect.objectContaining({
+					eventType: "push",
+					signatureValid: true,
+					status: "received",
+				}),
+			}),
+		);
+		expect(mockDb.webhookDelivery.updateMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: { provider: "github", deliveryId: "delivery-123" },
+				data: expect.objectContaining({ status: "processed" }),
+			}),
+		);
+	});
+
+	it("marks delivery log as failed for invalid signatures", async () => {
+		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
+		const payload = readFixture("push-main.json");
+		const response = await dispatchWebhook(app, "push", payload, {
+			deliveryId: "delivery-failed-1",
+			signature: "sha256=deadbeef",
+		});
+
+		expect(response.status).toBe(401);
+		expect(mockDb.webhookDelivery.upsert).toHaveBeenCalledOnce();
+		expect(mockDb.webhookDelivery.updateMany).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: { provider: "github", deliveryId: "delivery-failed-1" },
+				data: expect.objectContaining({
+					status: "failed",
+					error: "Invalid webhook signature",
+				}),
+			}),
+		);
 	});
 
 	it("creates or updates installations for installation events", async () => {
