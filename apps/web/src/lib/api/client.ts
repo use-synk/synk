@@ -25,5 +25,11 @@ export const apiFetch = async (path: string, init?: RequestInit): Promise<unknow
 		throw new ApiError(response.status, message);
 	}
 
-	return response.json();
+	// Successful responses like 204/205 or empty bodies should not be parsed as JSON.
+	const responseText = await response.text();
+	if (responseText.length === 0) {
+		return null;
+	}
+
+	return JSON.parse(responseText);
 };
