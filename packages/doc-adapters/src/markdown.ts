@@ -1,4 +1,4 @@
-import type { DocAdapter } from "./adapter.js";
+import type { DocAdapter } from "./adapter";
 import {
 	addHeadingChildren,
 	extractHeadings,
@@ -6,9 +6,8 @@ import {
 	hasUnclosedCodeFence,
 	isBrokenLink,
 	pathToTitle,
-	slugifyHeading,
 	toPathSet,
-} from "./shared.js";
+} from "./shared";
 import type {
 	DetectionContext,
 	DocFile,
@@ -19,7 +18,7 @@ import type {
 	RepoFile,
 	ValidationContext,
 	ValidationResult,
-} from "./types.js";
+} from "./types";
 
 const DOCS_DIR = "docs";
 const README = "README.md";
@@ -190,4 +189,3 @@ export const markdownAdapter: DocAdapter = {
 		return { valid: false, errors };
 	},
 };
-

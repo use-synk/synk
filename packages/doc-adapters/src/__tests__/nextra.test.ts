@@ -1,14 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
-import { nextraAdapter } from "../nextra.js";
-import { detectAdapter } from "../registry.js";
+import { nextraAdapter } from "../nextra";
+import { detectAdapter } from "../registry";
 import {
 	NEXTRA_DOC_FILES,
 	NEXTRA_PACKAGE_JSON,
 	NEXTRA_PACKAGE_JSON_THEME_ONLY,
 	NEXTRA_TREE,
 	NON_NEXTRA_PACKAGE_JSON,
-} from "./fixtures/nextra.js";
+} from "./fixtures/nextra";
 
 describe("nextraAdapter.detect", () => {
 	it("returns true when package.json has nextra dependency", async () => {

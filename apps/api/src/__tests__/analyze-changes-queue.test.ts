@@ -7,14 +7,11 @@ import {
 	buildAnalyzeChangesPendingPayloadKey,
 	type AnalyzeChangesJobPayload,
 } from "@synk-ai/shared";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 
-const { MockQueue } = vi.hoisted(() => {
-	const MockQueue = vi.fn();
-	return { MockQueue };
-});
+const MockQueue = mock();
 
-vi.mock("bullmq", () => ({ Queue: MockQueue }));
+mock.module("bullmq", () => ({ Queue: MockQueue }));
 
 const { createAnalyzeChangesEnqueuer, createAnalyzeChangesQueue } = await import(
 	"../queues/analyze-changes.js"
@@ -32,16 +29,16 @@ const payload: AnalyzeChangesJobPayload = {
 
 const makeDb = (hasRun: boolean) => ({
 	analysisRun: {
-		findFirst: vi.fn(async () => (hasRun ? { id: "run-1" } : null)),
+		findFirst: mock(async () => (hasRun ? { id: "run-1" } : null)),
 	},
 });
 
 const makeQueue = (activeJobExists: boolean) => {
-	const set = vi.fn(async () => "OK");
-	const remove = vi.fn(async () => undefined);
-	const getState = vi.fn(async () => (activeJobExists ? "active" : "missing"));
+	const set = mock(async () => "OK");
+	const remove = mock(async () => undefined);
+	const getState = mock(async () => (activeJobExists ? "active" : "missing"));
 	const queue = {
-		getJob: vi.fn(async () =>
+		getJob: mock(async () =>
 			activeJobExists
 				? {
 						id: "active-job",
@@ -50,7 +47,7 @@ const makeQueue = (activeJobExists: boolean) => {
 					}
 				: null,
 		),
-		add: vi.fn(async () => ({ id: "job-1" })),
+		add: mock(async () => ({ id: "job-1" })),
 		client: Promise.resolve({
 			set,
 		}),
@@ -126,12 +123,12 @@ describe("createAnalyzeChangesEnqueuer", () => {
 
 	it("removes terminal fixed-id jobs before enqueueing a new repository run", async () => {
 		const db = makeDb(false);
-		const set = vi.fn(async () => "OK");
-		const remove = vi.fn(async () => undefined);
-		const getState = vi.fn(async () => "completed");
+		const set = mock(async () => "OK");
+		const remove = mock(async () => undefined);
+		const getState = mock(async () => "completed");
 		const queue = {
-			getJob: vi.fn(async () => ({ id: "completed-job", getState, remove })),
-			add: vi.fn(async () => ({ id: "job-2" })),
+			getJob: mock(async () => ({ id: "completed-job", getState, remove })),
+			add: mock(async () => ({ id: "job-2" })),
 			client: Promise.resolve({ set }),
 		};
 		const enqueue = createAnalyzeChangesEnqueuer(queue as never, db);

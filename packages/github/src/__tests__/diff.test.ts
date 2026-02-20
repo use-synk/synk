@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, mock } from "bun:test";
 
 import {
 	DEFAULT_DIFF_IGNORE_PATTERNS,
@@ -6,24 +6,24 @@ import {
 	fetchPRDiff,
 	fetchPushDiff,
 	filterDiff,
-} from "../diff.js";
+} from "../diff";
 import {
 	NORMALIZED_DIFF_FIXTURE,
 	PR_FILES_PAGE_ONE_FIXTURE,
 	PR_FILES_PAGE_TWO_FIXTURE,
 	PUSH_COMPARE_FILES_FIXTURE,
-} from "./fixtures/diff.fixtures.js";
+} from "./fixtures/diff.fixtures";
 
 describe("fetchPushDiff", () => {
 	it("fetches a compare diff and normalizes returned files", async () => {
-		const compareCommitsWithBasehead = vi.fn(async () => ({
+		const compareCommitsWithBasehead = mock(async () => ({
 			data: { files: PUSH_COMPARE_FILES_FIXTURE },
 		}));
 
 		const octokit = {
 			rest: {
 				repos: { compareCommitsWithBasehead },
-				pulls: { listFiles: vi.fn() },
+				pulls: { listFiles: mock() },
 			},
 		};
 
@@ -43,11 +43,11 @@ describe("fetchPushDiff", () => {
 	});
 
 	it("returns an empty array when the compare response omits files", async () => {
-		const compareCommitsWithBasehead = vi.fn(async () => ({ data: {} }));
+		const compareCommitsWithBasehead = mock(async () => ({ data: {} }));
 		const octokit = {
 			rest: {
 				repos: { compareCommitsWithBasehead },
-				pulls: { listFiles: vi.fn() },
+				pulls: { listFiles: mock() },
 			},
 		};
 
@@ -62,13 +62,13 @@ describe("fetchPushDiff", () => {
 	});
 
 	it("accepts positional arguments for roadmap-compatible call sites", async () => {
-		const compareCommitsWithBasehead = vi.fn(async () => ({
+		const compareCommitsWithBasehead = mock(async () => ({
 			data: { files: PUSH_COMPARE_FILES_FIXTURE },
 		}));
 		const octokit = {
 			rest: {
 				repos: { compareCommitsWithBasehead },
-				pulls: { listFiles: vi.fn() },
+				pulls: { listFiles: mock() },
 			},
 		};
 
@@ -85,14 +85,13 @@ describe("fetchPushDiff", () => {
 
 describe("fetchPRDiff", () => {
 	it("paginates PR files in batches of 100 and normalizes results", async () => {
-		const listFiles = vi
-			.fn<() => Promise<{ data: typeof PR_FILES_PAGE_ONE_FIXTURE }>>()
+		const listFiles = mock()
 			.mockResolvedValueOnce({ data: PR_FILES_PAGE_ONE_FIXTURE })
 			.mockResolvedValueOnce({ data: PR_FILES_PAGE_TWO_FIXTURE });
 
 		const octokit = {
 			rest: {
-				repos: { compareCommitsWithBasehead: vi.fn() },
+				repos: { compareCommitsWithBasehead: mock() },
 				pulls: { listFiles },
 			},
 		};
@@ -138,10 +137,10 @@ describe("fetchPRDiff", () => {
 	});
 
 	it("accepts positional arguments for roadmap-compatible call sites", async () => {
-		const listFiles = vi.fn(async () => ({ data: PR_FILES_PAGE_TWO_FIXTURE }));
+		const listFiles = mock(async () => ({ data: PR_FILES_PAGE_TWO_FIXTURE }));
 		const octokit = {
 			rest: {
-				repos: { compareCommitsWithBasehead: vi.fn() },
+				repos: { compareCommitsWithBasehead: mock() },
 				pulls: { listFiles },
 			},
 		};

@@ -4,14 +4,15 @@
 	"private": true,
 	"type": "module",
 	"files": ["dist", "src/generated/prisma"],
+	"types": "./dist/index.d.ts",
 	"exports": {
 		".": {
 			"types": "./dist/index.d.ts",
 			"default": "./dist/index.js"
 		},
 		"./client": {
-			"types": "./src/generated/prisma/client.d.ts",
-			"default": "./src/generated/prisma/client.js"
+			"types": "./dist/generated/prisma/client.d.ts",
+			"default": "./dist/generated/prisma/client.js"
 		}
 	},
 	"scripts": {
@@ -19,7 +20,7 @@
 		"lint": "biome check .",
 		"lint:write": "biome check . --write",
 		"lint:unsafe": "biome check . --write --unsafe",
-		"typecheck": "tsc --noEmit",
+		"typecheck": "bunx tsc --noEmit",
 		"test": "echo 'db test placeholder'",
 		"generate": "pnpm dlx prisma generate --config src/prisma.config.ts",
 		"db:migrate": "prisma migrate dev --config src/prisma.config.ts",

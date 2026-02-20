@@ -1,13 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 
-const { MockOctokit, mockCreateAppAuth } = vi.hoisted(() => {
-	const MockOctokit = vi.fn();
-	const mockCreateAppAuth = vi.fn();
-	return { MockOctokit, mockCreateAppAuth };
-});
+const MockOctokit = mock();
+const mockCreateAppAuth = mock();
 
-vi.mock("@octokit/rest", () => ({ Octokit: MockOctokit }));
-vi.mock("@octokit/auth-app", () => ({ createAppAuth: mockCreateAppAuth }));
+mock.module("@octokit/rest", () => ({ Octokit: MockOctokit }));
+mock.module("@octokit/auth-app", () => ({ createAppAuth: mockCreateAppAuth }));
 
 const { createAppOctokit, createInstallationOctokit, credentialsFromEnvironment } = await import(
 	"../auth.js"

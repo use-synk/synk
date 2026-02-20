@@ -1,31 +1,36 @@
 import { createInstallationOctokit, credentialsFromEnvironment } from "@synk-ai/github";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import type { ApiEnvironment } from "./env.js";
-import type { Logger } from "./logger.js";
-import { createErrorHandler } from "./middleware/error-handler.js";
-import { createLoggingMiddleware } from "./middleware/logging.js";
-import { requestIdMiddleware } from "./middleware/request-id.js";
-import type { AnalyzeChangesEnqueuer } from "./queues/analyze-changes.js";
-import { type DashboardDatabase, createDashboardRoute } from "./routes/dashboard.js";
+import { API_PREFIX } from "./consts";
+import type { ApiEnvironment } from "./env";
+import type { Logger } from "./logger";
+import type { AppDependencies } from "./composition/dependencies";
+import { createPrismaWebhookRepositories } from "./infrastructure/prisma/webhook.repositories";
+import { createErrorHandler } from "./middleware/error-handler";
+import { createLoggingMiddleware } from "./middleware/logging";
+import { requestIdMiddleware } from "./middleware/request-id";
+import { createAuthRoutes } from "./modules/auth/auth.routes";
+import { createAuthService } from "./modules/auth/auth.service";
+import { createDashboardRoutes } from "./modules/dashboard/dashboard.routes";
+import { createHealthRoutes } from "./modules/health/health.routes";
 import {
 	type ListInstallationRepositories,
-	type WebhookDatabase,
-	createGitHubWebhookRoute,
-} from "./routes/github-webhooks.js";
-import { createHealthRoute } from "./routes/health.js";
-import type { AppEnv } from "./types.js";
+	createGitHubWebhookRoutes,
+} from "./modules/webhooks/index";
+import type { AnalyzeChangesEnqueuer } from "./queues/analyze-changes";
+import type { AppEnv, RouteContext } from "./types";
 
 type AppOptions = {
 	env: ApiEnvironment;
 	logger: Logger;
-	db: WebhookDatabase & DashboardDatabase;
 	enqueueAnalyzeChanges: AnalyzeChangesEnqueuer;
+	dependencies: AppDependencies;
 	listInstallationRepositories?: ListInstallationRepositories;
 };
 
 export const createApp = (options: AppOptions): Hono<AppEnv> => {
-	const { env, logger, db, enqueueAnalyzeChanges } = options;
+	const { env, logger, enqueueAnalyzeChanges, dependencies } = options;
+	const webhookRepositories = createPrismaWebhookRepositories();
 	const githubCredentials = credentialsFromEnvironment(env);
 	const listInstallationRepositories: ListInstallationRepositories =
 		options.listInstallationRepositories ??
@@ -38,30 +43,42 @@ export const createApp = (options: AppOptions): Hono<AppEnv> => {
 		});
 
 	const app = new Hono<AppEnv>();
-	const webhookOptions: {
-		db: WebhookDatabase;
-		webhookSecret: string;
-		enqueueAnalyzeChanges: AnalyzeChangesEnqueuer;
-		listInstallationRepositories: ListInstallationRepositories;
-		installationOrganizationId?: string;
-	} = {
-		db,
-		webhookSecret: env.GITHUB_WEBHOOK_SECRET,
-		enqueueAnalyzeChanges,
-		listInstallationRepositories,
-	};
 
-	if (env.GITHUB_WEBHOOK_ORGANIZATION_ID !== undefined) {
-		webhookOptions.installationOrganizationId = env.GITHUB_WEBHOOK_ORGANIZATION_ID;
-	}
+	const authService = createAuthService();
+
+	const routeCtx: RouteContext = {
+		auth: authService,
+		gitSha: env.GIT_SHA,
+	};
 
 	app.use(cors({ origin: env.CORS_ORIGIN }));
 	app.use(requestIdMiddleware);
 	app.use(createLoggingMiddleware({ logger }));
 
-	app.route("/health", createHealthRoute(env.GIT_SHA));
-	app.route("/api/webhooks", createGitHubWebhookRoute(webhookOptions));
-	app.route("/api", createDashboardRoute(db, enqueueAnalyzeChanges));
+	app.route("/health", createHealthRoutes(routeCtx));
+	app.route(`${API_PREFIX}/auth`, createAuthRoutes(authService));
+	app.route(
+		`${API_PREFIX}/dashboard`,
+		createDashboardRoutes({
+			...routeCtx,
+			dashboardService: dependencies.dashboardService,
+		}),
+	);
+
+	// webhooks
+	app.route(
+		"/api/webhooks/github",
+		createGitHubWebhookRoutes({
+			webhookSecret: env.GITHUB_WEBHOOK_SECRET,
+			enqueueAnalyzeChanges,
+			listInstallationRepositories,
+			webhookRepository: webhookRepositories.webhookRepository,
+			webhookEventLogRepository: webhookRepositories.webhookEventLogRepository,
+			...(env.GITHUB_WEBHOOK_ORGANIZATION_ID !== undefined
+				? { installationOrganizationId: env.GITHUB_WEBHOOK_ORGANIZATION_ID }
+				: {}),
+		}),
+	);
 
 	app.notFound((c) => c.json({ error: { code: "NOT_FOUND", message: "Resource not found" } }, 404));
 	app.onError(createErrorHandler(logger));

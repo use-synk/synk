@@ -4,7 +4,7 @@ import { db } from "@synk-ai/db";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { toNextJsHandler } from "better-auth/next-js";
 import { organization } from "better-auth/plugins";
-import { roles } from "./ac/org.js";
+import { roles } from "./ac/org";
 
 export function createAuth({
 	secret,

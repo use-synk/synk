@@ -13,7 +13,7 @@
 		"preview": "next build && next start",
 		"start": "next start",
 		"test": "echo 'web test placeholder'",
-		"typecheck": "tsc --noEmit"
+		"typecheck": "bunx tsc --noEmit"
 	},
 	"dependencies": {
 		"@base-ui/react": "^1.2.0",
@@ -59,12 +59,8 @@
 	"turbo": {
 		"tasks": {
 			"build": {
-				"outputs": [
-					".next/**",
-					"!.next/cache/**"
-				]
+				"outputs": [".next/**", "!.next/cache/**"]
 			}
 		}
-	},
-	"packageManager": "pnpm@10.28.1"
+	}
 }

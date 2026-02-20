@@ -1,4 +1,4 @@
-import type { DiffFile } from "./diff.js";
+import type { DiffFile } from "./diff";
 
 const APPROX_CHARACTERS_PER_TOKEN = 4;
 const MAX_PATCH_LINES_PER_FILE = 160;

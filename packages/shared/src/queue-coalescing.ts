@@ -2,7 +2,7 @@ import {
 	ANALYZE_CHANGES_COALESCE_WINDOW_MS,
 	buildAnalyzeChangesActiveJobId,
 	type AnalyzeChangesJobPayload,
-} from "./queue.js";
+} from "./queue";
 
 export type PendingAnalyzeChangesPayload = {
 	payload: AnalyzeChangesJobPayload;

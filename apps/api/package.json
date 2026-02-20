@@ -4,28 +4,26 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"dev": "node --env-file=.env --import tsx/esm --watch src/server.ts",
-		"build": "tsc",
+		"dev": "bun run --hot src/server.ts",
+		"build": "bun build src/server.ts --outdir dist --format esm --target bun --sourcemap",
 		"lint": "biome check .",
-		"typecheck": "tsc --noEmit",
-		"test": "vitest run --coverage"
+		"typecheck": "bunx tsc --noEmit",
+		"test": "bun test src/__tests__ --coverage"
 	},
 	"dependencies": {
-		"@hono/node-server": "^1.13.7",
+		"@synk-ai/auth": "workspace:*",
 		"@synk-ai/db": "workspace:*",
 		"@synk-ai/github": "workspace:*",
 		"@synk-ai/shared": "workspace:*",
 		"bullmq": "^5.58.5",
-		"hono": "^4.7.4",
+		"hono": "^4.12.0",
 		"pino": "^9.7.0",
 		"zod": "^4.3.6"
 	},
 	"devDependencies": {
-		"@vitest/coverage-v8": "^3.0.0",
+		"@synk-ai/test-utils": "workspace:*",
 		"@types/node": "^22.17.2",
 		"pino-pretty": "^13.0.0",
-		"tsx": "^4.20.5",
-		"typescript": "5.9.2",
-		"vitest": "^3.0.0"
+		"typescript": "5.9.2"
 	}
 }

@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "bun:test";
 
-import { parseSynkAiConfigFromYaml } from "./synk-config.js";
+import { parseSynkAiConfigFromYaml } from "./synk-config";
 
 describe("parseSynkAiConfigFromYaml", () => {
 	it("returns defaults for empty input", () => {
