@@ -1,10 +1,11 @@
-import type { RunStatus } from "@synk-ai/shared";
 import type { AnalyzeChangesEnqueuer } from "../../queues/analyze-changes.js";
 import type {
 	PaginatedResult,
+	Pagination,
 	RepositoryDetail,
 	RepositoryListItem,
 	RunDetail,
+	RunListFilter,
 	RunListItem,
 } from "../models/dashboard.js";
 import type { AuthorizationRepository } from "../ports/authorization-repository.js";
@@ -29,16 +30,13 @@ export type PatchRepositoryInput = {
 export type ListInstallationRepositoriesInput = {
 	installationId: string;
 	userId: string;
-	page: number;
-	pageSize: number;
+	pagination: Pagination;
 };
 
 export type ListRepositoryRunsInput = {
 	repositoryId: string;
 	userId: string;
-	page: number;
-	pageSize: number;
-	status?: readonly RunStatus[];
+	filter: RunListFilter;
 };
 
 export type TriggerManualRunInput = {

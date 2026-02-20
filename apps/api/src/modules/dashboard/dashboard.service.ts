@@ -35,10 +35,7 @@ export class DashboardService implements DashboardServiceContract {
 
 		return this.deps.dashboardRepository.listInstallationRepositories({
 			installationId: input.installationId,
-			pagination: {
-				page: input.page,
-				pageSize: input.pageSize,
-			},
+			pagination: input.pagination,
 		});
 	}
 
@@ -50,11 +47,7 @@ export class DashboardService implements DashboardServiceContract {
 
 		return this.deps.dashboardRepository.listRepositoryRuns({
 			repositoryId: input.repositoryId,
-			filter: {
-				page: input.page,
-				pageSize: input.pageSize,
-				...(input.status === undefined ? {} : { status: input.status }),
-			},
+			filter: input.filter,
 		});
 	}
 

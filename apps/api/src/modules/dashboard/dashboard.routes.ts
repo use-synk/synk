@@ -86,12 +86,11 @@ export function createDashboardRoutes({
 		}
 
 		const { page = 1, pageSize = 10, status = [] } = queryResult.data;
+		const filter = { page, pageSize, status };
 		const result = await dashboardService.listRepositoryRuns({
 			repositoryId: repoId,
 			userId,
-			page,
-			pageSize,
-			status,
+			filter,
 		});
 
 		return ctx.json({
@@ -193,11 +192,11 @@ export function createDashboardRoutes({
 		}
 
 		const { page = 1, pageSize = 10 } = queryResult.data;
+		const pagination = { page, pageSize };
 		const result = await dashboardService.listInstallationRepositories({
 			installationId,
 			userId,
-			page,
-			pageSize,
+			pagination,
 		});
 
 		const data = result.items.map((r) => ({
