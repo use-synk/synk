@@ -1,5 +1,4 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { HTTPException } from "hono/http-exception";
 import type z from "zod";
 import type {
 	WebhookEventLogRepository,
@@ -189,9 +188,10 @@ export class GitHubWebhookService {
 				);
 			}
 			if (hydrated.missingProviderRepositoryIds.length > 0) {
-				throw new HTTPException(422, {
+				return {
+					ok: false,
 					message: `Missing repository details for installation_repositories.added: ${hydrated.missingProviderRepositoryIds.join(",")}`,
-				});
+				};
 			}
 			return { ok: true };
 		}

@@ -434,7 +434,7 @@ describe("POST /api/webhooks/github", () => {
 		);
 	});
 
-	it("returns 422 when added repository details cannot be resolved", async () => {
+	it("returns ok:false when added repository details cannot be resolved", async () => {
 		mockDb.providerInstallation.findUnique.mockResolvedValueOnce({
 			id: "installation-1",
 			organizationId: "org-default",
@@ -446,11 +446,18 @@ describe("POST /api/webhooks/github", () => {
 			readFixture("installation-repositories-added-partial.json"),
 		);
 
-		expect(response.status).toBe(422);
+		expect(response.status).toBe(200);
 		expect(mockDb.providerRepository.upsert).not.toHaveBeenCalled();
+		await expect(response.json()).resolves.toEqual({
+			status: {
+				ok: false,
+				message:
+					"Missing repository details for installation_repositories.added: 67890",
+			},
+		});
 	});
 
-	it("persists resolvable repositories before returning 422 for unresolved ones", async () => {
+	it("persists resolvable repositories and returns ok:false for unresolved ones", async () => {
 		mockDb.providerInstallation.findUnique.mockResolvedValueOnce({
 			id: "installation-1",
 			organizationId: "org-default",
@@ -471,7 +478,7 @@ describe("POST /api/webhooks/github", () => {
 			],
 		});
 
-		expect(response.status).toBe(422);
+		expect(response.status).toBe(200);
 		expect(mockDb.providerRepository.upsert).toHaveBeenCalledTimes(1);
 		expect(mockDb.providerRepository.upsert).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -481,6 +488,12 @@ describe("POST /api/webhooks/github", () => {
 				}),
 			}),
 		);
+		await expect(response.json()).resolves.toEqual({
+			status: {
+				ok: false,
+				message: "Missing repository details for installation_repositories.added: 222",
+			},
+		});
 	});
 
 	it("handles replayed installation_repositories.added events idempotently", async () => {
