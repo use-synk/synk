@@ -81,12 +81,16 @@ export function createGitHubWebhookRoutes(options: GitHubWebhookRouteOptions): H
 			});
 			return ctx.json({ status: result }, 200);
 		} catch (error) {
-			await markDelivery({
-				deliveryId,
-				options,
-				status: "failed",
-				error: error instanceof Error ? error.message : "Unknown error",
-			});
+			try {
+				await markDelivery({
+					deliveryId,
+					options,
+					status: "failed",
+					error: error instanceof Error ? error.message : "Unknown error",
+				});
+			} catch {
+				// Preserve the original event handling error if delivery logging fails.
+			}
 			throw error;
 		}
 	});

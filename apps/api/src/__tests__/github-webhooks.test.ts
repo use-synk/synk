@@ -1,6 +1,7 @@
 import { createHmac } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { HTTPException } from "hono/http-exception";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { db } from "@synk-ai/db";
 import type { MockDb } from "@synk-ai/test-utils";
@@ -213,6 +214,24 @@ describe("POST /api/webhooks/github", () => {
 				}),
 			}),
 		);
+	});
+
+	it("preserves the original error when markDelivery fails in catch path", async () => {
+		mockDb.providerInstallation.findUnique.mockRejectedValueOnce(
+			new HTTPException(418, { message: "upstream webhook failure" }),
+		);
+		mockDb.webhookDelivery.updateMany.mockRejectedValueOnce(
+			new Error("delivery status update failed"),
+		);
+		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
+		const response = await dispatchWebhook(
+			app,
+			"installation_repositories",
+			readFixture("installation-repositories-added.json"),
+			{ deliveryId: "delivery-preserve-original-error" },
+		);
+
+		expect(response.status).toBe(418);
 	});
 
 	it("creates or updates installations for installation events", async () => {
