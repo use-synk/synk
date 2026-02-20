@@ -2,9 +2,9 @@ import { createInstallationOctokit, credentialsFromEnvironment } from "@synk-ai/
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { API_PREFIX } from "./consts.js";
-import { buildAppDependencies, type AppDependencies } from "./composition/dependencies.js";
 import type { ApiEnvironment } from "./env.js";
 import type { Logger } from "./logger.js";
+import type { AppDependencies } from "./composition/dependencies.js";
 import { createErrorHandler } from "./middleware/error-handler.js";
 import { createLoggingMiddleware } from "./middleware/logging.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
@@ -23,14 +23,12 @@ type AppOptions = {
 	env: ApiEnvironment;
 	logger: Logger;
 	enqueueAnalyzeChanges: AnalyzeChangesEnqueuer;
-	dependencies?: AppDependencies;
+	dependencies: AppDependencies;
 	listInstallationRepositories?: ListInstallationRepositories;
 };
 
 export const createApp = (options: AppOptions): Hono<AppEnv> => {
-	const { env, logger, enqueueAnalyzeChanges } = options;
-	const dependencies =
-		options.dependencies ?? buildAppDependencies({ enqueueAnalyzeChanges });
+	const { env, logger, enqueueAnalyzeChanges, dependencies } = options;
 	const githubCredentials = credentialsFromEnvironment(env);
 	const listInstallationRepositories: ListInstallationRepositories =
 		options.listInstallationRepositories ??

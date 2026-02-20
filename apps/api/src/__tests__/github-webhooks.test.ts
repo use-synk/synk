@@ -19,6 +19,7 @@ vi.mock("../modules/auth/auth.service.js", () => ({
 }));
 
 import { createApp } from "../app.js";
+import type { AppDependencies } from "../composition/dependencies.js";
 import { createLogger } from "../logger.js";
 import type { AnalyzeChangesEnqueuer } from "../queues/analyze-changes.js";
 import type {
@@ -41,15 +42,39 @@ const readFixture = (name: string): Record<string, unknown> => {
 const createSignature = (body: string): string =>
 	`sha256=${createHmac("sha256", WEBHOOK_SECRET).update(body).digest("hex")}`;
 
+const createNoopDependencies = (): AppDependencies => ({
+	dashboardService: {
+		patchRepository: vi.fn(async () => {
+			throw new Error("dashboardService.patchRepository should not be called in webhook tests");
+		}),
+		listInstallationRepositories: vi.fn(async () => {
+			throw new Error(
+				"dashboardService.listInstallationRepositories should not be called in webhook tests",
+			);
+		}),
+		listRepositoryRuns: vi.fn(async () => {
+			throw new Error("dashboardService.listRepositoryRuns should not be called in webhook tests");
+		}),
+		triggerManualRun: vi.fn(async () => {
+			throw new Error("dashboardService.triggerManualRun should not be called in webhook tests");
+		}),
+		getRunDetail: vi.fn(async () => {
+			throw new Error("dashboardService.getRunDetail should not be called in webhook tests");
+		}),
+	},
+});
+
 const makeApp = (
 	enqueueAnalyzeChanges: AnalyzeChangesEnqueuer,
 	listInstallationRepositories: ListInstallationRepositories,
 ) => {
 	const logger = createLogger("silent", false);
+	const dependencies = createNoopDependencies();
 
 	return createApp({
 		logger,
 		enqueueAnalyzeChanges,
+		dependencies,
 		listInstallationRepositories,
 		env: {
 			NODE_ENV: "test",
@@ -498,9 +523,11 @@ describe("POST /api/webhooks/github", () => {
 
 	it("ignores installation create events without a resolvable organization", async () => {
 		const logger = createLogger("silent", false);
+		const dependencies = createNoopDependencies();
 		const app = createApp({
 			logger,
 			enqueueAnalyzeChanges,
+			dependencies,
 			listInstallationRepositories: listInstallationRepositoriesMock,
 			env: {
 				NODE_ENV: "test",
