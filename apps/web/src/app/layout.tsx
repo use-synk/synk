@@ -5,7 +5,7 @@ import { Inter } from "next/font/google";
 
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { TRPCReactProvider } from "@/trpc/react";
+import { ReactQueryProvider } from "@/providers/react-query";
 
 export const metadata: Metadata = {
 	title: "Create T3 App",
@@ -22,12 +22,12 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
 	return (
 		<html lang="en" className={`${inter.variable}`}>
 			<body>
-				<TRPCReactProvider>
+				<ReactQueryProvider>
 					<TooltipProvider>
 						{children}
 						<Toaster />
 					</TooltipProvider>
-				</TRPCReactProvider>
+				</ReactQueryProvider>
 			</body>
 		</html>
 	);
