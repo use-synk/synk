@@ -1,10 +1,10 @@
 import { db } from "@synk-ai/db";
-import { HTTPException } from "hono/http-exception";
 import type {
 	AuthorizationRepository,
 	DashboardRepository,
 	RunRepository,
 } from "../../domain/ports/index.js";
+import { AccessDeniedError } from "../../domain/errors/access-denied-error.js";
 
 export type DashboardRepositories = {
 	authorizationRepository: AuthorizationRepository;
@@ -22,7 +22,7 @@ export const createPrismaDashboardRepositories = (
 ): DashboardRepositories => {
 	const assertAccess = (hasAccess: boolean, message: string): void => {
 		if (!hasAccess) {
-			throw new HTTPException(403, { message });
+			throw new AccessDeniedError(message);
 		}
 	};
 

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { HTTPException } from "hono/http-exception";
 import { createApp } from "../app.js";
 import type { AppDependencies } from "../composition/dependencies.js";
+import { AccessDeniedError } from "../domain/errors/access-denied-error.js";
 import type { DashboardServiceContract } from "../domain/services/index.js";
 import { createLogger } from "../logger.js";
 
@@ -363,6 +364,20 @@ describe("dashboard routes", () => {
 		const dashboardService = createDashboardServiceMock();
 		dashboardService.listRepositoryRuns.mockRejectedValueOnce(
 			new HTTPException(403, { message: "You do not have access to this repository" }),
+		);
+		const app = createTestApp(dashboardService);
+
+		const response = await app.request(`/api/v1/dashboard/repos/${REPOSITORY_ID}/runs`, {
+			headers: authHeaders(),
+		});
+
+		expect(response.status).toBe(403);
+	});
+
+	it("returns 403 when service throws AccessDeniedError", async () => {
+		const dashboardService = createDashboardServiceMock();
+		dashboardService.listRepositoryRuns.mockRejectedValueOnce(
+			new AccessDeniedError("You do not have access to this repository"),
 		);
 		const app = createTestApp(dashboardService);
 
