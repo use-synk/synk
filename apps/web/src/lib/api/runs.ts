@@ -53,7 +53,7 @@ export const fetchRepositoryRuns = async (
 	}
 	const qs = searchParams.toString();
 
-	const data = await apiFetch(`/api/repos/${repoId}/runs${qs ? `?${qs}` : ""}`, init);
+	const data = await apiFetch(`/api/v1/dashboard/repos/${repoId}/runs${qs ? `?${qs}` : ""}`, init);
 	return runListResponseSchema.parse(data);
 };
 
@@ -61,7 +61,7 @@ export const fetchRunDetail = async (
 	runId: string,
 	init?: RequestInit,
 ): Promise<RunDetailResponse> => {
-	const data = await apiFetch(`/api/runs/${runId}`, init);
+	const data = await apiFetch(`/api/v1/dashboard/runs/${runId}`, init);
 	return runDetailResponseSchema.parse(data);
 };
 
@@ -70,7 +70,7 @@ export const createManualRun = async (
 	body: CreateManualRunBody,
 	init?: RequestInit,
 ): Promise<ManualRunAcceptedResponse> => {
-	const data = await apiFetch(`/api/repos/${repoId}/runs`, {
+	const data = await apiFetch(`/api/v1/dashboard/repos/${repoId}/runs`, {
 		...init,
 		method: "POST",
 		body: JSON.stringify(body),

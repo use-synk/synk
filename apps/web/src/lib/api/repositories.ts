@@ -46,7 +46,7 @@ export const fetchInstallationRepositories = async (
 	const qs = searchParams.toString();
 
 	const data = await apiFetch(
-		`/api/installations/${installationId}/repos${qs ? `?${qs}` : ""}`,
+		`/api/v1/dashboard/installations/${installationId}/repos${qs ? `?${qs}` : ""}`,
 		init,
 	);
 	return repositoryListResponseSchema.parse(data);
@@ -57,7 +57,7 @@ export const patchRepository = async (
 	body: PatchRepositoryBody,
 	init?: RequestInit,
 ): Promise<RepositorySingleResponse> => {
-	const data = await apiFetch(`/api/repos/${repoId}`, {
+	const data = await apiFetch(`/api/v1/dashboard/repos/${repoId}`, {
 		...init,
 		method: "PATCH",
 		body: JSON.stringify(body),

@@ -51,7 +51,12 @@ export const createApp = (options: AppOptions): Hono<AppEnv> => {
 		gitSha: env.GIT_SHA,
 	};
 
-	app.use(cors({ origin: env.CORS_ORIGIN }));
+	app.use(
+		cors({
+			origin: env.CORS_ORIGIN,
+			credentials: true,
+		}),
+	);
 	app.use(requestIdMiddleware);
 	app.use(createLoggingMiddleware({ logger }));
 
