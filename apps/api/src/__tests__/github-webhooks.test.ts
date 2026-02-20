@@ -195,6 +195,17 @@ describe("POST /api/webhooks/github", () => {
 		);
 	});
 
+	it("continues webhook processing when delivery log creation fails", async () => {
+		mockDb.webhookDelivery.upsert.mockRejectedValueOnce(new Error("delivery log unavailable"));
+		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
+		const response = await dispatchWebhook(app, "push", readFixture("push-main.json"), {
+			deliveryId: "delivery-log-failure",
+		});
+
+		expect(response.status).toBe(200);
+		expect(enqueueMock).toHaveBeenCalledOnce();
+	});
+
 	it("marks delivery log as failed for invalid signatures", async () => {
 		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
 		const payload = readFixture("push-main.json");

@@ -36,14 +36,18 @@ export function createGitHubWebhookRoutes(options: GitHubWebhookRouteOptions): H
 		}
 
 		const payload = parseJsonPayload(rawBody);
-		await createDeliveryLog({
-			deliveryId,
-			event,
-			payload,
-			payloadHash,
-			isValidSignature,
-			options,
-		});
+		try {
+			await createDeliveryLog({
+				deliveryId,
+				event,
+				payload,
+				payloadHash,
+				isValidSignature,
+				options,
+			});
+		} catch {
+			// Delivery logging is best-effort and must not block webhook processing.
+		}
 
 		if (!isValidSignature) {
 			await markDelivery({
