@@ -26,14 +26,8 @@ const repositorySchema = z.object({
 	updated_at: z.string().datetime(),
 });
 
-const repositoryDetailSchema = z.object({
-	id: z.string().uuid(),
-	installation_id: z.string().uuid(),
-	default_branch: z.string(),
-	status: repositoryStatusSchema,
-	is_active: z.boolean(),
-	docs_config: z.unknown(),
-	updated_at: z.string().datetime(),
+const repositoryDetailSchema = repositorySchema.omit({
+	full_name: true,
 });
 
 export const repositoryListResponseSchema = z.object({
