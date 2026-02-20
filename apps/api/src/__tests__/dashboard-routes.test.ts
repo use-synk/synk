@@ -1,15 +1,14 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { HTTPException } from "hono/http-exception";
-import { createApp } from "../app";
+import { createMockDb } from "@synk-ai/test-utils";
 import type { AppDependencies } from "../composition/dependencies";
 import { AccessDeniedError } from "../domain/errors/access-denied-error";
 import type { DashboardServiceContract } from "../domain/services/index";
 import { createLogger } from "../logger";
 
-mock.module("@synk-ai/db", async () => {
-	const { createMockDb } = await import("@synk-ai/test-utils");
-	return { db: createMockDb() };
-});
+const mockDb = createMockDb();
+
+mock.module("@synk-ai/db", () => ({ db: mockDb }));
 
 const SESSION_TOKEN = "session-token";
 const INSTALLATION_ID = "11111111-1111-4111-8111-111111111111";
@@ -42,6 +41,8 @@ mock.module("../modules/auth/auth.service.js", () => ({
 		},
 	}),
 }));
+
+const { createApp } = await import("../app");
 
 const createDashboardServiceMock = () => {
 	const patchRepository = mock(async (input: Parameters<DashboardServiceContract["patchRepository"]>[0]) => ({

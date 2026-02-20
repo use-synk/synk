@@ -3,15 +3,11 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { HTTPException } from "hono/http-exception";
 import { beforeEach, describe, expect, it, mock } from "bun:test";
-import { db } from "@synk-ai/db";
-import type { MockDb } from "@synk-ai/test-utils";
+import { createMockDb, type MockDb } from "@synk-ai/test-utils";
 
-mock.module("@synk-ai/db", async () => {
-	const { createMockDb } = await import("@synk-ai/test-utils");
-	return { db: createMockDb() };
-});
+const mockDb: MockDb = createMockDb();
 
-const mockDb = db as unknown as MockDb;
+mock.module("@synk-ai/db", () => ({ db: mockDb }));
 
 mock.module("../modules/auth/auth.service.js", () => ({
 	createAuthService: () => ({
@@ -19,7 +15,7 @@ mock.module("../modules/auth/auth.service.js", () => ({
 	}),
 }));
 
-import { createApp } from "../app";
+const { createApp } = await import("../app");
 import type { AppDependencies } from "../composition/dependencies";
 import { createLogger } from "../logger";
 import type { AnalyzeChangesEnqueuer } from "../queues/analyze-changes";
@@ -127,6 +123,14 @@ describe("POST /api/webhooks/github", () => {
 
 	beforeEach(() => {
 		mock.restore();
+		mockDb.providerInstallation.findUnique.mockClear();
+		mockDb.providerInstallation.upsert.mockClear();
+		mockDb.providerInstallation.updateMany.mockClear();
+		mockDb.providerRepository.upsert.mockClear();
+		mockDb.providerRepository.findFirst.mockClear();
+		mockDb.providerRepository.updateMany.mockClear();
+		mockDb.webhookDelivery.upsert.mockClear();
+		mockDb.webhookDelivery.updateMany.mockClear();
 
 		enqueueMock = mock(async () => undefined);
 		enqueueAnalyzeChanges = enqueueMock;
