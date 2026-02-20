@@ -1,4 +1,5 @@
 import { db } from "@synk-ai/db";
+import { HTTPException } from "hono/http-exception";
 import type {
 	AuthorizationRepository,
 	DashboardRepository,
@@ -12,6 +13,12 @@ export type DashboardRepositories = {
 };
 
 export const createPrismaDashboardRepositories = (): DashboardRepositories => {
+	const assertAccess = (hasAccess: boolean, message: string): void => {
+		if (!hasAccess) {
+			throw new HTTPException(403, { message });
+		}
+	};
+
 	const authorizationRepository: AuthorizationRepository = {
 		hasInstallationAccess: async ({ installationId, userId }) => {
 			const installation = await db.providerInstallation.findFirst({
@@ -48,6 +55,18 @@ export const createPrismaDashboardRepositories = (): DashboardRepositories => {
 				select: { id: true },
 			});
 			return run !== null;
+		},
+		assertInstallationAccess: async (query) => {
+			const hasAccess = await authorizationRepository.hasInstallationAccess(query);
+			assertAccess(hasAccess, "You do not have access to this installation");
+		},
+		assertRepositoryAccess: async (query) => {
+			const hasAccess = await authorizationRepository.hasRepositoryAccess(query);
+			assertAccess(hasAccess, "You do not have access to this repository");
+		},
+		assertRunAccess: async (query) => {
+			const hasAccess = await authorizationRepository.hasRunAccess(query);
+			assertAccess(hasAccess, "You do not have access to this run");
 		},
 	};
 
