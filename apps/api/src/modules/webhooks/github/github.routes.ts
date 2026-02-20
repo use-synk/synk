@@ -97,7 +97,9 @@ export function createGitHubWebhookRoutes(options: GitHubWebhookRouteOptions): H
 const parseJsonPayload = (rawBody: string): Record<string, unknown> | null => {
 	try {
 		const parsed = JSON.parse(rawBody);
-		return typeof parsed === "object" && parsed !== null ? parsed : null;
+		return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
+			? parsed
+			: null;
 	} catch {
 		return null;
 	}

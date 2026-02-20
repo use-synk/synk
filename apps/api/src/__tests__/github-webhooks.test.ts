@@ -549,6 +549,24 @@ describe("POST /api/webhooks/github", () => {
 		expect(enqueueMock).not.toHaveBeenCalled();
 	});
 
+	it("returns 400 for JSON array payload", async () => {
+		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
+		const body = "[]";
+		const signature = createSignature(body);
+		const response = await app.request("/api/webhooks/github", {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				"x-github-event": "push",
+				"x-hub-signature-256": signature,
+			},
+			body,
+		});
+
+		expect(response.status).toBe(400);
+		expect(enqueueMock).not.toHaveBeenCalled();
+	});
+
 	it("does not enqueue when pull_request is closed but not merged", async () => {
 		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
 		const payload = readFixture("pull-request-merged.json");
