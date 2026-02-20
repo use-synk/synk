@@ -11,7 +11,7 @@ export type DashboardRepositories = {
 	runRepository: RunRepository;
 };
 
-export const createDashboardRepositories = (): DashboardRepositories => {
+export const createPrismaDashboardRepositories = (): DashboardRepositories => {
 	const authorizationRepository: AuthorizationRepository = {
 		hasInstallationAccess: async ({ installationId, userId }) => {
 			const installation = await db.providerInstallation.findFirst({

@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import z from "zod";
+import { createPrismaDashboardRepositories } from "../../infrastructure/prisma/dashboard.repositories.js";
 import { createRequireAuthMiddleware } from "../../middleware/auth.js";
 import type { AnalyzeChangesEnqueuer } from "../../queues/analyze-changes.js";
 import type { AuthenticatedAppEnv, RouteContext } from "../../types.js";
@@ -10,7 +11,6 @@ import {
 	patchRepositoryBodySchema,
 	triggerManualRunBodySchema,
 } from "./dashboard.schemas.js";
-import { createDashboardRepositories } from "./dashboard.repositories.js";
 import { DashboardService } from "./dashboard.service.js";
 
 /**
@@ -24,7 +24,7 @@ export function createDashboardRoutes({
 	enqueueAnalyzeChanges: AnalyzeChangesEnqueuer;
 }) {
 	const router = new Hono<AuthenticatedAppEnv>();
-	const repositories = createDashboardRepositories();
+	const repositories = createPrismaDashboardRepositories();
 	const service = new DashboardService({
 		...repositories,
 		enqueueAnalyzeChanges,
