@@ -12,7 +12,14 @@ export type DashboardRepositories = {
 	runRepository: RunRepository;
 };
 
-export const createPrismaDashboardRepositories = (): DashboardRepositories => {
+type PrismaDashboardDatabaseClient = Pick<
+	typeof db,
+	"providerInstallation" | "providerRepository" | "analysisRun"
+>;
+
+export const createPrismaDashboardRepositories = (
+	client: PrismaDashboardDatabaseClient = db,
+): DashboardRepositories => {
 	const assertAccess = (hasAccess: boolean, message: string): void => {
 		if (!hasAccess) {
 			throw new HTTPException(403, { message });
@@ -21,7 +28,7 @@ export const createPrismaDashboardRepositories = (): DashboardRepositories => {
 
 	const authorizationRepository: AuthorizationRepository = {
 		hasInstallationAccess: async ({ installationId, userId }) => {
-			const installation = await db.providerInstallation.findFirst({
+			const installation = await client.providerInstallation.findFirst({
 				where: {
 					id: installationId,
 					organization: { members: { some: { userId } } },
@@ -31,7 +38,7 @@ export const createPrismaDashboardRepositories = (): DashboardRepositories => {
 			return installation !== null;
 		},
 		hasRepositoryAccess: async ({ repositoryId, userId }) => {
-			const repository = await db.providerRepository.findFirst({
+			const repository = await client.providerRepository.findFirst({
 				where: {
 					id: repositoryId,
 					installation: {
@@ -43,7 +50,7 @@ export const createPrismaDashboardRepositories = (): DashboardRepositories => {
 			return repository !== null;
 		},
 		hasRunAccess: async ({ runId, userId }) => {
-			const run = await db.analysisRun.findFirst({
+			const run = await client.analysisRun.findFirst({
 				where: {
 					id: runId,
 					repository: {
@@ -72,7 +79,7 @@ export const createPrismaDashboardRepositories = (): DashboardRepositories => {
 
 	const dashboardRepository: DashboardRepository = {
 		updateRepository: async ({ repositoryId, patch }) =>
-			db.providerRepository.update({
+			client.providerRepository.update({
 				where: { id: repositoryId },
 				data: {
 					...(patch.isActive !== undefined ? { isActive: patch.isActive } : {}),
@@ -81,8 +88,8 @@ export const createPrismaDashboardRepositories = (): DashboardRepositories => {
 		listInstallationRepositories: async ({ installationId, pagination }) => {
 			const skip = (pagination.page - 1) * pagination.pageSize;
 			const [total, items] = await Promise.all([
-				db.providerRepository.count({ where: { installationId } }),
-				db.providerRepository.findMany({
+				client.providerRepository.count({ where: { installationId } }),
+				client.providerRepository.findMany({
 					where: { installationId },
 					orderBy: { updatedAt: "desc" },
 					skip,
@@ -108,8 +115,8 @@ export const createPrismaDashboardRepositories = (): DashboardRepositories => {
 					: { repositoryId, status: { in: [...filter.status] } };
 			const skip = (filter.page - 1) * filter.pageSize;
 			const [total, items] = await Promise.all([
-				db.analysisRun.count({ where }),
-				db.analysisRun.findMany({
+				client.analysisRun.count({ where }),
+				client.analysisRun.findMany({
 					where,
 					orderBy: { createdAt: "desc" },
 					skip,
@@ -132,7 +139,7 @@ export const createPrismaDashboardRepositories = (): DashboardRepositories => {
 			return { items, total };
 		},
 		findRepositoryForManualRun: async (repositoryId) =>
-			db.providerRepository.findUnique({
+			client.providerRepository.findUnique({
 				where: { id: repositoryId },
 				select: {
 					status: true,
@@ -145,7 +152,7 @@ export const createPrismaDashboardRepositories = (): DashboardRepositories => {
 
 	const runRepository: RunRepository = {
 		findRunDetail: async (runId) =>
-			db.analysisRun.findUnique({
+			client.analysisRun.findUnique({
 				where: { id: runId },
 			}),
 	};

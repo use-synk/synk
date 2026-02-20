@@ -12,16 +12,18 @@ export class DashboardService implements DashboardServiceContract {
 	constructor(private readonly deps: DashboardServiceDependencies) {}
 
 	async patchRepository(input: PatchRepositoryInput) {
-		await this.deps.authorizationRepository.assertRepositoryAccess({
-			repositoryId: input.repositoryId,
-			userId: input.userId,
-		});
+		return this.deps.unitOfWork.withTransaction(async (repositories) => {
+			await repositories.authorizationRepository.assertRepositoryAccess({
+				repositoryId: input.repositoryId,
+				userId: input.userId,
+			});
 
-		return this.deps.dashboardRepository.updateRepository({
-			repositoryId: input.repositoryId,
-			patch: {
-				...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
-			},
+			return repositories.dashboardRepository.updateRepository({
+				repositoryId: input.repositoryId,
+				patch: {
+					...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
+				},
+			});
 		});
 	}
 

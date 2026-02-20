@@ -9,12 +9,14 @@ import type {
 } from "../models/dashboard.js";
 import type { AuthorizationRepository } from "../ports/authorization-repository.js";
 import type { DashboardRepository } from "../ports/dashboard-repository.js";
+import type { DashboardUnitOfWork } from "../ports/dashboard-unit-of-work.js";
 import type { RunRepository } from "../ports/run-repository.js";
 
 export type DashboardServiceDependencies = {
 	authorizationRepository: AuthorizationRepository;
 	dashboardRepository: DashboardRepository;
 	runRepository: RunRepository;
+	unitOfWork: DashboardUnitOfWork;
 	enqueueAnalyzeChanges: AnalyzeChangesEnqueuer;
 };
 

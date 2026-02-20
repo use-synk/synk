@@ -11,3 +11,4 @@ export type {
 	UpdateRepositoryCommand,
 } from "./dashboard-repository.js";
 export type { RunRepository } from "./run-repository.js";
+export type { DashboardUnitOfWork, DashboardUnitOfWorkContext } from "./dashboard-unit-of-work.js";

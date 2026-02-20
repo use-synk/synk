@@ -12,6 +12,8 @@ export type {
 export type {
 	AuthorizationRepository,
 	DashboardRepository,
+	DashboardUnitOfWork,
+	DashboardUnitOfWorkContext,
 	InstallationAccessQuery,
 	ListInstallationRepositoriesQuery,
 	ListRepositoryRunsQuery,
