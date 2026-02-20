@@ -8,7 +8,7 @@
 		"build": "bun build src/worker.ts --outdir dist --format esm --target bun --sourcemap",
 		"lint": "biome check .",
 		"typecheck": "bunx tsc --noEmit",
-		"test": "bun test --coverage"
+		"test": "bun test src/__tests__ --coverage"
 	},
 	"dependencies": {
 		"@synk-ai/db": "workspace:*",

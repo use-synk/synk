@@ -432,6 +432,21 @@ describe("mergeResolvedConfig", () => {
 describe("processAnalyzeChangesJob", () => {
 	beforeEach(() => {
 		mock.restore();
+		mockFindUniqueRepository.mockClear();
+		mockUpdateProviderRepository.mockClear();
+		mockUpsertAnalysisRun.mockClear();
+		mockUpdateAnalysisRun.mockClear();
+		mockParseGitHubCredentialsEnvironment.mockClear();
+		mockCredentialsFromEnvironment.mockClear();
+		mockCreateInstallationOctokit.mockClear();
+		mockFetchPushDiff.mockClear();
+		mockFetchPRDiff.mockClear();
+		mockFilterDiff.mockClear();
+		mockFetchFileContent.mockClear();
+		mockFetchRepoTree.mockClear();
+		mockFetchMultipleFiles.mockClear();
+		mockDetectAdapter.mockClear();
+		mockGetAdapter.mockClear();
 
 		mockParseGitHubCredentialsEnvironment.mockReturnValue({});
 		mockCredentialsFromEnvironment.mockReturnValue({ appId: "1", privateKey: "k" });
