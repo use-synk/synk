@@ -56,7 +56,7 @@ export const createApp = (options: AppOptions): Hono<AppEnv> => {
 	app.use(createLoggingMiddleware({ logger }));
 
 	app.route("/health", createHealthRoutes(routeCtx));
-	app.route(`${API_PREFIX}/auth`, createAuthRoutes());
+	app.route(`${API_PREFIX}/auth`, createAuthRoutes(authService));
 	app.route(
 		`${API_PREFIX}/dashboard`,
 		createDashboardRoutes({
