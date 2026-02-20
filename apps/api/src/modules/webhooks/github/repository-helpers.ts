@@ -1,9 +1,7 @@
 import type { RepositoryPayload } from "./github.schemas.js";
 import type { WebhookRepository } from "../../../domain/ports/index.js";
+import { PROVIDER_GITHUB, REPOSITORY_ACTIVE } from "./constants.js";
 import type { GitHubInstallationRepository, ListInstallationRepositories } from "./types.js";
-
-const PROVIDER_GITHUB = "github" as const;
-const REPOSITORY_ACTIVE = "active" as const;
 
 export type PersistableRepository = {
 	providerRepositoryId: string;

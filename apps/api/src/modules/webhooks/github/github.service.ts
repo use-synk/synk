@@ -11,6 +11,7 @@ import {
 	pullRequestEventSchema,
 	pushEventSchema,
 } from "./github.schemas.js";
+import { INSTALLATION_ACTIVE, INSTALLATION_SUSPENDED, PROVIDER_GITHUB } from "./constants.js";
 import {
 	getRepositoryIds,
 	hydrateRepositories,
@@ -20,9 +21,6 @@ import {
 } from "./repository-helpers.js";
 import type { ListInstallationRepositories } from "./types.js";
 
-const PROVIDER_GITHUB = "github" as const;
-const INSTALLATION_ACTIVE = "active" as const;
-const INSTALLATION_SUSPENDED = "suspended" as const;
 const GITHUB_DELETED_REF_SHA = "0000000000000000000000000000000000000000";
 
 type EventHandleResult = { ok: true } | { ok: false; message: string };
