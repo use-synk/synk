@@ -16,7 +16,8 @@ const startServer = (): void => {
 	const logger = createLogger(env.LOG_LEVEL, env.NODE_ENV === "development");
 	const analyzeChangesQueue = createAnalyzeChangesQueue(env.REDIS_URL);
 	const enqueueAnalyzeChanges = createAnalyzeChangesEnqueuer(analyzeChangesQueue, db);
-	const app = createApp({ env, logger, db, enqueueAnalyzeChanges });
+
+	const app = createApp({ env, logger, enqueueAnalyzeChanges });
 
 	const server: ServerType = serve(
 		{ fetch: app.fetch, port: env.PORT, hostname: env.HOST },

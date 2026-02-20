@@ -28,8 +28,13 @@ vi.mock("@synk-ai/db", async () => {
 const mockDb = db as unknown as MockDb;
 
 // vi.hoisted runs before imports — only inline values and vi.fn() are safe here.
+type SessionResult = {
+	user: { id: string };
+	session: { token: string; userId: string; expiresAt: Date };
+} | null;
+
 const { getSessionMock } = vi.hoisted(() => ({
-	getSessionMock: vi.fn(async () => ({
+	getSessionMock: vi.fn<() => Promise<SessionResult>>(async () => ({
 		user: { id: "user-1" },
 		session: {
 			token: "session-token",
@@ -144,8 +149,7 @@ describe("dashboard routes", () => {
 				completedAt: NOW,
 			},
 		]);
-		mockDb.analysisRun.findFirst.mockResolvedValue({ id: RUN_ID });
-		mockDb.analysisRun.findUnique.mockResolvedValue({
+		const runDetail = {
 			id: RUN_ID,
 			repositoryId: REPOSITORY_ID,
 			status: "completed" as const,
@@ -168,7 +172,9 @@ describe("dashboard routes", () => {
 			completedAt: NOW,
 			createdAt: NOW,
 			updatedAt: NOW,
-		});
+		};
+		mockDb.analysisRun.findFirst.mockResolvedValue(runDetail);
+		mockDb.analysisRun.findUnique.mockResolvedValue(runDetail);
 	});
 
 	it("lists repositories for an installation", async () => {
