@@ -3,6 +3,7 @@ import "../styles/globals.css";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 
+import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { TRPCReactProvider } from "@/trpc/react";
 
@@ -22,7 +23,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
 		<html lang="en" className={`${inter.variable}`}>
 			<body>
 				<TRPCReactProvider>
-					<TooltipProvider>{children}</TooltipProvider>
+					<TooltipProvider>
+						{children}
+						<Toaster />
+					</TooltipProvider>
 				</TRPCReactProvider>
 			</body>
 		</html>
