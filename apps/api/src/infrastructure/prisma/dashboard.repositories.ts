@@ -84,6 +84,17 @@ export const createPrismaDashboardRepositories = (
 				data: {
 					...(patch.isActive !== undefined ? { isActive: patch.isActive } : {}),
 				},
+				select: {
+					id: true,
+					installationId: true,
+					fullName: true,
+					defaultBranch: true,
+					status: true,
+					isActive: true,
+					docsConfig: true,
+					createdAt: true,
+					updatedAt: true,
+				},
 			}),
 		listInstallationRepositories: async ({ installationId, pagination }) => {
 			const skip = (pagination.page - 1) * pagination.pageSize;
