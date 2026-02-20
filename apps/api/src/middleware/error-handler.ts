@@ -1,8 +1,8 @@
 import type { ErrorHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
-import { AccessDeniedError } from "../domain/errors/access-denied-error.js";
-import type { Logger } from "../logger.js";
-import type { AppEnv } from "../types.js";
+import { AccessDeniedError } from "../domain/errors/access-denied-error";
+import type { Logger } from "../logger";
+import type { AppEnv } from "../types";
 
 type ErrorResponse = {
 	error: {

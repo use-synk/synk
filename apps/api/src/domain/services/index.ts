@@ -6,4 +6,4 @@ export type {
 	PatchRepositoryInput,
 	TriggerManualRunInput,
 	TriggerManualRunResult,
-} from "./dashboard-service.js";
+} from "./dashboard-service";

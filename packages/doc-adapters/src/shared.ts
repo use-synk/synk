@@ -2,7 +2,7 @@
  * Shared parsing and validation utilities used by all doc adapters.
  * Not part of the public API — import from the adapter files or the barrel.
  */
-import type { DocTreeNode, ValidationContext } from "./types.js";
+import type { DocTreeNode, ValidationContext } from "./types";
 
 export type MarkdownHeading = {
 	level: number;

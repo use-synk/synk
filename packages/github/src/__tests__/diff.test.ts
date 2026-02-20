@@ -6,13 +6,13 @@ import {
 	fetchPRDiff,
 	fetchPushDiff,
 	filterDiff,
-} from "../diff.js";
+} from "../diff";
 import {
 	NORMALIZED_DIFF_FIXTURE,
 	PR_FILES_PAGE_ONE_FIXTURE,
 	PR_FILES_PAGE_TWO_FIXTURE,
 	PUSH_COMPARE_FILES_FIXTURE,
-} from "./fixtures/diff.fixtures.js";
+} from "./fixtures/diff.fixtures";
 
 describe("fetchPushDiff", () => {
 	it("fetches a compare diff and normalizes returned files", async () => {

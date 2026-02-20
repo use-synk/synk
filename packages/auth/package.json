@@ -20,7 +20,7 @@
 		"build": "tsc -p tsconfig.json",
 		"generate": "pnpm dlx @better-auth/cli generate --config src/cli.ts --output ../db/src/schemas/auth.prisma",
 		"lint": "biome check .",
-		"typecheck": "tsc --noEmit",
+		"typecheck": "bunx tsc --noEmit",
 		"test": "echo 'auth test placeholder'"
 	},
 	"dependencies": {

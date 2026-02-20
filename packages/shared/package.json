@@ -16,7 +16,7 @@
 	"scripts": {
 		"build": "tsc -p tsconfig.json",
 		"lint": "biome check .",
-		"typecheck": "tsc --noEmit",
+		"typecheck": "bunx tsc --noEmit",
 		"test": "bun test --coverage"
 	},
 	"dependencies": {

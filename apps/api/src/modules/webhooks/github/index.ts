@@ -1,6 +1,6 @@
-export { createGitHubWebhookRoutes } from "./github.routes.js";
-export type { GitHubWebhookRouteOptions } from "./github.routes.js";
+export { createGitHubWebhookRoutes } from "./github.routes";
+export type { GitHubWebhookRouteOptions } from "./github.routes";
 export type {
 	GitHubInstallationRepository,
 	ListInstallationRepositories,
-} from "./types.js";
+} from "./types";

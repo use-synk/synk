@@ -6,7 +6,7 @@ import type {
 	RepositoryPatch,
 	RunListFilter,
 	RunListItem,
-} from "../models/dashboard.js";
+} from "../models/dashboard";
 
 export type UpdateRepositoryCommand = {
 	repositoryId: string;

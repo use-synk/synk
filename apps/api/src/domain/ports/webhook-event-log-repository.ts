@@ -1,4 +1,4 @@
-import type { WebhookProvider } from "./webhook-repository.js";
+import type { WebhookProvider } from "./webhook-repository";
 
 export type CreateWebhookDeliveryInput = {
 	provider: WebhookProvider;

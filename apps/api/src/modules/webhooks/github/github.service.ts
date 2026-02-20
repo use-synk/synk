@@ -3,23 +3,23 @@ import type z from "zod";
 import type {
 	WebhookEventLogRepository,
 	WebhookRepository,
-} from "../../../domain/ports/index.js";
-import type { AnalyzeChangesEnqueuer } from "../../../queues/analyze-changes.js";
+} from "../../../domain/ports/index";
+import type { AnalyzeChangesEnqueuer } from "../../../queues/analyze-changes";
 import {
 	installationEventSchema,
 	installationRepositoriesEventSchema,
 	pullRequestEventSchema,
 	pushEventSchema,
-} from "./github.schemas.js";
-import { INSTALLATION_ACTIVE, INSTALLATION_SUSPENDED, PROVIDER_GITHUB } from "./constants.js";
+} from "./github.schemas";
+import { INSTALLATION_ACTIVE, INSTALLATION_SUSPENDED, PROVIDER_GITHUB } from "./constants";
 import {
 	getRepositoryIds,
 	hydrateRepositories,
 	markRepositoriesAsRemoved,
 	syncInstallationRepositories,
 	upsertRepositories,
-} from "./repository-helpers.js";
-import type { ListInstallationRepositories } from "./types.js";
+} from "./repository-helpers";
+import type { ListInstallationRepositories } from "./types";
 
 const GITHUB_DELETED_REF_SHA = "0000000000000000000000000000000000000000";
 

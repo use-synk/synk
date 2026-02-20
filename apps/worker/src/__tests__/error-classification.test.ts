@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { classifyError } from "../jobs/error-classification.js";
+import { classifyError } from "../jobs/error-classification";
 
 const makeHttpError = (status: number): Error =>
 	Object.assign(new Error(`HTTP ${status}`), { status });

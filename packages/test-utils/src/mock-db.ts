@@ -1,7 +1,7 @@
 import { mock } from "bun:test";
 import type { Mock } from "bun:test";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// biome-ignore lint/suspicious/noExplicitAny: we want to allow any type of argument
 type AnyMock = Mock<(...args: any[]) => any>;
 
 /**

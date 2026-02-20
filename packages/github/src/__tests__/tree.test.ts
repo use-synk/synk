@@ -6,7 +6,7 @@ import {
 	fetchFileContent,
 	fetchMultipleFiles,
 	fetchRepoTree,
-} from "../tree.js";
+} from "../tree";
 
 describe("fetchRepoTree", () => {
 	it("fetches a recursive tree and returns only file entries", async () => {

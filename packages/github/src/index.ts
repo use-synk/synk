@@ -3,7 +3,7 @@ export {
 	createAppOctokit,
 	createInstallationOctokit,
 	type GitHubAppCredentials,
-} from "./auth.js";
+} from "./auth";
 export {
 	createDocUpdatePR,
 	type CreateDocUpdatePrRequest,
@@ -11,7 +11,7 @@ export {
 	type DocUpdateFile,
 	type DocUpdatePrConfig,
 	type DocUpdateTriggerInfo,
-} from "./pr.js";
+} from "./pr";
 export {
 	DEFAULT_DIFF_IGNORE_PATTERNS,
 	fetchPRDiff,
@@ -20,14 +20,14 @@ export {
 	type DiffFile,
 	type FetchPRDiffRequest,
 	type FetchPushDiffRequest,
-} from "./diff.js";
+} from "./diff";
 export {
 	summarizeDiff,
 	type SummarizeDiffOptions,
 	type SummarizeDiffResult,
 	type FastModelDiffSummarizer,
 	type FastModelDiffSummarizerInput,
-} from "./diff-summary.js";
+} from "./diff-summary";
 export {
 	fetchFileContent,
 	fetchMultipleFiles,
@@ -39,7 +39,7 @@ export {
 	type FetchRepoTreeRequest,
 	type RepoFileContent,
 	type RepoTreeFile,
-} from "./tree.js";
+} from "./tree";
 export {
 	githubCredentialsEnvironmentSchema,
 	githubEnvironmentSchema,
@@ -47,4 +47,4 @@ export {
 	parseGitHubEnvironment,
 	type GitHubCredentialsEnvironment,
 	type GitHubEnvironment,
-} from "./env.js";
+} from "./env";

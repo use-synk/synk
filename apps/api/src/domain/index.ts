@@ -8,7 +8,7 @@ export type {
 	RunDetail,
 	RunListFilter,
 	RunListItem,
-} from "./models/index.js";
+} from "./models/index";
 export type {
 	AuthorizationRepository,
 	DashboardRepository,
@@ -24,7 +24,7 @@ export type {
 	WebhookEventLogRepository,
 	WebhookProvider,
 	WebhookRepository,
-} from "./ports/index.js";
+} from "./ports/index";
 export type {
 	DashboardServiceContract,
 	DashboardServiceDependencies,
@@ -33,4 +33,4 @@ export type {
 	PatchRepositoryInput,
 	TriggerManualRunInput,
 	TriggerManualRunResult,
-} from "./services/index.js";
+} from "./services/index";

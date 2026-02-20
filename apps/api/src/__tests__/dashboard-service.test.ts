@@ -1,7 +1,7 @@
 import { describe, expect, it, mock } from "bun:test";
 import { HTTPException } from "hono/http-exception";
-import { DashboardService } from "../modules/dashboard/dashboard.service.js";
-import type { DashboardServiceDependencies } from "../domain/services/dashboard-service.js";
+import { DashboardService } from "../modules/dashboard/dashboard.service";
+import type { DashboardServiceDependencies } from "../domain/services/dashboard-service";
 
 const INSTALLATION_ID = "11111111-1111-4111-8111-111111111111";
 const REPOSITORY_ID = "22222222-2222-4222-8222-222222222222";

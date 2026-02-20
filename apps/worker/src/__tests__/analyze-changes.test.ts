@@ -68,7 +68,7 @@ import {
 	parseOwnerAndRepo,
 	parseSynkAiYaml,
 	processAnalyzeChangesJob,
-} from "../jobs/analyze-changes.js";
+} from "../jobs/analyze-changes";
 
 // ---------------------------------------------------------------------------
 // Shared helpers

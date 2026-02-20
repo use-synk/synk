@@ -27,8 +27,8 @@ import {
 	parseSynkAiConfigFromYaml,
 } from "@synk-ai/shared";
 import { type Job, UnrecoverableError } from "bullmq";
-import type { Logger } from "../logger.js";
-import { classifyError } from "./error-classification.js";
+import type { Logger } from "../logger";
+import { classifyError } from "./error-classification";
 
 const PROVIDER_GITHUB = "github";
 const RUN_STATUS_RUNNING = "running";

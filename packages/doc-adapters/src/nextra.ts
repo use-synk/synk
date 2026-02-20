@@ -1,4 +1,4 @@
-import type { DocAdapter } from "./adapter.js";
+import type { DocAdapter } from "./adapter";
 import {
 	addHeadingChildren,
 	extractFrontmatter,
@@ -9,7 +9,7 @@ import {
 	pathToTitle,
 	slugifyHeading,
 	toPathSet,
-} from "./shared.js";
+} from "./shared";
 import type {
 	DetectionContext,
 	DocFile,
@@ -20,7 +20,7 @@ import type {
 	RepoFile,
 	ValidationContext,
 	ValidationResult,
-} from "./types.js";
+} from "./types";
 
 const DEFAULT_DOCS_PATH = "pages/docs";
 const NEXTRA_DEPS = ["nextra", "nextra-theme-docs"] as const;

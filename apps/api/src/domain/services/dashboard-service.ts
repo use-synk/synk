@@ -1,4 +1,4 @@
-import type { AnalyzeChangesEnqueuer } from "../../queues/analyze-changes.js";
+import type { AnalyzeChangesEnqueuer } from "../../queues/analyze-changes";
 import type {
 	PaginatedResult,
 	Pagination,
@@ -7,11 +7,11 @@ import type {
 	RunDetail,
 	RunListFilter,
 	RunListItem,
-} from "../models/dashboard.js";
-import type { AuthorizationRepository } from "../ports/authorization-repository.js";
-import type { DashboardRepository } from "../ports/dashboard-repository.js";
-import type { DashboardUnitOfWork } from "../ports/dashboard-unit-of-work.js";
-import type { RunRepository } from "../ports/run-repository.js";
+} from "../models/dashboard";
+import type { AuthorizationRepository } from "../ports/authorization-repository";
+import type { DashboardRepository } from "../ports/dashboard-repository";
+import type { DashboardUnitOfWork } from "../ports/dashboard-unit-of-work";
+import type { RunRepository } from "../ports/run-repository";
 
 export type DashboardServiceDependencies = {
 	authorizationRepository: AuthorizationRepository;

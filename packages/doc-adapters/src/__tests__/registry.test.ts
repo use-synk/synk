@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { FRAMEWORK_IDS, detectAdapter, detectFramework, getAdapter } from "../registry.js";
+import { FRAMEWORK_IDS, detectAdapter, detectFramework, getAdapter } from "../registry";
 
 describe("getAdapter", () => {
 	it("returns markdown adapter for 'markdown'", () => {

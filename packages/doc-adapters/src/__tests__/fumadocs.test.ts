@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
-import { fumadocsAdapter } from "../fumadocs.js";
-import { detectAdapter } from "../registry.js";
+import { fumadocsAdapter } from "../fumadocs";
+import { detectAdapter } from "../registry";
 import {
 	FUMADOCS_DOC_FILES,
 	FUMADOCS_PACKAGE_JSON,
@@ -9,7 +9,7 @@ import {
 	FUMADOCS_PACKAGE_JSON_UI_ONLY,
 	FUMADOCS_TREE,
 	NON_FUMADOCS_PACKAGE_JSON,
-} from "./fixtures/fumadocs.js";
+} from "./fixtures/fumadocs";
 
 describe("fumadocsAdapter.detect", () => {
 	it("returns true when package.json has fumadocs-core dependency", async () => {
@@ -56,11 +56,7 @@ describe("fumadocsAdapter.detect", () => {
 	});
 
 	it("returns true when source.config exists and meta.json is at repo root", async () => {
-		const tree = [
-			{ path: "source.config.ts" },
-			{ path: "meta.json" },
-			{ path: "index.mdx" },
-		];
+		const tree = [{ path: "source.config.ts" }, { path: "meta.json" }, { path: "index.mdx" }];
 		expect(await fumadocsAdapter.detect(tree)).toBe(true);
 	});
 

@@ -4,7 +4,7 @@ import {
 	githubEnvironmentSchema,
 	parseGitHubCredentialsEnvironment,
 	parseGitHubEnvironment,
-} from "../env.js";
+} from "../env";
 
 const VALID_CREDENTIALS_ENV = {
 	GITHUB_APP_ID: "123456",

@@ -1,1 +1,1 @@
-export { AccessDeniedError } from "./access-denied-error.js";
+export { AccessDeniedError } from "./access-denied-error";

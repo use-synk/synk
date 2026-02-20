@@ -1,9 +1,9 @@
-import type { DocAdapter } from "./adapter.js";
-import { fumadocsAdapter } from "./fumadocs.js";
-import { markdownAdapter } from "./markdown.js";
-import { nextraAdapter } from "./nextra.js";
-import type { DetectionContext, RepoFile } from "./types.js";
-import { FRAMEWORK_IDS, type FrameworkId } from "./types.js";
+import type { DocAdapter } from "./adapter";
+import { fumadocsAdapter } from "./fumadocs";
+import { markdownAdapter } from "./markdown";
+import { nextraAdapter } from "./nextra";
+import type { DetectionContext, RepoFile } from "./types";
+import { FRAMEWORK_IDS, type FrameworkId } from "./types";
 
 export { FRAMEWORK_IDS, type FrameworkId };
 

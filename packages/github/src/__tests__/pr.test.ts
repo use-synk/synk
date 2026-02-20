@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, mock, setSystemTime } from "bun:test";
 
-import { createDocUpdatePR } from "../pr.js";
+import { createDocUpdatePR } from "../pr";
 
 const createOctokitMock = () => {
 	const getRef = mock(async () => ({ data: { object: { sha: "base-commit-sha" } } }));

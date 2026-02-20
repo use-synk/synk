@@ -1,7 +1,7 @@
 import type { MiddlewareHandler } from "hono";
 import { createMiddleware } from "hono/factory";
-import type { Logger } from "../logger.js";
-import type { AppEnv } from "../types.js";
+import type { Logger } from "../logger";
+import type { AppEnv } from "../types";
 
 type LoggingOptions = {
 	logger: Logger;

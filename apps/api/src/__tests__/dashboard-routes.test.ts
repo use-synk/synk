@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { HTTPException } from "hono/http-exception";
-import { createApp } from "../app.js";
-import type { AppDependencies } from "../composition/dependencies.js";
-import { AccessDeniedError } from "../domain/errors/access-denied-error.js";
-import type { DashboardServiceContract } from "../domain/services/index.js";
-import { createLogger } from "../logger.js";
+import { createApp } from "../app";
+import type { AppDependencies } from "../composition/dependencies";
+import { AccessDeniedError } from "../domain/errors/access-denied-error";
+import type { DashboardServiceContract } from "../domain/services/index";
+import { createLogger } from "../logger";
 
 mock.module("@synk-ai/db", async () => {
 	const { createMockDb } = await import("@synk-ai/test-utils");

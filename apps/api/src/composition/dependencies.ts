@@ -1,8 +1,8 @@
-import type { AnalyzeChangesEnqueuer } from "../queues/analyze-changes.js";
-import type { DashboardServiceContract } from "../domain/services/index.js";
-import { createPrismaDashboardRepositories } from "../infrastructure/prisma/dashboard.repositories.js";
-import { createPrismaDashboardUnitOfWork } from "../infrastructure/prisma/dashboard.unit-of-work.js";
-import { DashboardService } from "../modules/dashboard/dashboard.service.js";
+import type { DashboardServiceContract } from "../domain/services/index";
+import { createPrismaDashboardRepositories } from "../infrastructure/prisma/dashboard.repositories";
+import { createPrismaDashboardUnitOfWork } from "../infrastructure/prisma/dashboard.unit-of-work";
+import { DashboardService } from "../modules/dashboard/dashboard.service";
+import type { AnalyzeChangesEnqueuer } from "../queues/analyze-changes";
 
 export type AppDependencies = {
 	dashboardService: DashboardServiceContract;

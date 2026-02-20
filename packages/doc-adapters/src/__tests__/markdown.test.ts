@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { markdownAdapter } from "../markdown.js";
+import { markdownAdapter } from "../markdown";
 
 describe("markdownAdapter.detect", () => {
 	it("returns true when docs/ exists", async () => {

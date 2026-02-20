@@ -1,7 +1,7 @@
 import { createMiddleware } from "hono/factory";
 import { HTTPException } from "hono/http-exception";
-import type { AuthService } from "../modules/auth/auth.service.js";
-import type { AuthenticatedAppEnv } from "../types.js";
+import type { AuthService } from "../modules/auth/auth.service";
+import type { AuthenticatedAppEnv } from "../types";
 
 /**
  * Middleware to require authentication.

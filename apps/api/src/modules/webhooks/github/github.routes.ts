@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { Hono } from "hono";
-import type { AppEnv } from "../../../types.js";
-import { GitHubWebhookService, type GitHubWebhookServiceOptions } from "./github.service.js";
+import type { AppEnv } from "../../../types";
+import { GitHubWebhookService, type GitHubWebhookServiceOptions } from "./github.service";
 
 const GITHUB_SIGNATURE_HEADER = "x-hub-signature-256";
 const GITHUB_EVENT_HEADER = "x-github-event";

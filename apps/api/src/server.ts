@@ -1,12 +1,12 @@
 import { db } from "@synk-ai/db";
-import { createApp } from "./app.js";
-import { buildAppDependencies } from "./composition/dependencies.js";
-import { parseApiEnvironment } from "./env.js";
-import { createLogger } from "./logger.js";
+import { createApp } from "./app";
+import { buildAppDependencies } from "./composition/dependencies";
+import { parseApiEnvironment } from "./env";
+import { createLogger } from "./logger";
 import {
 	createAnalyzeChangesEnqueuer,
 	createAnalyzeChangesQueue,
-} from "./queues/analyze-changes.js";
+} from "./queues/analyze-changes";
 
 const SHUTDOWN_TIMEOUT_MS = 10_000;
 

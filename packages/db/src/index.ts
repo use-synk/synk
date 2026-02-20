@@ -1,7 +1,7 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { databaseEnvironmentSchema, parseEnvironment } from "@synk-ai/shared";
 import { Pool } from "pg";
-import { PrismaClient } from "./generated/prisma/client.js";
+import { PrismaClient } from "./generated/prisma/client";
 
 export const createPrismaClient = (): PrismaClient => {
 	const environment = parseEnvironment(databaseEnvironmentSchema);
@@ -26,6 +26,6 @@ export const createPrismaClient = (): PrismaClient => {
 	});
 };
 
-export { Prisma } from "./generated/prisma/client.js";
+export { Prisma } from "./generated/prisma/client";
 export const db = createPrismaClient();
 export type DatabaseClient = ReturnType<typeof createPrismaClient>;

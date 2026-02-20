@@ -19,14 +19,14 @@ mock.module("../modules/auth/auth.service.js", () => ({
 	}),
 }));
 
-import { createApp } from "../app.js";
-import type { AppDependencies } from "../composition/dependencies.js";
-import { createLogger } from "../logger.js";
-import type { AnalyzeChangesEnqueuer } from "../queues/analyze-changes.js";
+import { createApp } from "../app";
+import type { AppDependencies } from "../composition/dependencies";
+import { createLogger } from "../logger";
+import type { AnalyzeChangesEnqueuer } from "../queues/analyze-changes";
 import type {
 	GitHubInstallationRepository,
 	ListInstallationRepositories,
-} from "../modules/webhooks/github/index.js";
+} from "../modules/webhooks/github/index";
 
 const WEBHOOK_SECRET = "test-webhook-secret";
 
