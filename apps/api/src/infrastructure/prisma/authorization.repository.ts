@@ -2,8 +2,13 @@ import { db } from "@synk-ai/db";
 import { AccessDeniedError } from "../../domain/errors";
 import type { AuthorizationRepository } from "../../domain/ports";
 
+type PrismaAuthorizationClient = Pick<
+	typeof db,
+	"providerInstallation" | "providerRepository" | "analysisRun" | "member"
+>;
+
 export const createPrismaAuthorizationRepository = (
-	client: typeof db = db,
+	client: PrismaAuthorizationClient = db,
 ): AuthorizationRepository => {
 	const assertAccess = (hasAccess: boolean, message: string): void => {
 		if (!hasAccess) {

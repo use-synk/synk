@@ -21,7 +21,8 @@ export const createPrismaDashboardRepositories = (
 	client: PrismaDashboardDatabaseClient = db,
 ): DashboardRepositories => {
 	// TODO: Extract to a separate function
-	const authorizationRepository: AuthorizationRepository = createPrismaAuthorizationRepository();
+	const authorizationRepository: AuthorizationRepository =
+		createPrismaAuthorizationRepository(client);
 
 	const dashboardRepository: DashboardRepository = {
 		updateRepository: async ({ repositoryId, patch }) =>
