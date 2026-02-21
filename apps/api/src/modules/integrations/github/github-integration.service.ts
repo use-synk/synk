@@ -12,6 +12,18 @@ import { syncInstallationRepositories } from "../../webhooks/github/repository-h
 const PROVIDER_GITHUB = "github" as const;
 const INSTALLATION_STATE_TTL_MS = 15 * 60 * 1000; // 15 minutes
 
+const toUuidFromRandomBytes = (bytes: Uint8Array): string => {
+	const hex = Buffer.from(bytes).toString("hex");
+	return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+};
+
+const createInstallationStateToken = (): string => {
+	const random = randomBytes(32);
+	const partA = toUuidFromRandomBytes(random.subarray(0, 16));
+	const partB = toUuidFromRandomBytes(random.subarray(16, 32));
+	return `${partA}.${partB}`;
+};
+
 export class GitHubIntegrationService implements GitHubIntegrationServiceContract {
 	constructor(private readonly deps: GitHubIntegrationServiceDependencies) {}
 
@@ -35,7 +47,7 @@ export class GitHubIntegrationService implements GitHubIntegrationServiceContrac
 			organizationId,
 		});
 
-		const token = randomBytes(32).toString("hex");
+		const token = createInstallationStateToken();
 		const expiresAt = new Date(Date.now() + INSTALLATION_STATE_TTL_MS);
 
 		await this.deps.installationOAuthStateRepository.createState({
