@@ -1,10 +1,10 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import type { AppDependencies } from "./composition/dependencies";
 import { API_PREFIX } from "./consts";
 import type { ApiEnvironment } from "./env";
-import type { Logger } from "./logger";
-import type { AppDependencies } from "./composition/dependencies";
 import { createPrismaWebhookRepositories } from "./infrastructure/prisma/webhook.repositories";
+import type { Logger } from "./logger";
 import { createErrorHandler } from "./middleware/error-handler";
 import { createLoggingMiddleware } from "./middleware/logging";
 import { requestIdMiddleware } from "./middleware/request-id";
@@ -89,9 +89,6 @@ export const createApp = (options: AppOptions): Hono<AppEnv> => {
 			listInstallationRepositories,
 			webhookRepository: webhookRepositories.webhookRepository,
 			webhookEventLogRepository: webhookRepositories.webhookEventLogRepository,
-			...(env.GITHUB_WEBHOOK_ORGANIZATION_ID !== undefined
-				? { installationOrganizationId: env.GITHUB_WEBHOOK_ORGANIZATION_ID }
-				: {}),
 		}),
 	);
 

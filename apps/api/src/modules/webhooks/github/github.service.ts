@@ -1,17 +1,14 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type z from "zod";
-import type {
-	WebhookEventLogRepository,
-	WebhookRepository,
-} from "../../../domain/ports/index";
+import type { WebhookEventLogRepository, WebhookRepository } from "../../../domain/ports/index";
 import type { AnalyzeChangesEnqueuer } from "../../../queues/analyze-changes";
+import { INSTALLATION_ACTIVE, INSTALLATION_SUSPENDED, PROVIDER_GITHUB } from "./constants";
 import {
 	installationEventSchema,
 	installationRepositoriesEventSchema,
 	pullRequestEventSchema,
 	pushEventSchema,
 } from "./github.schemas";
-import { INSTALLATION_ACTIVE, INSTALLATION_SUSPENDED, PROVIDER_GITHUB } from "./constants";
 import {
 	getRepositoryIds,
 	hydrateRepositories,
@@ -27,7 +24,6 @@ type EventHandleResult = { ok: true } | { ok: false; message: string };
 
 export type GitHubWebhookServiceOptions = {
 	webhookSecret: string;
-	installationOrganizationId?: string;
 	enqueueAnalyzeChanges: AnalyzeChangesEnqueuer;
 	listInstallationRepositories: ListInstallationRepositories;
 	webhookRepository: WebhookRepository;
@@ -116,7 +112,7 @@ export class GitHubWebhookService {
 			providerInstallationId,
 		});
 
-		const organizationId = existing?.organizationId ?? this.options.installationOrganizationId;
+		const organizationId = existing?.organizationId;
 		if (organizationId === undefined) {
 			return { ok: true };
 		}
