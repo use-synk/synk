@@ -9,7 +9,13 @@ export const apiEnvironmentSchema = githubEnvironmentSchema.extend({
 	LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
 	GIT_SHA: z.string().default("unknown"),
 	REDIS_URL: z.string().min(1),
+	/**
+	 * @todo Remove this in a future release.
+	 * @deprecated Use GITHUB_APP_SLUG instead. Only used for backwards compatibility.
+	 */
 	GITHUB_WEBHOOK_ORGANIZATION_ID: z.string().min(1).optional(),
+
+	GITHUB_APP_SLUG: z.string().min(1),
 });
 
 export type ApiEnvironment = z.infer<typeof apiEnvironmentSchema>;

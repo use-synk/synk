@@ -14,7 +14,7 @@ export type DashboardRepositories = {
 
 type PrismaDashboardDatabaseClient = Pick<
 	typeof db,
-	"providerInstallation" | "providerRepository" | "analysisRun"
+	"providerInstallation" | "providerRepository" | "analysisRun" | "member"
 >;
 
 export const createPrismaDashboardRepositories = (
@@ -74,6 +74,13 @@ export const createPrismaDashboardRepositories = (
 		assertRunAccess: async (query) => {
 			const hasAccess = await authorizationRepository.hasRunAccess(query);
 			assertAccess(hasAccess, "You do not have access to this run");
+		},
+		assertOrganizationMembership: async ({ userId, organizationId }) => {
+			const membership = await client.member.findFirst({
+				where: { userId, organizationId },
+				select: { id: true },
+			});
+			assertAccess(membership !== null, "You are not a member of this organization");
 		},
 	};
 

@@ -3,6 +3,7 @@ export type {
 	RepositoryAccessQuery,
 	RunAccessQuery,
 	AuthorizationRepository,
+	OrganizationMembershipQuery,
 } from "./authorization-repository";
 export type {
 	DashboardRepository,
@@ -24,3 +25,9 @@ export type {
 	CreateWebhookDeliveryInput,
 	WebhookEventLogRepository,
 } from "./webhook-event-log-repository";
+
+export type {
+	InstallationOAuthStateRecord,
+	CreateInstallationOAuthStateInput,
+	InstallationOAuthStateRepository,
+} from "./installation-oauth-state-repository";
