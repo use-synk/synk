@@ -1,13 +1,7 @@
 import { db } from "@synk-ai/db";
-import type {
-	AuthorizationRepository,
-	DashboardRepository,
-	RunRepository,
-} from "../../domain/ports/index";
-import { createPrismaAuthorizationRepository } from "./authorization.repository";
+import type { DashboardRepository, RunRepository } from "../../domain/ports/index";
 
 export type DashboardRepositories = {
-	authorizationRepository: AuthorizationRepository;
 	dashboardRepository: DashboardRepository;
 	runRepository: RunRepository;
 };
@@ -20,13 +14,9 @@ type PrismaDashboardDatabaseClient = Pick<
 export const createPrismaDashboardRepositories = (
 	client: PrismaDashboardDatabaseClient = db,
 ): DashboardRepositories => {
-	// TODO: Extract to a separate function
-	const authorizationRepository: AuthorizationRepository =
-		createPrismaAuthorizationRepository(client);
-
 	const dashboardRepository: DashboardRepository = {
-		updateRepository: async ({ repositoryId, patch }) =>
-			client.providerRepository.update({
+		updateRepository: async ({ repositoryId, patch }) => {
+			return await client.providerRepository.update({
 				where: { id: repositoryId },
 				data: {
 					...(patch.isActive !== undefined ? { isActive: patch.isActive } : {}),
@@ -38,11 +28,11 @@ export const createPrismaDashboardRepositories = (
 					defaultBranch: true,
 					status: true,
 					isActive: true,
-					docsConfig: true,
 					createdAt: true,
 					updatedAt: true,
 				},
-			}),
+			});
+		},
 		listInstallationRepositories: async ({ installationId, pagination }) => {
 			const skip = (pagination.page - 1) * pagination.pageSize;
 			const [total, items] = await Promise.all([
@@ -59,7 +49,6 @@ export const createPrismaDashboardRepositories = (
 						defaultBranch: true,
 						status: true,
 						isActive: true,
-						docsConfig: true,
 						updatedAt: true,
 					},
 				}),
@@ -116,7 +105,6 @@ export const createPrismaDashboardRepositories = (
 	};
 
 	return {
-		authorizationRepository,
 		dashboardRepository,
 		runRepository,
 	};

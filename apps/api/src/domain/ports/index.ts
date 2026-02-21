@@ -31,3 +31,6 @@ export type {
 	CreateInstallationOAuthStateInput,
 	InstallationOAuthStateRepository,
 } from "./installation-oauth-state-repository";
+
+export type { ProjectRepository } from "./project-repository";
+export type { OrganizationRepository } from "./organization-repository";

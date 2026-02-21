@@ -1,4 +1,5 @@
 import type { ListInstallationRepositories } from "../../modules/webhooks/github/types";
+import type { OrganizationRepository } from "../ports";
 import type { AuthorizationRepository } from "../ports/authorization-repository";
 import type { InstallationOAuthStateRepository } from "../ports/installation-oauth-state-repository";
 import type { WebhookRepository } from "../ports/webhook-repository";
@@ -16,7 +17,7 @@ export type GitHubIntegrationServiceDependencies = {
 	webhookRepository: WebhookRepository;
 	listInstallationRepositories: ListInstallationRepositories;
 	getInstallationDetails: (installationId: number) => Promise<GitHubInstallationDetails>;
-	findOrganizationSlug: (organizationId: string) => Promise<string>;
+	organizationRepository: OrganizationRepository;
 	githubAppSlug: string;
 };
 

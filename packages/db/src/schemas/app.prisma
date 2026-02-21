@@ -105,11 +105,13 @@ model ProviderRepository {
   defaultBranch        String
   status               RepositoryStatus     @default(active)
   isActive             Boolean              @default(true)
-  docsConfig           Json                 @default("{}")
   lastSyncedAt         DateTime?
   createdAt            DateTime             @default(now())
   updatedAt            DateTime             @updatedAt
   analysisRuns         AnalysisRun[]
+  
+  projectSources Project[] @relation("SourceRepository")
+  docsSources Project[] @relation("DocsRepository")
 
   @@unique([provider, providerRepositoryId])
   @@unique([installationId, fullName])
@@ -122,6 +124,8 @@ model ProviderRepository {
 
 model AnalysisRun {
   id                        String              @id @default(uuid())
+  projectId                 String
+  project                   Project             @relation(fields: [projectId], references: [id])
   repositoryId              String
   repository                ProviderRepository  @relation(fields: [repositoryId], references: [id])
   provider                  VcsProvider
@@ -145,11 +149,11 @@ model AnalysisRun {
   updatedAt                 DateTime            @updatedAt
   attempts                  AnalysisRunAttempt[]
 
-  @@unique([repositoryId, triggerCommitSha, triggerType])
-  @@index([repositoryId])
+  @@unique([projectId,repositoryId, triggerCommitSha, triggerType])
+  @@index([projectId])
   @@index([status])
-  @@index([repositoryId, createdAt(sort: Desc)])
-  @@index([repositoryId, status, createdAt(sort: Desc)])
+  @@index([projectId, createdAt(sort: Desc)])
+  @@index([projectId, status, createdAt(sort: Desc)])
   @@index([provider, triggerCommitSha])
   @@map("analysis_runs")
 }
@@ -210,4 +214,26 @@ model WebhookDelivery {
   @@index([provider, providerInstallationId, receivedAt(sort: Desc)])
   @@index([provider, providerRepositoryId, receivedAt(sort: Desc)])
   @@map("webhook_deliveries")
+}
+
+model Project {
+  id String @id @default(cuid())
+  name String
+  organizationId String
+  organization Organization @relation(fields: [organizationId], references: [id])
+  sourceRepository ProviderRepository @relation("SourceRepository", fields: [sourceRepositoryId], references: [id])
+  sourceRepositoryId String
+  docsRepository ProviderRepository? @relation("DocsRepository", fields: [docsRepositoryId], references: [id])
+  docsRepositoryId String?
+  config Json @default("{}")
+
+  analysisRuns AnalysisRun[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sourceRepositoryId])
+  @@index([docsRepositoryId])
+
+  @@map("projects")
 }

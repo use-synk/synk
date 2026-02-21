@@ -10,9 +10,11 @@ import type {
 	GitHubIntegrationServiceContract,
 } from "../domain/services/index";
 import type { ApiEnvironment } from "../env";
+import { createPrismaAuthorizationRepository } from "../infrastructure/prisma/authorization.repository";
 import { createPrismaDashboardRepositories } from "../infrastructure/prisma/dashboard.repositories";
 import { createPrismaDashboardUnitOfWork } from "../infrastructure/prisma/dashboard.unit-of-work";
 import { createPrismaInstallationOAuthStateRepository } from "../infrastructure/prisma/installation-oauth-state.repository";
+import { createPrismaOrganizationRepository } from "../infrastructure/prisma/organization.repository";
 import { createPrismaWebhookRepositories } from "../infrastructure/prisma/webhook.repositories";
 import { DashboardService } from "../modules/dashboard/dashboard.service";
 import { GitHubIntegrationService } from "../modules/integrations/github";
@@ -35,6 +37,8 @@ export type BuildAppDependenciesOptions = {
 export const buildAppDependencies = (options: BuildAppDependenciesOptions): AppDependencies => {
 	const { env } = options;
 
+	const authorizationRepository = createPrismaAuthorizationRepository();
+	const organizationRepository = createPrismaOrganizationRepository(db);
 	const dashboardRepositories = createPrismaDashboardRepositories();
 	const unitOfWork = createPrismaDashboardUnitOfWork();
 	const { webhookRepository } = createPrismaWebhookRepositories();
@@ -99,22 +103,17 @@ export const buildAppDependencies = (options: BuildAppDependenciesOptions): AppD
 	return {
 		dashboardService: new DashboardService({
 			...dashboardRepositories,
+			authorizationRepository,
 			unitOfWork,
 			enqueueAnalyzeChanges: options.enqueueAnalyzeChanges,
 		}),
 		integrationService: new GitHubIntegrationService({
-			authorizationRepository: dashboardRepositories.authorizationRepository,
+			authorizationRepository,
 			installationOAuthStateRepository,
 			webhookRepository,
 			listInstallationRepositories,
 			getInstallationDetails,
-			findOrganizationSlug: (id) =>
-				db.organization
-					.findUniqueOrThrow({
-						where: { id },
-						select: { slug: true },
-					})
-					.then((organization) => organization.slug),
+			organizationRepository,
 			githubAppSlug: env.GITHUB_APP_SLUG,
 		}),
 		listInstallationRepositories,
