@@ -14,4 +14,5 @@ export type {
 	InitiateInstallationInput,
 	InitiateInstallationResult,
 	CompleteInstallationInput,
+	CompleteInstallationResult,
 } from "./github-integration-service";

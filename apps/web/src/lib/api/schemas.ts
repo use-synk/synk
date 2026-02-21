@@ -111,6 +111,20 @@ export const manualRunAcceptedResponseSchema = z.object({
 	data: manualRunAcceptedSchema,
 });
 
+// -- GitHub integration installation --
+
+export const initiateGitHubInstallationResponseSchema = z.object({
+	data: z.object({
+		redirectUrl: z.string().url(),
+	}),
+});
+
+export const completeGitHubInstallationResponseSchema = z.object({
+	data: z.object({
+		organizationSlug: z.string(),
+	}),
+});
+
 // -- Inferred types --
 
 export type RunStatus = z.infer<typeof runStatusSchema>;
@@ -125,3 +139,9 @@ export type RepositorySingleResponse = z.infer<typeof repositorySingleResponseSc
 export type RunListResponse = z.infer<typeof runListResponseSchema>;
 export type RunDetailResponse = z.infer<typeof runDetailResponseSchema>;
 export type ManualRunAcceptedResponse = z.infer<typeof manualRunAcceptedResponseSchema>;
+export type InitiateGitHubInstallationResponse = z.infer<
+	typeof initiateGitHubInstallationResponseSchema
+>;
+export type CompleteGitHubInstallationResponse = z.infer<
+	typeof completeGitHubInstallationResponseSchema
+>;

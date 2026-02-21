@@ -17,6 +17,7 @@ const createDependencies = (): {
 		createState: ReturnType<typeof mock>;
 		claimState: ReturnType<typeof mock>;
 		getInstallationDetails: ReturnType<typeof mock>;
+		findOrganizationSlug: ReturnType<typeof mock>;
 		upsertInstallation: ReturnType<typeof mock>;
 		listInstallationRepositories: ReturnType<typeof mock>;
 	};
@@ -30,6 +31,7 @@ const createDependencies = (): {
 		accountLogin: "acme",
 		accountType: "Organization",
 	}));
+	const findOrganizationSlug = mock(async () => "acme");
 	const upsertInstallation = mock(async () => ({ id: "installation-1" }));
 	const listInstallationRepositories = mock(async () => []);
 
@@ -58,6 +60,7 @@ const createDependencies = (): {
 			},
 			listInstallationRepositories,
 			getInstallationDetails,
+			findOrganizationSlug,
 			githubAppSlug: "synk-ai",
 		},
 		mocks: {
@@ -65,6 +68,7 @@ const createDependencies = (): {
 			createState,
 			claimState,
 			getInstallationDetails,
+			findOrganizationSlug,
 			upsertInstallation,
 			listInstallationRepositories,
 		},
@@ -114,7 +118,9 @@ describe("GitHubIntegrationService", () => {
 				organizationId: ORG_ID,
 			});
 
-			expect(result.redirectUrl).toContain("https://github.com/apps/my-custom-app/installations/new");
+			expect(result.redirectUrl).toContain(
+				"https://github.com/apps/my-custom-app/installations/new",
+			);
 			expect(mocks.createState).toHaveBeenCalledOnce();
 		});
 
@@ -151,7 +157,7 @@ describe("GitHubIntegrationService", () => {
 			expect(mocks.upsertInstallation).not.toHaveBeenCalled();
 		});
 
-		it("claims state, fetches installation details, upserts installation, and syncs repositories", async () => {
+		it("claims state, fetches installation details, upserts installation, syncs repositories, and returns organization slug", async () => {
 			const { deps, mocks } = createDependencies();
 			const claimedState = {
 				id: "state-1",
@@ -170,16 +176,18 @@ describe("GitHubIntegrationService", () => {
 				accountLogin: "my-org",
 				accountType: "Organization",
 			});
+			mocks.findOrganizationSlug.mockResolvedValueOnce("my-org");
 			mocks.upsertInstallation.mockResolvedValueOnce({ id: "internal-installation-id" });
 
 			const service = new GitHubIntegrationService(deps);
 
-			await service.completeInstallation({
+			const result = await service.completeInstallation({
 				token: "abc.uuid.def.uuid",
 				installationId: 12345,
 			});
 
 			expect(mocks.claimState).toHaveBeenCalledWith("abc.uuid.def.uuid");
+			expect(mocks.findOrganizationSlug).toHaveBeenCalledWith(ORG_ID);
 			expect(mocks.getInstallationDetails).toHaveBeenCalledWith(12345);
 			expect(mocks.upsertInstallation).toHaveBeenCalledWith({
 				organizationId: ORG_ID,
@@ -192,6 +200,7 @@ describe("GitHubIntegrationService", () => {
 				deletedAt: null,
 			});
 			expect(mocks.listInstallationRepositories).toHaveBeenCalledWith(12345);
+			expect(result).toEqual({ organizationSlug: "my-org" });
 		});
 
 		it("calls sync with internal installation id and numeric GitHub installation id", async () => {
@@ -206,17 +215,19 @@ describe("GitHubIntegrationService", () => {
 				consumedAt: null,
 				createdAt: new Date(),
 			});
+			mocks.findOrganizationSlug.mockResolvedValueOnce("acme");
 			mocks.upsertInstallation.mockResolvedValueOnce({ id: "our-db-installation-uuid" });
 
 			const service = new GitHubIntegrationService(deps);
 
-			await service.completeInstallation({
+			const result = await service.completeInstallation({
 				token: "token",
 				installationId: 67890,
 			});
 
 			expect(mocks.upsertInstallation).toHaveBeenCalledOnce();
 			expect(mocks.listInstallationRepositories).toHaveBeenCalledWith(67890);
+			expect(result).toEqual({ organizationSlug: "acme" });
 			// syncInstallationRepositories uses upserted.id (our-db-installation-uuid) internally
 			// and listInstallationRepositories(67890); we can't assert upserted.id here without
 			// inspecting the helper, but we verified upsert returns that id and list is called with numeric id.

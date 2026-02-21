@@ -51,9 +51,15 @@ export const createApp = (options: AppOptions): Hono<AppEnv> => {
 		gitSha: env.GIT_SHA,
 	};
 
+	// CORS must be registered before routes. Required for Better Auth credentialed
+	// cross-origin requests from the web app (see better-auth.com/docs/integrations/hono).
 	app.use(
 		cors({
 			origin: env.CORS_ORIGIN,
+			allowHeaders: ["Content-Type", "Authorization"],
+			allowMethods: ["POST", "GET", "OPTIONS"],
+			exposeHeaders: ["Content-Length"],
+			maxAge: 600,
 			credentials: true,
 		}),
 	);
@@ -75,14 +81,13 @@ export const createApp = (options: AppOptions): Hono<AppEnv> => {
 		`${API_PREFIX}/integrations/github`,
 		createGitHubIntegrationRoutes({
 			...routeCtx,
-			corsOrigin: env.CORS_ORIGIN,
 			integrationService: dependencies.integrationService,
 		}),
 	);
 
 	// webhooks
 	app.route(
-		"/api/webhooks/github",
+		"/api/v1/webhooks/github",
 		createGitHubWebhookRoutes({
 			webhookSecret: env.GITHUB_WEBHOOK_SECRET,
 			enqueueAnalyzeChanges,

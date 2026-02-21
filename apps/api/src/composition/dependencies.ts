@@ -1,3 +1,4 @@
+import { db } from "@synk-ai/db";
 import {
 	createAppOctokit,
 	createInstallationOctokit,
@@ -107,6 +108,13 @@ export const buildAppDependencies = (options: BuildAppDependenciesOptions): AppD
 			webhookRepository,
 			listInstallationRepositories,
 			getInstallationDetails,
+			findOrganizationSlug: (id) =>
+				db.organization
+					.findUniqueOrThrow({
+						where: { id },
+						select: { slug: true },
+					})
+					.then((organization) => organization.slug),
 			githubAppSlug: env.GITHUB_APP_SLUG,
 		}),
 		listInstallationRepositories,

@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { InstallationStateError } from "../../../domain/errors/installation-state-error";
 import type {
 	CompleteInstallationInput,
+	CompleteInstallationResult,
 	GitHubIntegrationServiceContract,
 	GitHubIntegrationServiceDependencies,
 	InitiateInstallationInput,
@@ -74,7 +75,9 @@ export class GitHubIntegrationService implements GitHubIntegrationServiceContrac
 	 * @throws {InstallationStateError} if the state token is invalid, expired,
 	 *   or has already been consumed.
 	 */
-	async completeInstallation(input: CompleteInstallationInput): Promise<void> {
+	async completeInstallation(
+		input: CompleteInstallationInput,
+	): Promise<CompleteInstallationResult> {
 		const { token, installationId } = input;
 
 		const state = await this.deps.installationOAuthStateRepository.claimState(token);
@@ -84,6 +87,7 @@ export class GitHubIntegrationService implements GitHubIntegrationServiceContrac
 			);
 		}
 
+		const organizationSlug = await this.deps.findOrganizationSlug(state.organizationId);
 		const details = await this.deps.getInstallationDetails(installationId);
 
 		const upserted = await this.deps.webhookRepository.upsertInstallation({
@@ -103,5 +107,7 @@ export class GitHubIntegrationService implements GitHubIntegrationServiceContrac
 			upserted.id,
 			installationId,
 		);
+
+		return { organizationSlug };
 	}
 }

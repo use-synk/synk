@@ -1,8 +1,9 @@
 import z from "zod";
 
+// TODO: Add validation for organizationId
 export const initiateInstallationBodySchema = z
 	.object({
-		organizationId: z.string().uuid(),
+		organizationId: z.string(),
 	})
 	.strict();
 

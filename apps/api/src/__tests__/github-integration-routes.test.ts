@@ -113,7 +113,7 @@ describe("GitHub integration routes", () => {
 			const initiateInstallation = mock(async () => ({ redirectUrl: REDIRECT_URL }));
 			const app = createTestApp({
 				initiateInstallation,
-				completeInstallation: mock(async () => undefined),
+				completeInstallation: mock(async () => ({ organizationSlug: "acme" })),
 			});
 
 			const response = await app.request(`${GITHUB_INTEGRATION_BASE}/install/init`, {
@@ -139,7 +139,7 @@ describe("GitHub integration routes", () => {
 			const initiateInstallation = mock(async () => ({ redirectUrl: REDIRECT_URL }));
 			const app = createTestApp({
 				initiateInstallation,
-				completeInstallation: mock(async () => undefined),
+				completeInstallation: mock(async () => ({ organizationSlug: "acme" })),
 			});
 
 			const response = await app.request(`${GITHUB_INTEGRATION_BASE}/install/init`, {
@@ -159,7 +159,7 @@ describe("GitHub integration routes", () => {
 			const initiateInstallation = mock(async () => ({ redirectUrl: REDIRECT_URL }));
 			const app = createTestApp({
 				initiateInstallation,
-				completeInstallation: mock(async () => undefined),
+				completeInstallation: mock(async () => ({ organizationSlug: "acme" })),
 			});
 
 			const response = await app.request(`${GITHUB_INTEGRATION_BASE}/install/init`, {
@@ -182,7 +182,7 @@ describe("GitHub integration routes", () => {
 			const initiateInstallation = mock(async () => ({ redirectUrl: REDIRECT_URL }));
 			const app = createTestApp({
 				initiateInstallation,
-				completeInstallation: mock(async () => undefined),
+				completeInstallation: mock(async () => ({ organizationSlug: "acme" })),
 			});
 
 			const response = await app.request(`${GITHUB_INTEGRATION_BASE}/install/init`, {
@@ -204,7 +204,7 @@ describe("GitHub integration routes", () => {
 			const initiateInstallation = mock(async () => ({ redirectUrl: REDIRECT_URL }));
 			const app = createTestApp({
 				initiateInstallation,
-				completeInstallation: mock(async () => undefined),
+				completeInstallation: mock(async () => ({ organizationSlug: "acme" })),
 			});
 
 			const response = await app.request(`${GITHUB_INTEGRATION_BASE}/install/init`, {
@@ -226,7 +226,7 @@ describe("GitHub integration routes", () => {
 			const initiateInstallation = mock(async () => ({ redirectUrl: REDIRECT_URL }));
 			const app = createTestApp({
 				initiateInstallation,
-				completeInstallation: mock(async () => undefined),
+				completeInstallation: mock(async () => ({ organizationSlug: "acme" })),
 			});
 
 			const response = await app.request(`${GITHUB_INTEGRATION_BASE}/install/init`, {
@@ -250,7 +250,7 @@ describe("GitHub integration routes", () => {
 			});
 			const app = createTestApp({
 				initiateInstallation,
-				completeInstallation: mock(async () => undefined),
+				completeInstallation: mock(async () => ({ organizationSlug: "acme" })),
 			});
 
 			const response = await app.request(`${GITHUB_INTEGRATION_BASE}/install/init`, {
@@ -267,8 +267,8 @@ describe("GitHub integration routes", () => {
 	});
 
 	describe("GET /install/callback", () => {
-		it("redirects to success URL when completeInstallation succeeds", async () => {
-			const completeInstallation = mock(async () => undefined);
+		it("returns 200 with organizationSlug when completeInstallation succeeds", async () => {
+			const completeInstallation = mock(async () => ({ organizationSlug: "acme" }));
 			const app = createTestApp({
 				initiateInstallation: mock(async () => ({ redirectUrl: REDIRECT_URL })),
 				completeInstallation,
@@ -278,18 +278,17 @@ describe("GitHub integration routes", () => {
 				`${GITHUB_INTEGRATION_BASE}/install/callback?installation_id=12345&setup_action=install&state=csrf-state-token`,
 			);
 
-			expect(response.status).toBe(302);
-			expect(response.headers.get("location")).toBe(
-				"https://app.example.com/settings/integrations?status=success",
-			);
+			expect(response.status).toBe(200);
+			const body = (await response.json()) as { data: { organizationSlug: string } };
+			expect(body).toEqual({ data: { organizationSlug: "acme" } });
 			expect(completeInstallation).toHaveBeenCalledWith({
 				token: "csrf-state-token",
 				installationId: 12345,
 			});
 		});
 
-		it("redirects to error with code invalid_request when query validation fails (missing installation_id)", async () => {
-			const completeInstallation = mock(async () => undefined);
+		it("returns 400 invalid_request when query validation fails (missing installation_id)", async () => {
+			const completeInstallation = mock(async () => ({ organizationSlug: "acme" }));
 			const app = createTestApp({
 				initiateInstallation: mock(async () => ({ redirectUrl: REDIRECT_URL })),
 				completeInstallation,
@@ -299,15 +298,14 @@ describe("GitHub integration routes", () => {
 				`${GITHUB_INTEGRATION_BASE}/install/callback?setup_action=install&state=token`,
 			);
 
-			expect(response.status).toBe(302);
-			expect(response.headers.get("location")).toBe(
-				"https://app.example.com/settings/integrations?status=error&code=invalid_request",
-			);
+			expect(response.status).toBe(400);
+			const body = (await response.json()) as { error: { code: string } };
+			expect(body).toEqual({ error: { code: "invalid_request" } });
 			expect(completeInstallation).not.toHaveBeenCalled();
 		});
 
-		it("redirects to error with code invalid_request when state is missing", async () => {
-			const completeInstallation = mock(async () => undefined);
+		it("returns 400 invalid_request when state is missing", async () => {
+			const completeInstallation = mock(async () => ({ organizationSlug: "acme" }));
 			const app = createTestApp({
 				initiateInstallation: mock(async () => ({ redirectUrl: REDIRECT_URL })),
 				completeInstallation,
@@ -317,13 +315,14 @@ describe("GitHub integration routes", () => {
 				`${GITHUB_INTEGRATION_BASE}/install/callback?installation_id=12345&setup_action=install`,
 			);
 
-			expect(response.status).toBe(302);
-			expect(response.headers.get("location")).toContain("code=invalid_request");
+			expect(response.status).toBe(400);
+			const body = (await response.json()) as { error: { code: string } };
+			expect(body).toEqual({ error: { code: "invalid_request" } });
 			expect(completeInstallation).not.toHaveBeenCalled();
 		});
 
-		it("redirects to error with code invalid_request when setup_action is invalid", async () => {
-			const completeInstallation = mock(async () => undefined);
+		it("returns 400 invalid_request when setup_action is invalid", async () => {
+			const completeInstallation = mock(async () => ({ organizationSlug: "acme" }));
 			const app = createTestApp({
 				initiateInstallation: mock(async () => ({ redirectUrl: REDIRECT_URL })),
 				completeInstallation,
@@ -333,12 +332,13 @@ describe("GitHub integration routes", () => {
 				`${GITHUB_INTEGRATION_BASE}/install/callback?installation_id=12345&setup_action=invalid&state=token`,
 			);
 
-			expect(response.status).toBe(302);
-			expect(response.headers.get("location")).toContain("code=invalid_request");
+			expect(response.status).toBe(400);
+			const body = (await response.json()) as { error: { code: string } };
+			expect(body).toEqual({ error: { code: "invalid_request" } });
 			expect(completeInstallation).not.toHaveBeenCalled();
 		});
 
-		it("redirects to error with code invalid_state when InstallationStateError is thrown", async () => {
+		it("returns 422 invalid_state when InstallationStateError is thrown", async () => {
 			const completeInstallation = mock(async () => {
 				throw new InstallationStateError(
 					"Installation state is invalid, expired, or already consumed.",
@@ -353,17 +353,16 @@ describe("GitHub integration routes", () => {
 				`${GITHUB_INTEGRATION_BASE}/install/callback?installation_id=12345&setup_action=install&state=bad-token`,
 			);
 
-			expect(response.status).toBe(302);
-			expect(response.headers.get("location")).toBe(
-				"https://app.example.com/settings/integrations?status=error&code=invalid_state",
-			);
+			expect(response.status).toBe(422);
+			const body = (await response.json()) as { error: { code: string } };
+			expect(body).toEqual({ error: { code: "invalid_state" } });
 			expect(completeInstallation).toHaveBeenCalledWith({
 				token: "bad-token",
 				installationId: 12345,
 			});
 		});
 
-		it("redirects to error with code access_denied when AccessDeniedError is thrown", async () => {
+		it("returns 403 access_denied when AccessDeniedError is thrown", async () => {
 			const completeInstallation = mock(async () => {
 				throw new AccessDeniedError("Access denied");
 			});
@@ -376,13 +375,12 @@ describe("GitHub integration routes", () => {
 				`${GITHUB_INTEGRATION_BASE}/install/callback?installation_id=12345&setup_action=install&state=token`,
 			);
 
-			expect(response.status).toBe(302);
-			expect(response.headers.get("location")).toBe(
-				"https://app.example.com/settings/integrations?status=error&code=access_denied",
-			);
+			expect(response.status).toBe(403);
+			const body = (await response.json()) as { error: { code: string } };
+			expect(body).toEqual({ error: { code: "access_denied" } });
 		});
 
-		it("redirects to error with code internal_error when unknown error is thrown", async () => {
+		it("returns 500 internal_error when unknown error is thrown", async () => {
 			const completeInstallation = mock(async () => {
 				throw new Error("Unexpected failure");
 			});
@@ -395,14 +393,13 @@ describe("GitHub integration routes", () => {
 				`${GITHUB_INTEGRATION_BASE}/install/callback?installation_id=12345&setup_action=install&state=token`,
 			);
 
-			expect(response.status).toBe(302);
-			expect(response.headers.get("location")).toBe(
-				"https://app.example.com/settings/integrations?status=error&code=internal_error",
-			);
+			expect(response.status).toBe(500);
+			const body = (await response.json()) as { error: { code: string } };
+			expect(body).toEqual({ error: { code: "internal_error" } });
 		});
 
 		it("accepts setup_action=update as valid", async () => {
-			const completeInstallation = mock(async () => undefined);
+			const completeInstallation = mock(async () => ({ organizationSlug: "updated-org" }));
 			const app = createTestApp({
 				initiateInstallation: mock(async () => ({ redirectUrl: REDIRECT_URL })),
 				completeInstallation,
@@ -412,8 +409,9 @@ describe("GitHub integration routes", () => {
 				`${GITHUB_INTEGRATION_BASE}/install/callback?installation_id=99999&setup_action=update&state=update-state`,
 			);
 
-			expect(response.status).toBe(302);
-			expect(response.headers.get("location")).toContain("status=success");
+			expect(response.status).toBe(200);
+			const body = (await response.json()) as { data: { organizationSlug: string } };
+			expect(body).toEqual({ data: { organizationSlug: "updated-org" } });
 			expect(completeInstallation).toHaveBeenCalledWith({
 				token: "update-state",
 				installationId: 99999,

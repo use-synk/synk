@@ -12,13 +12,12 @@ import {
 
 export type GitHubIntegrationRouteOptions = RouteContext & {
 	integrationService: GitHubIntegrationServiceContract;
-	corsOrigin: string;
 };
 
 export function createGitHubIntegrationRoutes(
 	options: GitHubIntegrationRouteOptions,
 ): Hono<AppEnv> {
-	const { auth, integrationService, corsOrigin } = options;
+	const { auth, integrationService } = options;
 
 	const router = new Hono<AppEnv>();
 
@@ -68,39 +67,34 @@ export function createGitHubIntegrationRoutes(
 	 * so there is no session. Authorization is established via the state token
 	 * which was issued to an authenticated user in /install/init.
 	 *
-	 * Always responds with a redirect to the frontend. Error details are
-	 * encoded as safe, opaque error codes — never raw messages — to avoid
-	 * leaking internal state.
+	 * Responds with JSON so the web app can handle redirect and error UI.
 	 */
 	router.get("/install/callback", async (ctx) => {
 		const query = ctx.req.query();
 		const queryResult = installationCallbackQuerySchema.safeParse(query);
 
 		if (!queryResult.success) {
-			return ctx.redirect(buildCallbackRedirectUrl(corsOrigin, "invalid_request"));
+			return ctx.json({ error: { code: "invalid_request" } }, 400);
 		}
 
 		const { installation_id: installationId, state } = queryResult.data;
 
 		try {
-			await integrationService.completeInstallation({ token: state, installationId });
-			return ctx.redirect(buildSuccessRedirectUrl(corsOrigin));
+			const result = await integrationService.completeInstallation({
+				token: state,
+				installationId,
+			});
+			return ctx.json({ data: { organizationSlug: result.organizationSlug } }, 200);
 		} catch (error) {
 			if (error instanceof InstallationStateError) {
-				return ctx.redirect(buildCallbackRedirectUrl(corsOrigin, "invalid_state"));
+				return ctx.json({ error: { code: "invalid_state" } }, 422);
 			}
 			if (error instanceof AccessDeniedError) {
-				return ctx.redirect(buildCallbackRedirectUrl(corsOrigin, "access_denied"));
+				return ctx.json({ error: { code: "access_denied" } }, 403);
 			}
-			return ctx.redirect(buildCallbackRedirectUrl(corsOrigin, "internal_error"));
+			return ctx.json({ error: { code: "internal_error" } }, 500);
 		}
 	});
 
 	return router;
 }
-
-const buildSuccessRedirectUrl = (corsOrigin: string): string =>
-	`${corsOrigin}/settings/integrations?status=success`;
-
-const buildCallbackRedirectUrl = (corsOrigin: string, code: string): string =>
-	`${corsOrigin}/settings/integrations?status=error&code=${code}`;

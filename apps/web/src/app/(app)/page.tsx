@@ -1,3 +1,4 @@
+import { CreateOrganizationForm } from "@/components/forms/org/create";
 import { SignOut } from "@/components/sign-out";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { auth } from "@/server/better-auth";
@@ -25,6 +26,7 @@ export default async function ServerPage() {
 					Logged in as {user.name} ({user.email})
 				</p>
 				<SignOut />
+				<CreateOrganizationForm />
 			</div>
 		</main>
 	);

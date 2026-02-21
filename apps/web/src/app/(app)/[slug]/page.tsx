@@ -1,10 +1,11 @@
+import { InstallIntegration } from "@/components/install-integration";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { getServerAuthHeaders } from "@/lib/api/server";
 import { fetchInstallationRepositories, repositoryKeys } from "@/lib/api/repositories";
+import { getServerAuthHeaders } from "@/lib/api/server";
 import { createQueryClient } from "@/lib/query-client";
 import { auth } from "@/server/better-auth";
 import { db } from "@/server/db";
-import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
+import { HydrationBoundary, dehydrate } from "@tanstack/react-query";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { RepositoryList } from "./_components/repository-list";
@@ -39,6 +40,7 @@ export default async function Page(props: PageProps<"/[slug]">): Promise<React.R
 						<EmptyDescription>
 							Install the Synk GitHub App to start syncing your repositories.
 						</EmptyDescription>
+						<InstallIntegration />
 					</EmptyHeader>
 				</Empty>
 			</div>

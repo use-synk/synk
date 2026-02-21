@@ -123,16 +123,21 @@ export class GitHubWebhookService {
 		}
 
 		const status = action === "suspend" ? INSTALLATION_SUSPENDED : INSTALLATION_ACTIVE;
-		const upserted = await this.options.webhookRepository.upsertInstallation({
-			organizationId,
-			provider: PROVIDER_GITHUB,
-			providerInstallationId,
-			providerAccountId: identity.accountId,
-			accountLogin: identity.accountLogin,
-			accountType: identity.accountType,
-			status,
-			deletedAt: null,
-		});
+		let upserted: { id: string };
+		try {
+			upserted = await this.options.webhookRepository.upsertInstallation({
+				organizationId,
+				provider: PROVIDER_GITHUB,
+				providerInstallationId,
+				providerAccountId: identity.accountId,
+				accountLogin: identity.accountLogin,
+				accountType: identity.accountType,
+				status,
+				deletedAt: null,
+			});
+		} catch {
+			return { ok: false, message: "Failed to upsert installation: organization not found." };
+		}
 
 		if (action !== "created" || installation?.id === undefined) {
 			return { ok: true };
