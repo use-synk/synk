@@ -8,26 +8,26 @@ const repositoryStatusSchema = z.enum(["active", "archived", "removed"]);
 
 const paginationSchema = z.object({
 	page: z.number().int(),
-	page_size: z.number().int(),
+	pageSize: z.number().int(),
 	total: z.number().int(),
-	total_pages: z.number().int(),
+	totalPages: z.number().int(),
 });
 
 // -- Repository --
 
 const repositorySchema = z.object({
 	id: z.string().uuid(),
-	installation_id: z.string().uuid(),
-	full_name: z.string(),
-	default_branch: z.string(),
+	installationId: z.string().uuid(),
+	fullName: z.string(),
+	defaultBranch: z.string(),
 	status: repositoryStatusSchema,
-	is_active: z.boolean(),
-	docs_config: z.unknown(),
-	updated_at: z.string().datetime(),
+	isActive: z.boolean(),
+	docsConfig: z.unknown(),
+	updatedAt: z.string().datetime(),
 });
 
 const repositoryDetailSchema = repositorySchema.omit({
-	full_name: true,
+	fullName: true,
 });
 
 export const repositoryListResponseSchema = z.object({
@@ -44,15 +44,15 @@ export const repositorySingleResponseSchema = z.object({
 const runSummarySchema = z.object({
 	id: z.string().uuid(),
 	status: runStatusSchema,
-	trigger_type: triggerTypeSchema,
-	trigger_ref: z.string(),
-	trigger_commit_sha: z.string(),
-	docs_affected: z.boolean().nullable(),
-	doc_pr_url: z.string().nullable(),
+	triggerType: triggerTypeSchema,
+	triggerRef: z.string(),
+	triggerCommitSha: z.string(),
+	docsAffected: z.boolean().nullable(),
+	docPrUrl: z.string().nullable(),
 	error: z.string().nullable(),
-	created_at: z.string().datetime(),
-	started_at: z.string().datetime().nullable(),
-	completed_at: z.string().datetime().nullable(),
+	createdAt: z.string().datetime(),
+	startedAt: z.string().datetime().nullable(),
+	completedAt: z.string().datetime().nullable(),
 });
 
 const aiReasoningSchema = z.object({
@@ -67,34 +67,34 @@ const aiReasoningSchema = z.object({
 
 const runDetailSchema = z.object({
 	id: z.string().uuid(),
-	repository_id: z.string().uuid(),
+	repositoryId: z.string().uuid(),
 	status: runStatusSchema,
-	trigger_type: triggerTypeSchema,
-	trigger_ref: z.string(),
-	trigger_commit_sha: z.string(),
-	trigger_merge_request_number: z.number().int().nullable(),
-	trigger_meta: z.unknown(),
-	docs_affected: z.boolean().nullable(),
-	doc_pr_number: z.number().int().nullable(),
-	doc_pr_url: z.string().nullable(),
-	pr_link: z.string().nullable(),
-	token_usage: z.unknown(),
+	triggerType: triggerTypeSchema,
+	triggerRef: z.string(),
+	triggerCommitSha: z.string(),
+	triggerMergeRequestNumber: z.number().int().nullable(),
+	triggerMeta: z.unknown(),
+	docsAffected: z.boolean().nullable(),
+	docPrNumber: z.number().int().nullable(),
+	docPrUrl: z.string().nullable(),
+	prLink: z.string().nullable(),
+	tokenUsage: z.unknown(),
 	error: z.string().nullable(),
-	attempt_count: z.number().int(),
+	attemptCount: z.number().int(),
 	result: z.unknown(),
-	ai_reasoning: aiReasoningSchema,
-	queued_at: z.string().datetime(),
-	started_at: z.string().datetime().nullable(),
-	completed_at: z.string().datetime().nullable(),
-	created_at: z.string().datetime(),
-	updated_at: z.string().datetime(),
+	aiReasoning: aiReasoningSchema,
+	queuedAt: z.string().datetime(),
+	startedAt: z.string().datetime().nullable(),
+	completedAt: z.string().datetime().nullable(),
+	createdAt: z.string().datetime(),
+	updatedAt: z.string().datetime(),
 });
 
 const manualRunAcceptedSchema = z.object({
-	repository_id: z.string().uuid(),
-	trigger_type: z.literal("manual"),
-	trigger_ref: z.string(),
-	trigger_commit_sha: z.string(),
+	repositoryId: z.string().uuid(),
+	triggerType: z.literal("manual"),
+	triggerRef: z.string(),
+	triggerCommitSha: z.string(),
 	accepted: z.literal(true),
 });
 

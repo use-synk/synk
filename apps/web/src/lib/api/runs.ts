@@ -1,19 +1,19 @@
 import {
-	useMutation,
-	useQuery,
 	type UseMutationResult,
 	type UseQueryResult,
+	useMutation,
+	useQuery,
 } from "@tanstack/react-query";
 
 import { apiFetch } from "./client";
 import {
-	manualRunAcceptedResponseSchema,
-	runDetailResponseSchema,
-	runListResponseSchema,
 	type ManualRunAcceptedResponse,
 	type RunDetailResponse,
 	type RunListResponse,
 	type RunStatus,
+	manualRunAcceptedResponseSchema,
+	runDetailResponseSchema,
+	runListResponseSchema,
 } from "./schemas";
 
 // -- Types --
@@ -25,7 +25,7 @@ export type RunListParams = {
 };
 
 export type CreateManualRunBody = {
-	commit_sha: string;
+	commitSha: string;
 	ref?: string;
 };
 
@@ -47,9 +47,11 @@ export const fetchRepositoryRuns = async (
 ): Promise<RunListResponse> => {
 	const searchParams = new URLSearchParams();
 	if (params?.page !== undefined) searchParams.set("page", String(params.page));
-	if (params?.pageSize !== undefined) searchParams.set("page_size", String(params.pageSize));
+	if (params?.pageSize !== undefined) searchParams.set("pageSize", String(params.pageSize));
 	if (params?.status !== undefined && params.status.length > 0) {
-		searchParams.set("status", params.status.join(","));
+		for (const status of params.status) {
+			searchParams.append("status", status);
+		}
 	}
 	const qs = searchParams.toString();
 

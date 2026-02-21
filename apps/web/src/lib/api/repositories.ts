@@ -1,16 +1,16 @@
 import {
-	useMutation,
-	useQuery,
 	type UseMutationResult,
 	type UseQueryResult,
+	useMutation,
+	useQuery,
 } from "@tanstack/react-query";
 
 import { apiFetch } from "./client";
 import {
-	repositoryListResponseSchema,
-	repositorySingleResponseSchema,
 	type RepositoryListResponse,
 	type RepositorySingleResponse,
+	repositoryListResponseSchema,
+	repositorySingleResponseSchema,
 } from "./schemas";
 
 // -- Types --
@@ -21,8 +21,8 @@ export type PaginationParams = {
 };
 
 export type PatchRepositoryBody = {
-	is_active?: boolean;
-	docs_config?: Record<string, unknown>;
+	isActive?: boolean;
+	docsConfig?: Record<string, unknown>;
 };
 
 // -- Query key factories --
@@ -42,7 +42,7 @@ export const fetchInstallationRepositories = async (
 ): Promise<RepositoryListResponse> => {
 	const searchParams = new URLSearchParams();
 	if (params?.page !== undefined) searchParams.set("page", String(params.page));
-	if (params?.pageSize !== undefined) searchParams.set("page_size", String(params.pageSize));
+	if (params?.pageSize !== undefined) searchParams.set("pageSize", String(params.pageSize));
 	const qs = searchParams.toString();
 
 	const data = await apiFetch(

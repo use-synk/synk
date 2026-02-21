@@ -9,10 +9,7 @@ import type { Repository } from "@/lib/api/schemas";
 
 type RepositoryStatus = Repository["status"];
 
-const STATUS_BADGE_VARIANT: Record<
-	RepositoryStatus,
-	"default" | "outline" | "destructive"
-> = {
+const STATUS_BADGE_VARIANT: Record<RepositoryStatus, "default" | "outline" | "destructive"> = {
 	active: "default",
 	archived: "outline",
 	removed: "destructive",
@@ -22,10 +19,10 @@ function RepositoryCard({ repository }: { repository: Repository }): React.React
 	return (
 		<Card size="sm">
 			<CardHeader>
-				<CardTitle className="font-mono">{repository.full_name}</CardTitle>
+				<CardTitle className="font-mono">{repository.fullName}</CardTitle>
 				<div className="flex items-center gap-2 mt-1">
 					<Badge variant={STATUS_BADGE_VARIANT[repository.status]}>{repository.status}</Badge>
-					{!repository.is_active && (
+					{!repository.isActive && (
 						<Badge variant="outline" className="text-muted-foreground">
 							disabled
 						</Badge>
@@ -33,7 +30,7 @@ function RepositoryCard({ repository }: { repository: Repository }): React.React
 				</div>
 			</CardHeader>
 			<CardContent className="text-muted-foreground text-xs">
-				Default branch: {repository.default_branch}
+				Default branch: {repository.defaultBranch}
 			</CardContent>
 		</Card>
 	);
