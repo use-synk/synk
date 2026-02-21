@@ -1,4 +1,3 @@
-import { createInstallationOctokit, credentialsFromEnvironment } from "@synk-ai/github";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { API_PREFIX } from "./consts";
@@ -13,6 +12,7 @@ import { createAuthRoutes } from "./modules/auth/auth.routes";
 import { createAuthService } from "./modules/auth/auth.service";
 import { createDashboardRoutes } from "./modules/dashboard/dashboard.routes";
 import { createHealthRoutes } from "./modules/health/health.routes";
+import { createGitHubIntegrationRoutes } from "./modules/integrations/github";
 import {
 	type ListInstallationRepositories,
 	createGitHubWebhookRoutes,
@@ -25,22 +25,22 @@ type AppOptions = {
 	logger: Logger;
 	enqueueAnalyzeChanges: AnalyzeChangesEnqueuer;
 	dependencies: AppDependencies;
+	/**
+	 * Override the list-installation-repositories function used by webhook routes.
+	 * Intended for testing only. In production this is sourced from dependencies.
+	 */
 	listInstallationRepositories?: ListInstallationRepositories;
 };
 
 export const createApp = (options: AppOptions): Hono<AppEnv> => {
 	const { env, logger, enqueueAnalyzeChanges, dependencies } = options;
+
 	const webhookRepositories = createPrismaWebhookRepositories();
-	const githubCredentials = credentialsFromEnvironment(env);
+
+	// In production, listInstallationRepositories comes from dependencies (GitHub API).
+	// Tests may inject a mock via options to exercise webhook route logic in isolation.
 	const listInstallationRepositories: ListInstallationRepositories =
-		options.listInstallationRepositories ??
-		(async (installationId) => {
-			const installationOctokit = createInstallationOctokit(installationId, githubCredentials);
-			return installationOctokit.paginate(
-				installationOctokit.rest.apps.listReposAccessibleToInstallation,
-				{ per_page: 100 },
-			);
-		});
+		options.listInstallationRepositories ?? dependencies.listInstallationRepositories;
 
 	const app = new Hono<AppEnv>();
 
@@ -67,6 +67,16 @@ export const createApp = (options: AppOptions): Hono<AppEnv> => {
 		createDashboardRoutes({
 			...routeCtx,
 			dashboardService: dependencies.dashboardService,
+		}),
+	);
+
+	// integrations
+	app.route(
+		`${API_PREFIX}/integrations/github`,
+		createGitHubIntegrationRoutes({
+			...routeCtx,
+			corsOrigin: env.CORS_ORIGIN,
+			integrationService: dependencies.integrationService,
 		}),
 	);
 

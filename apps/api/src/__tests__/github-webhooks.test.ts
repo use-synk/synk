@@ -59,6 +59,20 @@ const createNoopDependencies = (): AppDependencies => ({
 			throw new Error("dashboardService.getRunDetail should not be called in webhook tests");
 		}),
 	},
+	integrationService: {
+		initiateInstallation: mock(async () => {
+			throw new Error(
+				"integrationService.initiateInstallation should not be called in webhook tests",
+			);
+		}),
+		completeInstallation: mock(async () => {
+			throw new Error(
+				"integrationService.completeInstallation should not be called in webhook tests",
+			);
+		}),
+	},
+	// Overridden per-test via makeApp's listInstallationRepositories argument.
+	listInstallationRepositories: mock(async () => []),
 });
 
 const makeApp = (
@@ -85,6 +99,7 @@ const makeApp = (
 			GITHUB_PRIVATE_KEY: "-----BEGIN PRIVATE KEY-----\\nabc\\n-----END PRIVATE KEY-----",
 			GITHUB_WEBHOOK_SECRET: WEBHOOK_SECRET,
 			GITHUB_WEBHOOK_ORGANIZATION_ID: "org-default",
+			GITHUB_APP_SLUG: "test-app",
 		},
 	});
 };

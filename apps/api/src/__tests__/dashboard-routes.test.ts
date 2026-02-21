@@ -136,7 +136,22 @@ const createDashboardServiceMock = () => {
 
 const createTestApp = (dashboardService: DashboardServiceContract) => {
 	const logger = createLogger("silent", false);
-	const dependencies: AppDependencies = { dashboardService };
+	const dependencies: AppDependencies = {
+		dashboardService,
+		integrationService: {
+			initiateInstallation: mock(async () => {
+				throw new Error(
+					"integrationService.initiateInstallation should not be called in dashboard tests",
+				);
+			}),
+			completeInstallation: mock(async () => {
+				throw new Error(
+					"integrationService.completeInstallation should not be called in dashboard tests",
+				);
+			}),
+		},
+		listInstallationRepositories: mock(async () => []),
+	};
 	const enqueueAnalyzeChanges = mock(async () => undefined);
 
 	return createApp({
@@ -154,6 +169,7 @@ const createTestApp = (dashboardService: DashboardServiceContract) => {
 			GITHUB_APP_ID: 1,
 			GITHUB_PRIVATE_KEY: "-----BEGIN PRIVATE KEY-----\\nabc\\n-----END PRIVATE KEY-----",
 			GITHUB_WEBHOOK_SECRET: "test-webhook-secret",
+			GITHUB_APP_SLUG: "test-app",
 		},
 	});
 };
