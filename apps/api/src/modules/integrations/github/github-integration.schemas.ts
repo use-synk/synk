@@ -8,7 +8,7 @@ export const initiateInstallationBodySchema = z
 
 /**
  * Query parameters GitHub appends to the callback URL after installation.
- * https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/generating-a-user-access-token-for-a-github-app#using-the-device-flow-to-generate-a-user-access-token
+ * https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/about-the-setup-url
  */
 export const installationCallbackQuerySchema = z.object({
 	installation_id: z.coerce.number().int().positive(),
