@@ -19,7 +19,4 @@ CREATE TABLE "installation_oauth_states" (
 CREATE UNIQUE INDEX "installation_oauth_states_token_key" ON "installation_oauth_states"("token");
 
 -- CreateIndex
-CREATE INDEX "installation_oauth_states_token_status_idx" ON "installation_oauth_states"("token", "status");
-
--- CreateIndex
 CREATE INDEX "installation_oauth_states_expiresAt_idx" ON "installation_oauth_states"("expiresAt");

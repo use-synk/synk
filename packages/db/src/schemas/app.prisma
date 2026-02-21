@@ -185,7 +185,6 @@ model InstallationOAuthState {
   consumedAt     DateTime?
   createdAt      DateTime                     @default(now())
 
-  @@index([token, status])  // Fast lookup during callback validation
   @@index([expiresAt])      // Supports periodic cleanup of expired tokens
   @@map("installation_oauth_states")
 }
