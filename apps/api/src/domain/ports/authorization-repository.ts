@@ -13,6 +13,11 @@ export type RunAccessQuery = {
 	userId: string;
 };
 
+export type OrganizationMembershipQuery = {
+	userId: string;
+	organizationId: string;
+};
+
 export interface AuthorizationRepository {
 	hasInstallationAccess(query: InstallationAccessQuery): Promise<boolean>;
 	hasRepositoryAccess(query: RepositoryAccessQuery): Promise<boolean>;
@@ -20,4 +25,5 @@ export interface AuthorizationRepository {
 	assertInstallationAccess(query: InstallationAccessQuery): Promise<void>;
 	assertRepositoryAccess(query: RepositoryAccessQuery): Promise<void>;
 	assertRunAccess(query: RunAccessQuery): Promise<void>;
+	assertOrganizationMembership(query: OrganizationMembershipQuery): Promise<void>;
 }

@@ -7,3 +7,11 @@ export type {
 	TriggerManualRunInput,
 	TriggerManualRunResult,
 } from "./dashboard-service";
+export type {
+	GitHubIntegrationServiceContract,
+	GitHubIntegrationServiceDependencies,
+	GitHubInstallationDetails,
+	InitiateInstallationInput,
+	InitiateInstallationResult,
+	CompleteInstallationInput,
+} from "./github-integration-service";

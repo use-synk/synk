@@ -15,7 +15,14 @@ const startServer = (): void => {
 	const logger = createLogger(env.LOG_LEVEL, env.NODE_ENV === "development");
 	const analyzeChangesQueue = createAnalyzeChangesQueue(env.REDIS_URL);
 	const enqueueAnalyzeChanges = createAnalyzeChangesEnqueuer(analyzeChangesQueue, db);
-	const dependencies = buildAppDependencies({ enqueueAnalyzeChanges });
+	if (env.GITHUB_WEBHOOK_ORGANIZATION_ID !== undefined) {
+		logger.warn(
+			"GITHUB_WEBHOOK_ORGANIZATION_ID is deprecated and will be removed in a future release. " +
+				"Use the GitHub App installation flow instead.",
+		);
+	}
+
+	const dependencies = buildAppDependencies({ env, enqueueAnalyzeChanges });
 
 	const app = createApp({ env, logger, enqueueAnalyzeChanges, dependencies });
 

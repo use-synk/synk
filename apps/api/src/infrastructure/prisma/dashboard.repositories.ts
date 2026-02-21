@@ -4,7 +4,7 @@ import type {
 	DashboardRepository,
 	RunRepository,
 } from "../../domain/ports/index";
-import { AccessDeniedError } from "../../domain/errors/access-denied-error";
+import { createPrismaAuthorizationRepository } from "./authorization.repository";
 
 export type DashboardRepositories = {
 	authorizationRepository: AuthorizationRepository;
@@ -14,68 +14,15 @@ export type DashboardRepositories = {
 
 type PrismaDashboardDatabaseClient = Pick<
 	typeof db,
-	"providerInstallation" | "providerRepository" | "analysisRun"
+	"providerInstallation" | "providerRepository" | "analysisRun" | "member"
 >;
 
 export const createPrismaDashboardRepositories = (
 	client: PrismaDashboardDatabaseClient = db,
 ): DashboardRepositories => {
-	const assertAccess = (hasAccess: boolean, message: string): void => {
-		if (!hasAccess) {
-			throw new AccessDeniedError(message);
-		}
-	};
-
-	const authorizationRepository: AuthorizationRepository = {
-		hasInstallationAccess: async ({ installationId, userId }) => {
-			const installation = await client.providerInstallation.findFirst({
-				where: {
-					id: installationId,
-					organization: { members: { some: { userId } } },
-				},
-				select: { id: true },
-			});
-			return installation !== null;
-		},
-		hasRepositoryAccess: async ({ repositoryId, userId }) => {
-			const repository = await client.providerRepository.findFirst({
-				where: {
-					id: repositoryId,
-					installation: {
-						organization: { members: { some: { userId } } },
-					},
-				},
-				select: { id: true },
-			});
-			return repository !== null;
-		},
-		hasRunAccess: async ({ runId, userId }) => {
-			const run = await client.analysisRun.findFirst({
-				where: {
-					id: runId,
-					repository: {
-						installation: {
-							organization: { members: { some: { userId } } },
-						},
-					},
-				},
-				select: { id: true },
-			});
-			return run !== null;
-		},
-		assertInstallationAccess: async (query) => {
-			const hasAccess = await authorizationRepository.hasInstallationAccess(query);
-			assertAccess(hasAccess, "You do not have access to this installation");
-		},
-		assertRepositoryAccess: async (query) => {
-			const hasAccess = await authorizationRepository.hasRepositoryAccess(query);
-			assertAccess(hasAccess, "You do not have access to this repository");
-		},
-		assertRunAccess: async (query) => {
-			const hasAccess = await authorizationRepository.hasRunAccess(query);
-			assertAccess(hasAccess, "You do not have access to this run");
-		},
-	};
+	// TODO: Extract to a separate function
+	const authorizationRepository: AuthorizationRepository =
+		createPrismaAuthorizationRepository(client);
 
 	const dashboardRepository: DashboardRepository = {
 		updateRepository: async ({ repositoryId, patch }) =>
