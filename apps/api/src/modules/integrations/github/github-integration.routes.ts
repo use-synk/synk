@@ -1,8 +1,10 @@
+import { ERROR_CODES } from "@synk-ai/shared";
 import { Hono } from "hono";
 import z from "zod";
 import { AccessDeniedError } from "../../../domain/errors/access-denied-error";
 import { InstallationStateError } from "../../../domain/errors/installation-state-error";
 import type { GitHubIntegrationServiceContract } from "../../../domain/services/github-integration-service";
+import type { Logger } from "../../../logger";
 import { createRequireAuthMiddleware } from "../../../middleware/auth";
 import type { AppEnv, AuthenticatedAppEnv, RouteContext } from "../../../types";
 import {
@@ -12,12 +14,13 @@ import {
 
 export type GitHubIntegrationRouteOptions = RouteContext & {
 	integrationService: GitHubIntegrationServiceContract;
+	logger: Logger;
 };
 
 export function createGitHubIntegrationRoutes(
 	options: GitHubIntegrationRouteOptions,
 ): Hono<AppEnv> {
-	const { auth, integrationService } = options;
+	const { auth, integrationService, logger } = options;
 
 	const router = new Hono<AppEnv>();
 
@@ -74,7 +77,10 @@ export function createGitHubIntegrationRoutes(
 		const queryResult = installationCallbackQuerySchema.safeParse(query);
 
 		if (!queryResult.success) {
-			return ctx.json({ error: { code: "invalid_request" } }, 400);
+			return ctx.json(
+				{ error: { code: ERROR_CODES.BAD_REQUEST, message: z.prettifyError(queryResult.error) } },
+				400,
+			);
 		}
 
 		const { installation_id: installationId, state } = queryResult.data;
@@ -87,14 +93,22 @@ export function createGitHubIntegrationRoutes(
 			return ctx.json({ data: { organizationSlug: result.organizationSlug } }, 200);
 		} catch (error) {
 			if (error instanceof InstallationStateError) {
-				return ctx.json({ error: { code: "invalid_state" } }, 422);
+				return ctx.json(
+					{ error: { code: ERROR_CODES.UNPROCESSABLE_ENTITY, message: error.message } },
+					422,
+				);
 			}
 			if (error instanceof AccessDeniedError) {
-				return ctx.json({ error: { code: "access_denied" } }, 403);
+				return ctx.json(
+					{ error: { code: ERROR_CODES.FORBIDDEN, message: error.message } },
+					403,
+				);
 			}
-			// biome-ignore lint/suspicious/noConsole: <explanation>
-			console.error(error);
-			return ctx.json({ error: { code: "internal_error" } }, 500);
+			logger.error({ err: error }, "unhandled error in github install callback");
+			return ctx.json(
+				{ error: { code: ERROR_CODES.INTERNAL_ERROR, message: "An internal error occurred" } },
+				500,
+			);
 		}
 	});
 

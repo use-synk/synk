@@ -287,7 +287,7 @@ describe("GitHub integration routes", () => {
 			});
 		});
 
-		it("returns 400 invalid_request when query validation fails (missing installation_id)", async () => {
+		it("returns 400 BAD_REQUEST when query validation fails (missing installation_id)", async () => {
 			const completeInstallation = mock(async () => ({ organizationSlug: "acme" }));
 			const app = createTestApp({
 				initiateInstallation: mock(async () => ({ redirectUrl: REDIRECT_URL })),
@@ -299,12 +299,12 @@ describe("GitHub integration routes", () => {
 			);
 
 			expect(response.status).toBe(400);
-			const body = (await response.json()) as { error: { code: string } };
-			expect(body).toEqual({ error: { code: "invalid_request" } });
+			const body = (await response.json()) as { error: { code: string; message: string } };
+			expect(body).toEqual({ error: { code: "BAD_REQUEST", message: expect.any(String) } });
 			expect(completeInstallation).not.toHaveBeenCalled();
 		});
 
-		it("returns 400 invalid_request when state is missing", async () => {
+		it("returns 400 BAD_REQUEST when state is missing", async () => {
 			const completeInstallation = mock(async () => ({ organizationSlug: "acme" }));
 			const app = createTestApp({
 				initiateInstallation: mock(async () => ({ redirectUrl: REDIRECT_URL })),
@@ -316,12 +316,12 @@ describe("GitHub integration routes", () => {
 			);
 
 			expect(response.status).toBe(400);
-			const body = (await response.json()) as { error: { code: string } };
-			expect(body).toEqual({ error: { code: "invalid_request" } });
+			const body = (await response.json()) as { error: { code: string; message: string } };
+			expect(body).toEqual({ error: { code: "BAD_REQUEST", message: expect.any(String) } });
 			expect(completeInstallation).not.toHaveBeenCalled();
 		});
 
-		it("returns 400 invalid_request when setup_action is invalid", async () => {
+		it("returns 400 BAD_REQUEST when setup_action is invalid", async () => {
 			const completeInstallation = mock(async () => ({ organizationSlug: "acme" }));
 			const app = createTestApp({
 				initiateInstallation: mock(async () => ({ redirectUrl: REDIRECT_URL })),
@@ -333,12 +333,12 @@ describe("GitHub integration routes", () => {
 			);
 
 			expect(response.status).toBe(400);
-			const body = (await response.json()) as { error: { code: string } };
-			expect(body).toEqual({ error: { code: "invalid_request" } });
+			const body = (await response.json()) as { error: { code: string; message: string } };
+			expect(body).toEqual({ error: { code: "BAD_REQUEST", message: expect.any(String) } });
 			expect(completeInstallation).not.toHaveBeenCalled();
 		});
 
-		it("returns 422 invalid_state when InstallationStateError is thrown", async () => {
+		it("returns 422 UNPROCESSABLE_ENTITY when InstallationStateError is thrown", async () => {
 			const completeInstallation = mock(async () => {
 				throw new InstallationStateError(
 					"Installation state is invalid, expired, or already consumed.",
@@ -354,15 +354,15 @@ describe("GitHub integration routes", () => {
 			);
 
 			expect(response.status).toBe(422);
-			const body = (await response.json()) as { error: { code: string } };
-			expect(body).toEqual({ error: { code: "invalid_state" } });
+			const body = (await response.json()) as { error: { code: string; message: string } };
+			expect(body).toEqual({ error: { code: "UNPROCESSABLE_ENTITY", message: expect.any(String) } });
 			expect(completeInstallation).toHaveBeenCalledWith({
 				token: "bad-token",
 				installationId: 12345,
 			});
 		});
 
-		it("returns 403 access_denied when AccessDeniedError is thrown", async () => {
+		it("returns 403 FORBIDDEN when AccessDeniedError is thrown", async () => {
 			const completeInstallation = mock(async () => {
 				throw new AccessDeniedError("Access denied");
 			});
@@ -376,11 +376,11 @@ describe("GitHub integration routes", () => {
 			);
 
 			expect(response.status).toBe(403);
-			const body = (await response.json()) as { error: { code: string } };
-			expect(body).toEqual({ error: { code: "access_denied" } });
+			const body = (await response.json()) as { error: { code: string; message: string } };
+			expect(body).toEqual({ error: { code: "FORBIDDEN", message: expect.any(String) } });
 		});
 
-		it("returns 500 internal_error when unknown error is thrown", async () => {
+		it("returns 500 INTERNAL_ERROR when unknown error is thrown", async () => {
 			const completeInstallation = mock(async () => {
 				throw new Error("Unexpected failure");
 			});
@@ -394,8 +394,8 @@ describe("GitHub integration routes", () => {
 			);
 
 			expect(response.status).toBe(500);
-			const body = (await response.json()) as { error: { code: string } };
-			expect(body).toEqual({ error: { code: "internal_error" } });
+			const body = (await response.json()) as { error: { code: string; message: string } };
+			expect(body).toEqual({ error: { code: "INTERNAL_ERROR", message: expect.any(String) } });
 		});
 
 		it("accepts setup_action=update as valid", async () => {

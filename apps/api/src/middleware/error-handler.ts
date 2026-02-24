@@ -1,27 +1,23 @@
+import { ERROR_CODES, type ErrorResponse } from "@synk-ai/shared";
 import type { ErrorHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { AccessDeniedError } from "../domain/errors/access-denied-error";
+import { InstallationStateError } from "../domain/errors/installation-state-error";
 import type { Logger } from "../logger";
 import type { AppEnv } from "../types";
 
-type ErrorResponse = {
-	error: {
-		code: string;
-		message: string;
-	};
+const HTTP_STATUS_TO_ERROR_CODE: Partial<Record<number, string>> = {
+	400: ERROR_CODES.BAD_REQUEST,
+	401: ERROR_CODES.UNAUTHORIZED,
+	403: ERROR_CODES.FORBIDDEN,
+	404: ERROR_CODES.NOT_FOUND,
+	409: ERROR_CODES.CONFLICT,
+	422: ERROR_CODES.UNPROCESSABLE_ENTITY,
+	429: ERROR_CODES.TOO_MANY_REQUESTS,
 };
 
-const HTTP_ERROR_CODES: Partial<Record<number, string>> = {
-	400: "BAD_REQUEST",
-	401: "UNAUTHORIZED",
-	403: "FORBIDDEN",
-	404: "NOT_FOUND",
-	409: "CONFLICT",
-	422: "UNPROCESSABLE_ENTITY",
-	429: "TOO_MANY_REQUESTS",
-};
-
-const toErrorCode = (status: number): string => HTTP_ERROR_CODES[status] ?? `HTTP_${status}`;
+const toErrorCode = (status: number): string =>
+	HTTP_STATUS_TO_ERROR_CODE[status] ?? `HTTP_${status}`;
 
 export const createErrorHandler =
 	(logger: Logger): ErrorHandler<AppEnv> =>
@@ -40,10 +36,17 @@ export const createErrorHandler =
 				403,
 			);
 		}
+		if (err instanceof InstallationStateError) {
+			logger.warn({ status: 422 }, err.message);
+			return c.json<ErrorResponse>(
+				{ error: { code: ERROR_CODES.UNPROCESSABLE_ENTITY, message: err.message } },
+				422,
+			);
+		}
 
 		logger.error({ err }, "unhandled error");
 		return c.json<ErrorResponse>(
-			{ error: { code: "INTERNAL_ERROR", message: "An internal error occurred" } },
+			{ error: { code: ERROR_CODES.INTERNAL_ERROR, message: "An internal error occurred" } },
 			500,
 		);
 	};
