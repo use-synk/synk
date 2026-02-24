@@ -13,6 +13,7 @@ import { createAuthService } from "./modules/auth/auth.service";
 import { createDashboardRoutes } from "./modules/dashboard/dashboard.routes";
 import { createHealthRoutes } from "./modules/health/health.routes";
 import { createGitHubIntegrationRoutes } from "./modules/integrations/github";
+import { createProjectRoutes } from "./modules/project";
 import {
 	type ListInstallationRepositories,
 	createGitHubWebhookRoutes,
@@ -82,6 +83,15 @@ export const createApp = (options: AppOptions): Hono<AppEnv> => {
 		createGitHubIntegrationRoutes({
 			...routeCtx,
 			integrationService: dependencies.integrationService,
+		}),
+	);
+
+	app.route(
+		`${API_PREFIX}/project`,
+		createProjectRoutes({
+			auth: authService,
+			gitSha: env.GIT_SHA,
+			projectService: dependencies.projectService,
 		}),
 	);
 

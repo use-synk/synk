@@ -1,17 +1,20 @@
-import { env } from "@/env";
 import { createApiClient } from "@/lib/api";
 import { integrationsRoutes } from "./integrations";
+import { organizationRoutes } from "./organizations";
+import { projectRoutes } from "./projects";
 import { repositoriesRoutes } from "./repositories";
 import { runsRoutes } from "./runs";
 
-export const client = createApiClient(
+export const api = createApiClient(
 	{
 		...integrationsRoutes,
 		...repositoriesRoutes,
 		...runsRoutes,
+		...projectRoutes,
+		...organizationRoutes,
 	},
 	{
-		baseURL: env.NEXT_PUBLIC_API_URL,
+		baseURL: "http://localhost:3030/api/v1",
 		defaultFetch: {
 			credentials: "include",
 		},

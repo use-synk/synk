@@ -1,7 +1,10 @@
 import type { db } from "@synk-ai/db";
 import type { OrganizationRepository } from "../../domain/ports";
 
-type PrismaOrganizationClient = Pick<typeof db, "organization">;
+type PrismaOrganizationClient = Pick<
+	typeof db,
+	"organization" | "providerInstallation" | "providerRepository" | "project"
+>;
 
 export const createPrismaOrganizationRepository = (
 	client: PrismaOrganizationClient,
@@ -22,5 +25,31 @@ export const createPrismaOrganizationRepository = (
 		return await client.organization.findUnique({
 			where: { slug },
 		});
+	},
+	getHasInstallations: async (organizationId) => {
+		return (
+			(await client.providerInstallation.count({
+				where: { organizationId, status: "active" },
+			})) > 0
+		);
+	},
+	getHasRepositories: async (organizationId) => {
+		return (
+			(await client.providerRepository.count({
+				where: {
+					installation: {
+						organizationId,
+						status: "active",
+					},
+				},
+			})) > 0
+		);
+	},
+	getHasProjects: async (organizationId) => {
+		return (
+			(await client.project.count({
+				where: { organizationId },
+			})) > 0
+		);
 	},
 });

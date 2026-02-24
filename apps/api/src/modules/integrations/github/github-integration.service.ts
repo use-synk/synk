@@ -87,7 +87,9 @@ export class GitHubIntegrationService implements GitHubIntegrationServiceContrac
 			);
 		}
 
-		const organizationSlug = await this.deps.findOrganizationSlug(state.organizationId);
+		const organizationSlug = await this.deps.organizationRepository.findOrganizationSlug(
+			state.organizationId,
+		);
 		const details = await this.deps.getInstallationDetails(installationId);
 
 		const upserted = await this.deps.webhookRepository.upsertInstallation({

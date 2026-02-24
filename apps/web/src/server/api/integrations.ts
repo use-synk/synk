@@ -42,18 +42,18 @@ export const integrationsRoutes = {
 		GET: defineEndpoint({
 			method: "GET",
 			query: z.object({
-				installationId: z.number(),
+				installation_id: z.number(),
 				state: z.string(),
-				setupAction: z.string(), // TODO: We can tighten this type
+				setup_action: z.string(), // TODO: We can tighten this type
 			}),
 			key: ({ query }) => [
 				"integrations",
 				"github",
 				"install",
 				"callback",
-				`${query.installationId}`,
+				`${query.installation_id}`,
 				query.state,
-				query.setupAction,
+				query.setup_action,
 			],
 			response: z.object({
 				data: z.object({

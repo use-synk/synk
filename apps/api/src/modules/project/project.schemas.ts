@@ -6,3 +6,8 @@ export const createProjectBodySchema = z.object({
 	sourceRepositoryId: z.string().min(1),
 	docsRepositoryId: z.string().min(1),
 });
+
+export const listProjectsQuerySchema = z.object({
+	page: z.coerce.number().min(1).optional(),
+	pageSize: z.coerce.number().min(1).max(100).optional(),
+});

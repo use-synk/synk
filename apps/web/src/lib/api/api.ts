@@ -1,3 +1,4 @@
+import { type QueryOptions, queryOptions } from "@tanstack/react-query";
 import type { StandardSchemaV1 } from "../types/standard-schema";
 
 type OptionalSchema = StandardSchemaV1 | undefined;
@@ -202,7 +203,7 @@ const buildRequestTarget = (
 	baseURL: string,
 	query?: Record<string, unknown>,
 ): RequestInfo | URL => {
-	const url = new URL(path, baseURL || DUMMY_BASE);
+	const url = new URL(`/api/v1${path}`, baseURL || DUMMY_BASE);
 	if (query) {
 		for (const [key, value] of Object.entries(query))
 			appendQueryParam(url.searchParams, key, value);
@@ -251,6 +252,10 @@ type KeyFn<C> = IsEmpty<ResolvedArgs<C>> extends true
 	? () => string[]
 	: (args: RequestArgsFromConfig<C>) => string[];
 
+export type OptionsFn<C> = IsEmpty<ResolvedArgs<C>> extends true
+	? () => QueryOptions
+	: (args: RequestArgsFromConfig<C>) => QueryOptions;
+
 export function createApiClient<const TRoutes extends ApiContract>(
 	routes: TRoutes,
 	options: ApiClientOptions = {},
@@ -258,7 +263,7 @@ export function createApiClient<const TRoutes extends ApiContract>(
 	const baseURL = options.baseURL ?? "";
 	const fetcher = options.fetcher ?? fetch;
 	const defaultFetch = options.defaultFetch ?? {};
-	const headers = options.headers ?? {};
+	const defaultHeaders = options.headers ?? {};
 
 	return <
 		Path extends keyof TRoutes & string,
@@ -287,8 +292,14 @@ export function createApiClient<const TRoutes extends ApiContract>(
 		const $fetchCore = async (
 			raw: Record<string, unknown>,
 			signal: AbortSignal | undefined,
+			headers?: HeadersInit,
 		): Promise<ResponseDataFromConfig<Config>> => {
 			const normalizedHeaders = new Headers(headers);
+			for (const [key, value] of Object.entries(defaultHeaders)) {
+				if (!normalizedHeaders.has(key)) {
+					normalizedHeaders.set(key, value);
+				}
+			}
 
 			const [validatedParams, validatedQuery, validatedBody] = await Promise.all([
 				maybeValidateSchema(endpoint.params, raw.params, "params"),
@@ -332,13 +343,18 @@ export function createApiClient<const TRoutes extends ApiContract>(
 
 		const $fetch: FetchFn<Config> = (
 			hasArgs
-				? (args: RequestArgsFromConfig<Config> & { signal?: AbortSignal }) => {
-						const { signal, ...rawArgs } = args as Record<string, unknown> & {
+				? (args: RequestArgsFromConfig<Config> & {
+						signal?: AbortSignal;
+						headers?: HeadersInit;
+					}) => {
+						const { signal, headers, ...rawArgs } = args as Record<string, unknown> & {
 							signal?: AbortSignal;
+							headers?: HeadersInit;
 						};
-						return $fetchCore(rawArgs as Record<string, unknown>, signal);
+						return $fetchCore(rawArgs as Record<string, unknown>, signal, headers);
 					}
-				: (opts?: { signal?: AbortSignal }) => $fetchCore({}, opts?.signal)
+				: (opts?: { signal?: AbortSignal; headers?: HeadersInit }) =>
+						$fetchCore({}, opts?.signal, opts?.headers)
 		) as FetchFn<Config>;
 
 		const keyFn: KeyFn<Config> = (
@@ -347,7 +363,24 @@ export function createApiClient<const TRoutes extends ApiContract>(
 				: () => endpoint.key({})
 		) as KeyFn<Config>;
 
-		return { $fetch, keyFn };
+		const options = hasArgs
+			? (args: RequestArgsFromConfig<Config> & { headers?: HeadersInit }) => {
+					return queryOptions({
+						queryKey: keyFn(args),
+						queryFn: () => $fetch(args),
+					});
+				}
+			: (args?: {
+					headers?: HeadersInit;
+				}) => {
+					return queryOptions({
+						queryKey: keyFn({} as RequestArgsFromConfig<Config>),
+						queryFn: () =>
+							$fetch({ headers: args?.headers } as unknown as RequestArgsFromConfig<Config>),
+					});
+				};
+
+		return { $fetch, keyFn, options };
 	};
 }
 

@@ -1,4 +1,5 @@
 import { AppSidebar } from "@/components/app-sidebar";
+import { SiteNav } from "@/components/site-nav";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { auth } from "@/server/better-auth";
@@ -21,7 +22,7 @@ async function resolveActiveOrganization(slug: string) {
 export default async function ServerLayout(
 	props: LayoutProps<"/[slug]">,
 ): Promise<React.ReactNode> {
-	const { children, params } = props;
+	const { children, params, breadcrumb } = props;
 	const { slug } = await params;
 
 	let organization: Awaited<ReturnType<typeof resolveActiveOrganization>>;
@@ -50,7 +51,10 @@ export default async function ServerLayout(
 	return (
 		<SidebarProvider>
 			<AppSidebar activeOrganizationSlug={slug} />
-			<main className="flex-1">{children}</main>
+			<div className="flex-1">
+				<SiteNav breadcrumb={breadcrumb} />
+				<main>{children}</main>
+			</div>
 		</SidebarProvider>
 	);
 }

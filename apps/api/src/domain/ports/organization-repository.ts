@@ -6,4 +6,8 @@ export interface OrganizationRepository {
 	 */
 	findOrganizationSlug(organizationId: string): Promise<string>;
 	findOrganizationBySlug(slug: string): Promise<Organization | null>;
+
+	getHasInstallations(organizationId: string): Promise<boolean>;
+	getHasRepositories(organizationId: string): Promise<boolean>;
+	getHasProjects(organizationId: string): Promise<boolean>;
 }
