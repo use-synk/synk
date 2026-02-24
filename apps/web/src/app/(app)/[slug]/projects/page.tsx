@@ -1,4 +1,5 @@
 import { PageTitle } from "@/components/typography";
+import { QueryErrorBoundary } from "@/components/query-error-boundary";
 import { api } from "@/server/api";
 import { getQueryClient } from "@/server/api/tanstack-query/make-query-client";
 import { auth } from "@/server/better-auth";
@@ -40,9 +41,11 @@ export default async function ServerPage(props: PageProps<"/[slug]/projects">) {
 					<div className="max-w-7xl w-full mx-auto px-8">
 						<PageTitle>Projects</PageTitle>
 						<div>
-							<Suspense fallback={<div>Loading...</div>}>
-								<ProjectsList organizationId={org.id} />
-							</Suspense>
+							<QueryErrorBoundary>
+								<Suspense fallback={<div>Loading...</div>}>
+									<ProjectsList organizationId={org.id} />
+								</Suspense>
+							</QueryErrorBoundary>
 						</div>
 					</div>
 				</section>

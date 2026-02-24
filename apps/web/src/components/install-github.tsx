@@ -1,5 +1,6 @@
 "use client";
 
+import { getErrorMessage } from "@/lib/api/api";
 import { api } from "@/server/api";
 import { authClient } from "@/server/better-auth/client";
 import { useRouter } from "next/navigation";
@@ -22,7 +23,7 @@ export function InstallGitHubButton({
 	const onClick = useCallback(async () => {
 		setIsLoading(true);
 		try {
-			if (!organization?.id) {
+			if (!organization?.id || !organization.slug) {
 				throw new Error("Organization not found");
 			}
 
@@ -32,10 +33,14 @@ export function InstallGitHubButton({
 				},
 			});
 
+			// Persist the org slug in a short-lived cookie so the server-side
+			// callback page can redirect back here if an error occurs.
+			document.cookie = `pending_install_slug=${encodeURIComponent(organization.slug)}; path=/; max-age=900; SameSite=Lax`;
+
 			router.push(response.data.redirectUrl);
 		} catch (error) {
 			toast.error("Failed to initiate GitHub installation", {
-				description: error instanceof Error ? error.message : "Unknown error occurred",
+				description: getErrorMessage(error),
 			});
 		} finally {
 			setIsLoading(false);

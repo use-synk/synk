@@ -1,4 +1,5 @@
 import { type QueryOptions, queryOptions } from "@tanstack/react-query";
+import { errorResponseSchema, type ErrorResponse } from "@synk-ai/shared";
 import type { StandardSchemaV1 } from "../types/standard-schema";
 
 type OptionalSchema = StandardSchemaV1 | undefined;
@@ -135,18 +136,43 @@ export class ValidationError extends Error {
 	}
 }
 
+const tryParseApiError = (body: string): ErrorResponse["error"] | null => {
+	try {
+		const result = errorResponseSchema.safeParse(JSON.parse(body));
+		return result.success ? result.data.error : null;
+	} catch {
+		return null;
+	}
+};
+
 export class RequestError extends Error {
 	readonly status: number;
 	readonly body: string;
+	readonly apiError: ErrorResponse["error"] | null;
 
 	constructor(status: number, body: string) {
-		const truncated = body.length > 500 ? `${body.slice(0, 500)}…` : body;
-		super(`Request failed (${status})${truncated ? `: ${truncated}` : ""}`);
+		const apiError = tryParseApiError(body);
+		const displayMessage =
+			apiError?.message ?? (body.length > 500 ? `${body.slice(0, 500)}…` : body);
+		super(`Request failed (${status})${displayMessage ? `: ${displayMessage}` : ""}`);
 		this.name = "RequestError";
 		this.status = status;
 		this.body = body;
+		this.apiError = apiError;
 	}
 }
+
+export const getErrorMessage = (
+	error: unknown,
+	fallback = "An unexpected error occurred",
+): string => {
+	if (error instanceof RequestError && error.apiError !== null) {
+		const msg = error.apiError.message;
+		return msg.trim() || fallback;
+	}
+	if (error instanceof Error) return error.message;
+	return fallback;
+};
 
 // ─── Runtime helpers ──────────────────────────────────────────────────────────
 

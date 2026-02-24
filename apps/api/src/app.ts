@@ -83,6 +83,7 @@ export const createApp = (options: AppOptions): Hono<AppEnv> => {
 		createGitHubIntegrationRoutes({
 			...routeCtx,
 			integrationService: dependencies.integrationService,
+			logger,
 		}),
 	);
 

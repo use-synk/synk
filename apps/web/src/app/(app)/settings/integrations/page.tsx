@@ -1,7 +1,9 @@
+import { FLASH_MESSAGE_PARAM } from "@/components/flash-error-toast";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { getErrorMessage } from "@/lib/api/api";
 import { api } from "@/server/api";
 import { auth } from "@/server/better-auth";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -11,6 +13,9 @@ const callbackQuerySchema = z.object({
 	state: z.string().min(1),
 	setup_action: z.enum(["install", "update"]),
 });
+
+const PENDING_INSTALL_SLUG_COOKIE = "pending_install_slug";
+const SLUG_RE = /^[a-z0-9-]+$/;
 
 function firstValue(value: string | string[] | undefined): string | undefined {
 	if (Array.isArray(value)) {
@@ -37,6 +42,9 @@ export default async function Page(
 		redirect("/");
 	}
 
+	const cookieStore = await cookies();
+	const pendingSlug = cookieStore.get(PENDING_INSTALL_SLUG_COOKIE)?.value;
+
 	let organizationSlug: string;
 	try {
 		const { $fetch } = api("/integrations/github/install/callback", "GET");
@@ -50,18 +58,21 @@ export default async function Page(
 
 		organizationSlug = response.data.organizationSlug;
 	} catch (error) {
-		const message =
-			error instanceof Error
-				? error.message
-				: "We could not complete the GitHub installation right now. Please try again.";
+		if (pendingSlug && SLUG_RE.test(pendingSlug)) {
+			redirect(`/${pendingSlug}?${FLASH_MESSAGE_PARAM}=github_install_error`);
+		}
 
 		return (
 			<main className="flex min-h-svh flex-1 items-center justify-center p-8">
 				<Empty>
 					<EmptyHeader>
 						<EmptyTitle>GitHub installation failed</EmptyTitle>
-						<EmptyDescription>{message}</EmptyDescription>
-						<pre>{JSON.stringify(error, null, 2)}</pre>
+						<EmptyDescription>
+							{getErrorMessage(
+								error,
+								"We could not complete the GitHub installation right now. Please try again.",
+							)}
+						</EmptyDescription>
 					</EmptyHeader>
 					<Link href="/" className="text-primary hover:underline text-sm font-medium mt-4">
 						Return home
