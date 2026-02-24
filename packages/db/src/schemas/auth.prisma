@@ -74,7 +74,7 @@ model Organization {
   members       Member[]
   invitations   Invitation[]
   installations ProviderInstallation[]
-  projects Project[]
+  projects      Project[]
 
   @@unique([slug])
   @@map("organization")

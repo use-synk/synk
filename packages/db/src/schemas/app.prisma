@@ -109,9 +109,9 @@ model ProviderRepository {
   createdAt            DateTime             @default(now())
   updatedAt            DateTime             @updatedAt
   analysisRuns         AnalysisRun[]
-  
+
   projectSources Project[] @relation("SourceRepository")
-  docsSources Project[] @relation("DocsRepository")
+  docsSources    Project[] @relation("DocsRepository")
 
   @@unique([provider, providerRepositoryId])
   @@unique([installationId, fullName])
@@ -123,33 +123,33 @@ model ProviderRepository {
 }
 
 model AnalysisRun {
-  id                        String              @id @default(uuid())
+  id                        String               @id @default(uuid())
   projectId                 String
-  project                   Project             @relation(fields: [projectId], references: [id])
+  project                   Project              @relation(fields: [projectId], references: [id])
   repositoryId              String
-  repository                ProviderRepository  @relation(fields: [repositoryId], references: [id])
+  repository                ProviderRepository   @relation(fields: [repositoryId], references: [id])
   provider                  VcsProvider
   triggerType               RunTriggerType
   triggerRef                String
   triggerCommitSha          String
   triggerMergeRequestNumber Int?
-  triggerMeta               Json                @default("{}")
+  triggerMeta               Json                 @default("{}")
   status                    RunStatus
-  result                    Json                @default("{}")
+  result                    Json                 @default("{}")
   docsAffected              Boolean?
   docPrNumber               Int?
   docPrUrl                  String?
-  tokenUsage                Json                @default("{}")
+  tokenUsage                Json                 @default("{}")
   error                     String?
-  attemptCount              Int                 @default(0)
-  queuedAt                  DateTime            @default(now())
+  attemptCount              Int                  @default(0)
+  queuedAt                  DateTime             @default(now())
   startedAt                 DateTime?
   completedAt               DateTime?
-  createdAt                 DateTime            @default(now())
-  updatedAt                 DateTime            @updatedAt
+  createdAt                 DateTime             @default(now())
+  updatedAt                 DateTime             @updatedAt
   attempts                  AnalysisRunAttempt[]
 
-  @@unique([projectId,repositoryId, triggerCommitSha, triggerType])
+  @@unique([projectId, repositoryId, triggerCommitSha, triggerType])
   @@index([projectId])
   @@index([status])
   @@index([projectId, createdAt(sort: Desc)])
@@ -189,7 +189,7 @@ model InstallationOAuthState {
   consumedAt     DateTime?
   createdAt      DateTime                     @default(now())
 
-  @@index([expiresAt])      // Supports periodic cleanup of expired tokens
+  @@index([expiresAt]) // Supports periodic cleanup of expired tokens
   @@map("installation_oauth_states")
 }
 
@@ -217,15 +217,15 @@ model WebhookDelivery {
 }
 
 model Project {
-  id String @id @default(cuid())
-  name String
-  organizationId String
-  organization Organization @relation(fields: [organizationId], references: [id])
-  sourceRepository ProviderRepository @relation("SourceRepository", fields: [sourceRepositoryId], references: [id])
+  id                 String              @id @default(uuid())
+  name               String
+  organizationId     String
+  organization       Organization        @relation(fields: [organizationId], references: [id])
+  sourceRepository   ProviderRepository  @relation("SourceRepository", fields: [sourceRepositoryId], references: [id])
   sourceRepositoryId String
-  docsRepository ProviderRepository? @relation("DocsRepository", fields: [docsRepositoryId], references: [id])
-  docsRepositoryId String?
-  config Json @default("{}")
+  docsRepository     ProviderRepository? @relation("DocsRepository", fields: [docsRepositoryId], references: [id])
+  docsRepositoryId   String?
+  config             Json                @default("{}")
 
   analysisRuns AnalysisRun[]
 
@@ -234,6 +234,5 @@ model Project {
 
   @@index([sourceRepositoryId])
   @@index([docsRepositoryId])
-
   @@map("projects")
 }
