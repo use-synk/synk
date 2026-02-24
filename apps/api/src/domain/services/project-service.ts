@@ -1,10 +1,11 @@
-import type { PaginatedResult, Pagination } from "../models";
+import type { PaginatedResult, Pagination, RepositoryListItem } from "../models";
 import type { Project } from "../models/project";
-import type { AuthorizationRepository, ProjectRepository } from "../ports";
+import type { AuthorizationRepository, OrganizationRepository, ProjectRepository } from "../ports";
 import type { ProjectPatch } from "../ports/project-repository";
 
 export type ProjectServiceDependencies = {
 	authorizationRepository: AuthorizationRepository;
+	organizationRepository: OrganizationRepository;
 	projectRepository: ProjectRepository;
 };
 
@@ -41,9 +42,18 @@ export type FindProjectInput = {
 	projectId: string;
 };
 
+export type ListOrganizationRepositoriesInput = {
+	userId: string;
+	slugOrId: string;
+	pagination: Pagination;
+};
+
 export interface ProjectServiceContract {
 	findProject(input: FindProjectInput): Promise<Project | null>;
 	listProjects(input: ListProjectsInput): Promise<PaginatedResult<Project>>;
+	listOrganizationRepositories(
+		input: ListOrganizationRepositoriesInput,
+	): Promise<PaginatedResult<RepositoryListItem>>;
 	createProject(input: CreateProjectInput): Promise<Project>;
 	updateProject(input: UpdateProjectInput): Promise<Project>;
 	deleteProject(input: DeleteProjectInput): Promise<void>;

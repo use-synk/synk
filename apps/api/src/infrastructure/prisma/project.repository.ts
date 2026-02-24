@@ -1,7 +1,7 @@
 import type { db } from "@synk-ai/db";
 import type { ProjectRepository } from "../../domain/ports";
 
-type PrismaProjectClient = Pick<typeof db, "project">;
+type PrismaProjectClient = Pick<typeof db, "project" | "providerRepository">;
 
 export const createPrismaProjectRepository = (client: PrismaProjectClient): ProjectRepository => ({
 	findProject: async (projectId) => {
@@ -28,6 +28,34 @@ export const createPrismaProjectRepository = (client: PrismaProjectClient): Proj
 				orderBy: { updatedAt: "desc" },
 				skip,
 				take: pagination.pageSize,
+			}),
+		]);
+		return { items, total };
+	},
+	listOrganizationRepositories: async ({ organizationId, pagination }) => {
+		const where = {
+			installation: {
+				organizationId,
+				status: "active" as const,
+			},
+		};
+		const skip = (pagination.page - 1) * pagination.pageSize;
+		const [total, items] = await Promise.all([
+			client.providerRepository.count({ where }),
+			client.providerRepository.findMany({
+				where,
+				orderBy: { updatedAt: "desc" },
+				skip,
+				take: pagination.pageSize,
+				select: {
+					id: true,
+					installationId: true,
+					fullName: true,
+					defaultBranch: true,
+					status: true,
+					isActive: true,
+					updatedAt: true,
+				},
 			}),
 		]);
 		return { items, total };

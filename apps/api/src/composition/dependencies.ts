@@ -123,6 +123,7 @@ export const buildAppDependencies = (options: BuildAppDependenciesOptions): AppD
 		}),
 		projectService: new ProjectService({
 			authorizationRepository,
+			organizationRepository,
 			projectRepository,
 		}),
 		listInstallationRepositories,
