@@ -1,4 +1,5 @@
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { getErrorMessage } from "@/lib/api/api";
 import { api } from "@/server/api";
 import { auth } from "@/server/better-auth";
 import { headers } from "next/headers";
@@ -50,18 +51,14 @@ export default async function Page(
 
 		organizationSlug = response.data.organizationSlug;
 	} catch (error) {
-		const message =
-			error instanceof Error
-				? error.message
-				: "We could not complete the GitHub installation right now. Please try again.";
-
 		return (
 			<main className="flex min-h-svh flex-1 items-center justify-center p-8">
 				<Empty>
 					<EmptyHeader>
 						<EmptyTitle>GitHub installation failed</EmptyTitle>
-						<EmptyDescription>{message}</EmptyDescription>
-						<pre>{JSON.stringify(error, null, 2)}</pre>
+						<EmptyDescription>
+							{getErrorMessage(error, "We could not complete the GitHub installation right now. Please try again.")}
+						</EmptyDescription>
 					</EmptyHeader>
 					<Link href="/" className="text-primary hover:underline text-sm font-medium mt-4">
 						Return home

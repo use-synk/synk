@@ -1,5 +1,6 @@
 "use client";
 
+import { getErrorMessage } from "@/lib/api/api";
 import { api } from "@/server/api";
 import { authClient } from "@/server/better-auth/client";
 import { useRouter } from "next/navigation";
@@ -35,7 +36,7 @@ export function InstallGitHubButton({
 			router.push(response.data.redirectUrl);
 		} catch (error) {
 			toast.error("Failed to initiate GitHub installation", {
-				description: error instanceof Error ? error.message : "Unknown error occurred",
+				description: getErrorMessage(error),
 			});
 		} finally {
 			setIsLoading(false);

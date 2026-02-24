@@ -2,15 +2,11 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { SiteNav } from "@/components/site-nav";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { SidebarProvider } from "@/components/ui/sidebar";
+import { getErrorMessage } from "@/lib/api/api";
 import { auth } from "@/server/better-auth";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-
-function getErrorMessage(error: unknown): string {
-	if (error instanceof Error) return error.message;
-	return "An unexpected error occurred";
-}
 
 async function resolveActiveOrganization(slug: string) {
 	return auth.api.setActiveOrganization({
