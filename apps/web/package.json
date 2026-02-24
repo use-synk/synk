@@ -19,6 +19,7 @@
 		"@base-ui/react": "^1.2.0",
 		"@synk-ai/auth": "workspace:*",
 		"@synk-ai/db": "workspace:*",
+		"@synk-ai/shared": "workspace:*",
 		"@t3-oss/env-nextjs": "^0.12.0",
 		"@tanstack/react-form": "^1.28.3",
 		"@tanstack/react-query": "^5.69.0",
