@@ -39,7 +39,7 @@ export const createErrorHandler =
 		if (err instanceof InstallationStateError) {
 			logger.warn({ status: 422 }, err.message);
 			return c.json<ErrorResponse>(
-				{ error: { code: ERROR_CODES.UNPROCESSABLE_ENTITY, message: err.message } },
+				{ error: { code: toErrorCode(422), message: err.message } },
 				422,
 			);
 		}

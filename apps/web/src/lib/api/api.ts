@@ -167,7 +167,8 @@ export const getErrorMessage = (
 	fallback = "An unexpected error occurred",
 ): string => {
 	if (error instanceof RequestError && error.apiError !== null) {
-		return error.apiError.message;
+		const msg = error.apiError.message;
+		return msg.trim() || fallback;
 	}
 	if (error instanceof Error) return error.message;
 	return fallback;

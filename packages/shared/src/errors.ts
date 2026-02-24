@@ -15,7 +15,7 @@ export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
 
 export const errorResponseSchema = z.object({
 	error: z.object({
-		code: z.string(),
+		code: z.nativeEnum(ERROR_CODES),
 		message: z.string(),
 	}),
 });
