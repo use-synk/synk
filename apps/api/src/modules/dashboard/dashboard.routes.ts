@@ -188,6 +188,17 @@ export function createDashboardRoutes({
 		});
 	});
 
+	router.get("/org/:slugOrId/setup", async (ctx) => {
+		const userId = ctx.get("user").id;
+		const slugOrId = ctx.req.param("slugOrId");
+
+		const result = await dashboardService.getOrganizationSetupStatus(slugOrId, userId);
+
+		return ctx.json({
+			data: result,
+		});
+	});
+
 	/**
 	 * GET /installations
 	 *

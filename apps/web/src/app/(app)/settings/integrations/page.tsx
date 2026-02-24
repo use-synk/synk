@@ -1,7 +1,5 @@
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { ApiError } from "@/lib/api/client";
-import { completeGitHubInstallation } from "@/lib/api/integrations";
-import { getServerAuthHeaders } from "@/lib/api/server";
+import { api } from "@/server/api";
 import { auth } from "@/server/better-auth";
 import { headers } from "next/headers";
 import Link from "next/link";
@@ -19,19 +17,6 @@ function firstValue(value: string | string[] | undefined): string | undefined {
 		return value[0];
 	}
 	return value;
-}
-
-function getErrorMessage(status: number): string {
-	if (status === 400) {
-		return "The GitHub callback parameters are invalid. Please try the installation again.";
-	}
-	if (status === 403) {
-		return "You do not have access to complete this installation for the selected organization.";
-	}
-	if (status === 422) {
-		return "The installation link has expired or was already used. Please start again from the integrations page.";
-	}
-	return "We could not complete the GitHub installation right now. Please try again.";
 }
 
 export default async function Page(
@@ -54,19 +39,20 @@ export default async function Page(
 
 	let organizationSlug: string;
 	try {
-		const result = await completeGitHubInstallation(
-			{
-				installationId: callbackQuery.data.installation_id,
+		const { $fetch } = api("/integrations/github/install/callback", "GET");
+		const response = await $fetch({
+			query: {
+				installation_id: callbackQuery.data.installation_id,
 				state: callbackQuery.data.state,
-				setupAction: callbackQuery.data.setup_action,
+				setup_action: callbackQuery.data.setup_action,
 			},
-			{ headers: await getServerAuthHeaders() },
-		);
-		organizationSlug = result.data.organizationSlug;
+		});
+
+		organizationSlug = response.data.organizationSlug;
 	} catch (error) {
 		const message =
-			error instanceof ApiError
-				? getErrorMessage(error.status)
+			error instanceof Error
+				? error.message
 				: "We could not complete the GitHub installation right now. Please try again.";
 
 		return (

@@ -8,12 +8,14 @@ import type {
 	RunListFilter,
 	RunListItem,
 } from "../models/dashboard";
+import type { OrganizationRepository } from "../ports";
 import type { AuthorizationRepository } from "../ports/authorization-repository";
 import type { DashboardRepository } from "../ports/dashboard-repository";
 import type { DashboardUnitOfWork } from "../ports/dashboard-unit-of-work";
 import type { RunRepository } from "../ports/run-repository";
 
 export type DashboardServiceDependencies = {
+	organizationRepository: OrganizationRepository;
 	authorizationRepository: AuthorizationRepository;
 	dashboardRepository: DashboardRepository;
 	runRepository: RunRepository;
@@ -54,6 +56,12 @@ export type TriggerManualRunResult = {
 	accepted: true;
 };
 
+export type OrganizationSetupStatus = {
+	hasInstallations: boolean;
+	hasRepositories: boolean;
+	hasProjects: boolean;
+};
+
 export interface DashboardServiceContract {
 	patchRepository(input: PatchRepositoryInput): Promise<RepositoryDetail>;
 	listInstallationRepositories(
@@ -62,4 +70,5 @@ export interface DashboardServiceContract {
 	listRepositoryRuns(input: ListRepositoryRunsInput): Promise<PaginatedResult<RunListItem>>;
 	triggerManualRun(input: TriggerManualRunInput): Promise<TriggerManualRunResult>;
 	getRunDetail(runId: string, userId: string): Promise<RunDetail>;
+	getOrganizationSetupStatus(slugOrId: string, userId: string): Promise<OrganizationSetupStatus>;
 }

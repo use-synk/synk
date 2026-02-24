@@ -92,6 +92,8 @@ export function createGitHubIntegrationRoutes(
 			if (error instanceof AccessDeniedError) {
 				return ctx.json({ error: { code: "access_denied" } }, 403);
 			}
+			// biome-ignore lint/suspicious/noConsole: <explanation>
+			console.error(error);
 			return ctx.json({ error: { code: "internal_error" } }, 500);
 		}
 	});

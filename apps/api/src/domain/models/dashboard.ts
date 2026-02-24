@@ -17,7 +17,6 @@ export type RepositoryListItem = {
 	defaultBranch: string;
 	status: "active" | "archived" | "removed";
 	isActive: boolean;
-	docsConfig: unknown;
 	updatedAt: Date;
 };
 
@@ -32,7 +31,6 @@ export type RepositoryDetail = {
 	defaultBranch: string;
 	status: "active" | "archived" | "removed";
 	isActive: boolean;
-	docsConfig: unknown;
 	createdAt: Date;
 	updatedAt: Date;
 };

@@ -1,67 +1,40 @@
-import { InstallIntegration } from "@/components/install-integration";
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { fetchInstallationRepositories, repositoryKeys } from "@/lib/api/repositories";
-import { getServerAuthHeaders } from "@/lib/api/server";
-import { createQueryClient } from "@/lib/query-client";
+import { PageDescription, PageTitle } from "@/components/typography";
+import { api } from "@/server/api";
+import { getQueryClient } from "@/server/api/tanstack-query/make-query-client";
 import { auth } from "@/server/better-auth";
-import { db } from "@/server/db";
-import { HydrationBoundary, dehydrate } from "@tanstack/react-query";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { RepositoryList } from "./_components/repository-list";
-
-async function resolveInstallationId(slug: string): Promise<string | null> {
-	const installation = await db.providerInstallation.findFirst({
-		where: {
-			organization: { slug },
-			status: "active",
-		},
-		select: { id: true },
-	});
-	return installation?.id ?? null;
-}
+import { OrganizationSetup } from "./_components/setup";
 
 export default async function Page(props: PageProps<"/[slug]">): Promise<React.ReactNode> {
 	const { slug } = await props.params;
-
 	const session = await auth.api.getSession({ headers: await headers() });
 	if (!session) {
 		redirect("/auth");
 	}
 
-	const installationId = await resolveInstallationId(slug);
+	const { options } = api("/dashboard/org/:slugOrId/setup", "GET");
+	const client = getQueryClient();
 
-	if (installationId === null) {
-		return (
-			<div className="p-8 flex flex-1 items-center justify-center">
-				<Empty>
-					<EmptyHeader>
-						<EmptyTitle>No GitHub App installed</EmptyTitle>
-						<EmptyDescription>
-							Install the Synk GitHub App to start syncing your repositories.
-						</EmptyDescription>
-						<InstallIntegration />
-					</EmptyHeader>
-				</Empty>
-			</div>
-		);
+	const { data: setupStatus } = await client.fetchQuery(
+		options({ params: { slugOrId: slug }, headers: await headers() }),
+	);
+
+	if (!setupStatus.hasInstallations || !setupStatus.hasRepositories || !setupStatus.hasProjects) {
+		return <OrganizationSetup setupStatus={setupStatus} />;
 	}
 
-	const queryClient = createQueryClient();
-	const authHeaders = await getServerAuthHeaders();
-
-	await queryClient.prefetchQuery({
-		queryKey: repositoryKeys.list(installationId),
-		queryFn: () =>
-			fetchInstallationRepositories(installationId, undefined, { headers: authHeaders }),
-	});
-
 	return (
-		<div className="p-8">
-			<h1 className="text-xl font-semibold mb-6">Repositories</h1>
-			<HydrationBoundary state={dehydrate(queryClient)}>
-				<RepositoryList installationId={installationId} />
-			</HydrationBoundary>
-		</div>
+		<main className="pb-24">
+			<section className="py-12 bg-linear-to-bl from-lime-50 to-background relative">
+				<div className="absolute w-full h-24 bg-linear-to-b from-background/0 to-background left-0 bottom-0 z-10" />
+				<div className="max-w-4xl w-full mx-auto px-14 relative z-20">
+					<PageTitle>Welcome back!</PageTitle>
+					<PageDescription className="mt-2">
+						Here's what you need to do to get started.
+					</PageDescription>
+				</div>
+			</section>
+		</main>
 	);
 }

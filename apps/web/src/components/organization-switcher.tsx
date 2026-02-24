@@ -43,7 +43,16 @@ export function OrganizationSwitcher({
 			<DropdownMenu {...props}>
 				<DropdownMenuTrigger
 					render={
-						<Button variant={"outline"} className={"w-fit max-w-full"}>
+						<Button variant={"ghost"} className={"w-fit max-w-full"}>
+							<Avatar className={"size-5 "}>
+								<AvatarImage
+									src={activeOrganization?.logo ?? undefined}
+									alt={activeOrganization?.name}
+								/>
+								<AvatarFallback className={"text-xs"}>
+									{activeOrganization?.name.charAt(0)}
+								</AvatarFallback>
+							</Avatar>
 							<span className="truncate">{activeOrganization?.name}</span>
 							<ChevronDownIcon className="shrink-0" />
 						</Button>

@@ -7,6 +7,7 @@ import type {
 	PatchRepositoryInput,
 	TriggerManualRunInput,
 } from "../../domain/services/dashboard-service";
+import { isUuid } from "../../domain/utils";
 
 export class DashboardService implements DashboardServiceContract {
 	constructor(private readonly deps: DashboardServiceDependencies) {}
@@ -110,5 +111,38 @@ export class DashboardService implements DashboardServiceContract {
 		}
 
 		return run;
+	}
+
+	async getOrganizationSetupStatus(slugOrId: string, userId: string) {
+		let organizationId: string = slugOrId;
+
+		if (!isUuid(slugOrId)) {
+			const org = await this.deps.organizationRepository.findOrganizationBySlug(slugOrId);
+
+			if (!org) {
+				throw new HTTPException(404, {
+					message: "Organization not found",
+				});
+			}
+
+			organizationId = org.id;
+		}
+
+		await this.deps.authorizationRepository.assertOrganizationMembership({
+			userId,
+			organizationId,
+		});
+
+		const [hasInstallations, hasRepositories, hasProjects] = await Promise.all([
+			this.deps.organizationRepository.getHasInstallations(organizationId),
+			this.deps.organizationRepository.getHasRepositories(organizationId),
+			this.deps.organizationRepository.getHasProjects(organizationId),
+		]);
+
+		return {
+			hasInstallations,
+			hasRepositories,
+			hasProjects,
+		};
 	}
 }

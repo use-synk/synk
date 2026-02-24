@@ -9,20 +9,23 @@ import { roles } from "./ac/org";
 export function createAuth({
 	secret,
 	github,
-	advanced,
 }: {
 	secret: string;
 	github: {
 		clientId: string;
 		clientSecret: string;
 	};
-	advanced?: BetterAuthOptions["advanced"];
 }) {
 	const baseAuthOptions = {
 		database: prismaAdapter(db, {
 			provider: "postgresql",
 			transaction: true,
 		}),
+		advanced: {
+			database: {
+				generateId: "uuid",
+			},
+		},
 		plugins: [
 			organization({
 				roles,
@@ -42,7 +45,6 @@ export function createAuth({
 	return betterAuth({
 		...baseAuthOptions,
 		secret,
-		...(advanced !== undefined && { advanced }),
 	});
 }
 
