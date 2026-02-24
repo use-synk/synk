@@ -2,7 +2,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { getErrorMessage } from "@/lib/api/api";
 import { api } from "@/server/api";
 import { auth } from "@/server/better-auth";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -12,6 +12,8 @@ const callbackQuerySchema = z.object({
 	state: z.string().min(1),
 	setup_action: z.enum(["install", "update"]),
 });
+
+const PENDING_INSTALL_SLUG_COOKIE = "pending_install_slug";
 
 function firstValue(value: string | string[] | undefined): string | undefined {
 	if (Array.isArray(value)) {
@@ -38,6 +40,9 @@ export default async function Page(
 		redirect("/");
 	}
 
+	const cookieStore = await cookies();
+	const pendingSlug = cookieStore.get(PENDING_INSTALL_SLUG_COOKIE)?.value;
+
 	let organizationSlug: string;
 	try {
 		const { $fetch } = api("/integrations/github/install/callback", "GET");
@@ -51,13 +56,24 @@ export default async function Page(
 
 		organizationSlug = response.data.organizationSlug;
 	} catch (error) {
+		if (pendingSlug) {
+			const message = getErrorMessage(
+				error,
+				"We could not complete the GitHub installation right now. Please try again.",
+			);
+			redirect(`/${pendingSlug}?flash_message=${encodeURIComponent(message)}`);
+		}
+
 		return (
 			<main className="flex min-h-svh flex-1 items-center justify-center p-8">
 				<Empty>
 					<EmptyHeader>
 						<EmptyTitle>GitHub installation failed</EmptyTitle>
 						<EmptyDescription>
-							{getErrorMessage(error, "We could not complete the GitHub installation right now. Please try again.")}
+							{getErrorMessage(
+								error,
+								"We could not complete the GitHub installation right now. Please try again.",
+							)}
 						</EmptyDescription>
 					</EmptyHeader>
 					<Link href="/" className="text-primary hover:underline text-sm font-medium mt-4">

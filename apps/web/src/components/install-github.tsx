@@ -23,7 +23,7 @@ export function InstallGitHubButton({
 	const onClick = useCallback(async () => {
 		setIsLoading(true);
 		try {
-			if (!organization?.id) {
+			if (!organization?.id || !organization.slug) {
 				throw new Error("Organization not found");
 			}
 
@@ -32,6 +32,10 @@ export function InstallGitHubButton({
 					organizationId: organization.id,
 				},
 			});
+
+			// Persist the org slug in a short-lived cookie so the server-side
+			// callback page can redirect back here if an error occurs.
+			document.cookie = `pending_install_slug=${encodeURIComponent(organization.slug)}; path=/; max-age=900; SameSite=Lax`;
 
 			router.push(response.data.redirectUrl);
 		} catch (error) {
