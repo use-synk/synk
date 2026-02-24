@@ -1,3 +1,4 @@
+import { FLASH_MESSAGE_PARAM } from "@/components/flash-error-toast";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { getErrorMessage } from "@/lib/api/api";
 import { api } from "@/server/api";
@@ -14,6 +15,7 @@ const callbackQuerySchema = z.object({
 });
 
 const PENDING_INSTALL_SLUG_COOKIE = "pending_install_slug";
+const SLUG_RE = /^[a-z0-9-]+$/;
 
 function firstValue(value: string | string[] | undefined): string | undefined {
 	if (Array.isArray(value)) {
@@ -56,12 +58,8 @@ export default async function Page(
 
 		organizationSlug = response.data.organizationSlug;
 	} catch (error) {
-		if (pendingSlug) {
-			const message = getErrorMessage(
-				error,
-				"We could not complete the GitHub installation right now. Please try again.",
-			);
-			redirect(`/${pendingSlug}?flash_message=${encodeURIComponent(message)}`);
+		if (pendingSlug && SLUG_RE.test(pendingSlug)) {
+			redirect(`/${pendingSlug}?${FLASH_MESSAGE_PARAM}=github_install_error`);
 		}
 
 		return (
