@@ -8,7 +8,7 @@ export const organizationSetupStatusResponseSchema = z.object({
 });
 
 export const organizationRoutes = {
-	"/dashboard/org/:slugOrId/setup": {
+	"/organizations/:slugOrId/setup": {
 		GET: defineEndpoint({
 			method: "GET",
 			params: z.object({
@@ -17,7 +17,7 @@ export const organizationRoutes = {
 			response: z.object({
 				data: organizationSetupStatusResponseSchema,
 			}),
-			key: ({ params }) => ["dashboard", "org", params.slugOrId, "setup"],
+			key: ({ params }) => ["organizations", params.slugOrId, "setup"],
 		}),
 	},
 } as const satisfies ApiContract;

@@ -3,7 +3,7 @@ import { api } from "@/server/api";
 import { useSuspenseQuery } from "@tanstack/react-query";
 
 export function ProjectsList({ organizationId }: { organizationId: string }) {
-	const { options } = api("/project/:organizationId", "GET");
+	const { options } = api("/organizations/:organizationId/projects", "GET");
 
 	const {
 		data: { data: projects },

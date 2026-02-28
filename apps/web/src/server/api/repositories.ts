@@ -21,7 +21,7 @@ export const repositoriesRoutes = {
 	 *
 	 * Lists all repositories for the authenticated user.
 	 */
-	"/dashboard/installations/:installationId/repos": {
+	"/repositories/installations/:installationId": {
 		GET: defineEndpoint({
 			method: "GET",
 			params: z.object({
@@ -44,7 +44,7 @@ export const repositoriesRoutes = {
 			],
 		}),
 	},
-	"/dashboard/repos/:repositoryId": {
+	"/repositories/:repositoryId": {
 		PATCH: defineEndpoint({
 			method: "PATCH",
 			body: z.object({

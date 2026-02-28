@@ -3,9 +3,9 @@ import z from "zod";
 import { paginationResultSchema } from "./schemas";
 
 export const projectRoutes = {
-	"/project": {
+	"/projects": {
 		/**
-		 * POST /project
+		 * POST /projects
 		 *
 		 * Creates a new project within an organization. The caller must be a member
 		 * of the specified organization.
@@ -36,7 +36,7 @@ export const projectRoutes = {
 			key: () => ["projects", "create"],
 		}),
 	},
-	"/project/:organizationId": {
+	"/organizations/:organizationId/projects": {
 		GET: defineEndpoint({
 			method: "GET",
 			params: z.object({
@@ -69,7 +69,7 @@ export const projectRoutes = {
 			],
 		}),
 	},
-	"/project/organizations/:slugOrId/repositories": {
+	"/organizations/:slugOrId/repositories": {
 		GET: defineEndpoint({
 			method: "GET",
 			query: z.object({

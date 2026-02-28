@@ -14,7 +14,7 @@ export function CreateProjectForm({
 }: React.ComponentProps<"div"> & {
 	organizationSlug: string;
 }) {
-	const { options } = api("/project/organizations/:slugOrId/repositories", "GET");
+	const { options } = api("/organizations/:slugOrId/repositories", "GET");
 	const { data: result, isLoading } = useSuspenseQuery(
 		options({
 			params: { slugOrId: organizationSlug },
@@ -22,7 +22,7 @@ export function CreateProjectForm({
 		}),
 	);
 
-	const { $fetch } = api("/project", "POST");
+	const { $fetch } = api("/projects", "POST");
 	const { mutate } = useMutation({
 		mutationFn: $fetch,
 		onError: (error) => {
