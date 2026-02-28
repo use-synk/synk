@@ -11,7 +11,7 @@
 		"format": "biome format --write .",
 		"typecheck": "turbo run typecheck",
 		"test": "turbo run test",
-		"openapi:generate": "bun run --filter @synk-ai/db build && bun run --filter @synk-ai/auth build && bun run --filter @synk-ai/shared build && bun run --filter @synk-ai/api openapi:generate && bun run --filter @synk-ai/api-client generate",
+		"openapi:generate": "bun run --filter @synk-ai/shared build && bun run --filter @synk-ai/api openapi:generate && bun run --filter @synk-ai/api-client generate",
 		"openapi:check": "bun run openapi:generate && git diff --exit-code -- apps/api/openapi/openapi.json packages/api-client/src/generated/openapi.ts",
 		"openapi:diff": "./scripts/openapi-diff.sh",
 		"docker:up": "docker compose up -d",
