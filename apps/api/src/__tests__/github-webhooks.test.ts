@@ -274,6 +274,10 @@ describe("POST /api/v1/webhooks/github", () => {
 				owner: { login: "acme" },
 			},
 		];
+		mockDb.providerInstallation.findUnique.mockResolvedValueOnce({
+			id: "installation-existing",
+			organizationId: "organization-1",
+		});
 		listInstallationRepositoriesMock.mockResolvedValue(repositories);
 		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
 		const response = await dispatchWebhook(
