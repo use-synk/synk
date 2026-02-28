@@ -1,6 +1,7 @@
 import { ERROR_CODES } from "@synk-ai/shared";
 import { createRoute, OpenAPIHono, z as openApiZ } from "@hono/zod-openapi";
 import z from "zod";
+import type { Hook } from "@hono/zod-openapi";
 import { AccessDeniedError } from "../../../domain/errors/access-denied-error";
 import { InstallationStateError } from "../../../domain/errors/installation-state-error";
 import type { GitHubIntegrationServiceContract } from "../../../domain/services/github-integration-service";
@@ -15,6 +16,23 @@ import {
 export type GitHubIntegrationRouteOptions = RouteContext & {
 	integrationService: GitHubIntegrationServiceContract;
 	logger: Logger;
+};
+
+const githubIntegrationValidationHook: Hook<unknown, AppEnv, string, Response | void> = (
+	result,
+	ctx,
+) => {
+	if (result.success) {
+		return;
+	}
+
+	const isMalformedJson =
+		result.target === "json" &&
+		(result.error.message.includes("Malformed JSON in request body") ||
+			result.error.issues.some((issue) => issue.message === "Malformed JSON in request body"));
+	const message = isMalformedJson ? "Invalid JSON payload" : z.prettifyError(result.error);
+
+	return ctx.json({ error: { code: ERROR_CODES.BAD_REQUEST, message } }, 400);
 };
 
 export function createGitHubIntegrationRoutes(
@@ -34,9 +52,7 @@ export function createGitHubIntegrationRoutes(
 				required: true,
 				content: {
 					"application/json": {
-						schema: openApiZ.object({
-							organizationId: openApiZ.string(),
-						}),
+						schema: initiateInstallationBodySchema,
 					},
 				},
 			},
@@ -65,11 +81,7 @@ export function createGitHubIntegrationRoutes(
 		tags: ["integrations"],
 		operationId: "completeGithubInstallation",
 		request: {
-			query: openApiZ.object({
-				installation_id: openApiZ.coerce.number().int().positive(),
-				setup_action: openApiZ.enum(["install", "update"]),
-				state: openApiZ.string().min(1),
-			}),
+			query: installationCallbackQuerySchema,
 		},
 		responses: {
 			200: {
@@ -101,31 +113,19 @@ export function createGitHubIntegrationRoutes(
 	 * @throws 403 if the user is not a member of the target organization.
 	 */
 	router.use(installInitRoute.getRoutingPath(), createRequireAuthMiddleware(auth));
-	router.openapi(installInitRoute, async (ctx) => {
-		const authedCtx = ctx as typeof ctx & { var: AuthenticatedAppEnv["Variables"] };
-		const userId = authedCtx.get("user").id;
+	router.openapi(
+		installInitRoute,
+		async (ctx) => {
+			const authedCtx = ctx as typeof ctx & { var: AuthenticatedAppEnv["Variables"] };
+			const userId = authedCtx.get("user").id;
+			const { organizationId } = ctx.req.valid("json");
 
-		let body: unknown;
-		try {
-			body = await ctx.req.json();
-		} catch {
-			return ctx.json({ error: { code: "BAD_REQUEST", message: "Invalid JSON payload" } }, 400);
-		}
+			const result = await integrationService.initiateInstallation({ userId, organizationId });
 
-		const bodyResult = initiateInstallationBodySchema.safeParse(body);
-		if (!bodyResult.success) {
-			return ctx.json(
-				{ error: { code: "BAD_REQUEST", message: z.prettifyError(bodyResult.error) } },
-				400,
-			);
-		}
-
-		const { organizationId } = bodyResult.data;
-
-		const result = await integrationService.initiateInstallation({ userId, organizationId });
-
-		return ctx.json({ data: { redirectUrl: result.redirectUrl } }, 200);
-	});
+			return ctx.json({ data: { redirectUrl: result.redirectUrl } }, 200);
+		},
+		githubIntegrationValidationHook,
+	);
 
 	/**
 	 * GET /install/callback
@@ -140,45 +140,39 @@ export function createGitHubIntegrationRoutes(
 	 *
 	 * Responds with JSON so the web app can handle redirect and error UI.
 	 */
-	router.openapi(installCallbackRoute, async (ctx) => {
-		const query = ctx.req.query();
-		const queryResult = installationCallbackQuerySchema.safeParse(query);
+	router.openapi(
+		installCallbackRoute,
+		async (ctx) => {
+			const { installation_id: installationId, state } = ctx.req.valid("query");
 
-		if (!queryResult.success) {
-			return ctx.json(
-				{ error: { code: ERROR_CODES.BAD_REQUEST, message: z.prettifyError(queryResult.error) } },
-				400,
-			);
-		}
-
-		const { installation_id: installationId, state } = queryResult.data;
-
-		try {
-			const result = await integrationService.completeInstallation({
-				token: state,
-				installationId,
-			});
-			return ctx.json({ data: { organizationSlug: result.organizationSlug } }, 200);
-		} catch (error) {
-			if (error instanceof InstallationStateError) {
+			try {
+				const result = await integrationService.completeInstallation({
+					token: state,
+					installationId,
+				});
+				return ctx.json({ data: { organizationSlug: result.organizationSlug } }, 200);
+			} catch (error) {
+				if (error instanceof InstallationStateError) {
+					return ctx.json(
+						{ error: { code: ERROR_CODES.UNPROCESSABLE_ENTITY, message: error.message } },
+						422,
+					);
+				}
+				if (error instanceof AccessDeniedError) {
+					return ctx.json(
+						{ error: { code: ERROR_CODES.FORBIDDEN, message: error.message } },
+						403,
+					);
+				}
+				logger.error({ err: error }, "unhandled error in github install callback");
 				return ctx.json(
-					{ error: { code: ERROR_CODES.UNPROCESSABLE_ENTITY, message: error.message } },
-					422,
+					{ error: { code: ERROR_CODES.INTERNAL_ERROR, message: "An internal error occurred" } },
+					500,
 				);
 			}
-			if (error instanceof AccessDeniedError) {
-				return ctx.json(
-					{ error: { code: ERROR_CODES.FORBIDDEN, message: error.message } },
-					403,
-				);
-			}
-			logger.error({ err: error }, "unhandled error in github install callback");
-			return ctx.json(
-				{ error: { code: ERROR_CODES.INTERNAL_ERROR, message: "An internal error occurred" } },
-				500,
-			);
-		}
-	});
+		},
+		githubIntegrationValidationHook,
+	);
 
 	return router;
 }

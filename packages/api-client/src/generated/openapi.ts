@@ -820,6 +820,7 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    /** Format: uuid */
                     organizationId: string;
                 };
             };

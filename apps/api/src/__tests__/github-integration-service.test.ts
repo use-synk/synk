@@ -60,7 +60,9 @@ const createDependencies = (): {
 			},
 			listInstallationRepositories,
 			getInstallationDetails,
-			findOrganizationSlug,
+			organizationRepository: {
+				findOrganizationSlug,
+			},
 			githubAppSlug: "synk-ai",
 		},
 		mocks: {

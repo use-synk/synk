@@ -1210,12 +1210,14 @@
                 "type": "object",
                 "properties": {
                   "organizationId": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "uuid"
                   }
                 },
                 "required": [
                   "organizationId"
-                ]
+                ],
+                "additionalProperties": false
               }
             }
           }

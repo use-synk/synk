@@ -124,14 +124,14 @@ const dispatchWebhook = async (
 		headers["x-github-delivery"] = options.deliveryId;
 	}
 
-	return app.request("/api/webhooks/github", {
+	return app.request("/api/v1/webhooks/github", {
 		method: "POST",
 		headers,
 		body,
 	});
 };
 
-describe("POST /api/webhooks/github", () => {
+describe("POST /api/v1/webhooks/github", () => {
 	let enqueueAnalyzeChanges: AnalyzeChangesEnqueuer;
 	let enqueueMock: ReturnType<typeof mock>;
 	let listInstallationRepositoriesMock: ReturnType<typeof mock>;
@@ -171,7 +171,7 @@ describe("POST /api/webhooks/github", () => {
 
 	it("rejects requests with missing signature", async () => {
 		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
-		const response = await app.request("/api/webhooks/github", {
+		const response = await app.request("/api/v1/webhooks/github", {
 			method: "POST",
 			headers: {
 				"content-type": "application/json",
@@ -274,6 +274,10 @@ describe("POST /api/webhooks/github", () => {
 				owner: { login: "acme" },
 			},
 		];
+		mockDb.providerInstallation.findUnique.mockResolvedValueOnce({
+			id: "installation-existing",
+			organizationId: "organization-1",
+		});
 		listInstallationRepositoriesMock.mockResolvedValue(repositories);
 		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
 		const response = await dispatchWebhook(
@@ -567,7 +571,7 @@ describe("POST /api/webhooks/github", () => {
 		const payload = readFixture("push-main.json");
 		const body = JSON.stringify(payload);
 		const signature = createSignature(body);
-		const response = await app.request("/api/webhooks/github", {
+		const response = await app.request("/api/v1/webhooks/github", {
 			method: "POST",
 			headers: {
 				"content-type": "application/json",
@@ -584,7 +588,7 @@ describe("POST /api/webhooks/github", () => {
 		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
 		const body = "{";
 		const signature = createSignature(body);
-		const response = await app.request("/api/webhooks/github", {
+		const response = await app.request("/api/v1/webhooks/github", {
 			method: "POST",
 			headers: {
 				"content-type": "application/json",
@@ -602,7 +606,7 @@ describe("POST /api/webhooks/github", () => {
 		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
 		const body = "[]";
 		const signature = createSignature(body);
-		const response = await app.request("/api/webhooks/github", {
+		const response = await app.request("/api/v1/webhooks/github", {
 			method: "POST",
 			headers: {
 				"content-type": "application/json",
