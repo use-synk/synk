@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SKIP_ENV_VALIDATION: "1"
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/synk_ai?schema=public"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
