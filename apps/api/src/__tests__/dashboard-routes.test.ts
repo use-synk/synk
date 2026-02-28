@@ -196,7 +196,7 @@ describe("dashboard routes", () => {
 		const app = createTestApp(dashboardService);
 
 		const response = await app.request(
-			`/api/v1/dashboard/installations/${INSTALLATION_ID}/repos`,
+			`/api/v1/repositories/installations/${INSTALLATION_ID}`,
 			{ headers: authHeaders() },
 		);
 
@@ -222,7 +222,7 @@ describe("dashboard routes", () => {
 		const app = createTestApp(dashboardService);
 
 		const response = await app.request(
-			`/api/v1/dashboard/installations/${INSTALLATION_ID}/repos?page=2&pageSize=25`,
+			`/api/v1/repositories/installations/${INSTALLATION_ID}?page=2&pageSize=25`,
 			{ headers: authHeaders() },
 		);
 
@@ -238,7 +238,7 @@ describe("dashboard routes", () => {
 		const dashboardService = createDashboardServiceMock();
 		const app = createTestApp(dashboardService);
 
-		const response = await app.request(`/api/v1/dashboard/repos/${REPOSITORY_ID}`, {
+		const response = await app.request(`/api/v1/repositories/${REPOSITORY_ID}`, {
 			method: "PATCH",
 			headers: {
 				...authHeaders(),
@@ -266,7 +266,7 @@ describe("dashboard routes", () => {
 		const dashboardService = createDashboardServiceMock();
 		const app = createTestApp(dashboardService);
 
-		const response = await app.request(`/api/v1/dashboard/repos/${REPOSITORY_ID}/runs`, {
+		const response = await app.request(`/api/v1/runs/repositories/${REPOSITORY_ID}`, {
 			headers: authHeaders(),
 		});
 
@@ -291,7 +291,7 @@ describe("dashboard routes", () => {
 		const app = createTestApp(dashboardService);
 
 		const response = await app.request(
-			`/api/v1/dashboard/repos/${REPOSITORY_ID}/runs?page=3&pageSize=50`,
+			`/api/v1/runs/repositories/${REPOSITORY_ID}?page=3&pageSize=50`,
 			{
 				headers: authHeaders(),
 			},
@@ -310,7 +310,7 @@ describe("dashboard routes", () => {
 		const app = createTestApp(dashboardService);
 
 		const response = await app.request(
-			`/api/v1/dashboard/repos/${REPOSITORY_ID}/runs?page=1&pageSize=10&status=running&status=failed`,
+			`/api/v1/runs/repositories/${REPOSITORY_ID}?page=1&pageSize=10&status=running&status=failed`,
 			{
 				headers: authHeaders(),
 			},
@@ -328,7 +328,7 @@ describe("dashboard routes", () => {
 		const dashboardService = createDashboardServiceMock();
 		const app = createTestApp(dashboardService);
 
-		const response = await app.request(`/api/v1/dashboard/runs/${RUN_ID}`, {
+		const response = await app.request(`/api/v1/runs/${RUN_ID}`, {
 			headers: authHeaders(),
 		});
 
@@ -348,7 +348,7 @@ describe("dashboard routes", () => {
 		const app = createTestApp(dashboardService);
 
 		const commitSha = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
-		const response = await app.request(`/api/v1/dashboard/repos/${REPOSITORY_ID}/runs`, {
+		const response = await app.request(`/api/v1/runs/repositories/${REPOSITORY_ID}`, {
 			method: "POST",
 			headers: {
 				...authHeaders(),
@@ -387,7 +387,7 @@ describe("dashboard routes", () => {
 		const dashboardService = createDashboardServiceMock();
 		const app = createTestApp(dashboardService);
 
-		const response = await app.request(`/api/v1/dashboard/repos/${REPOSITORY_ID}/runs`);
+		const response = await app.request(`/api/v1/runs/repositories/${REPOSITORY_ID}`);
 
 		expect(response.status).toBe(401);
 	});
@@ -399,7 +399,7 @@ describe("dashboard routes", () => {
 		);
 		const app = createTestApp(dashboardService);
 
-		const response = await app.request(`/api/v1/dashboard/repos/${REPOSITORY_ID}/runs`, {
+		const response = await app.request(`/api/v1/runs/repositories/${REPOSITORY_ID}`, {
 			headers: authHeaders(),
 		});
 
@@ -413,7 +413,7 @@ describe("dashboard routes", () => {
 		);
 		const app = createTestApp(dashboardService);
 
-		const response = await app.request(`/api/v1/dashboard/repos/${REPOSITORY_ID}/runs`, {
+		const response = await app.request(`/api/v1/runs/repositories/${REPOSITORY_ID}`, {
 			headers: authHeaders(),
 		});
 
@@ -424,7 +424,7 @@ describe("dashboard routes", () => {
 		const dashboardService = createDashboardServiceMock();
 		const app = createTestApp(dashboardService);
 
-		const response = await app.request(`/api/v1/dashboard/repos/${REPOSITORY_ID}/runs`, {
+		const response = await app.request(`/api/v1/runs/repositories/${REPOSITORY_ID}`, {
 			method: "POST",
 			headers: {
 				...authHeaders(),
@@ -441,7 +441,7 @@ describe("dashboard routes", () => {
 		const dashboardService = createDashboardServiceMock();
 		const app = createTestApp(dashboardService);
 
-		const response = await app.request(`/api/v1/dashboard/repos/${REPOSITORY_ID}`, {
+		const response = await app.request(`/api/v1/repositories/${REPOSITORY_ID}`, {
 			method: "PATCH",
 			headers: {
 				...authHeaders(),
@@ -458,7 +458,7 @@ describe("dashboard routes", () => {
 		const dashboardService = createDashboardServiceMock();
 		const app = createTestApp(dashboardService);
 
-		const response = await app.request(`/api/v1/dashboard/repos/${REPOSITORY_ID}`, {
+		const response = await app.request(`/api/v1/repositories/${REPOSITORY_ID}`, {
 			method: "PATCH",
 			headers: {
 				...authHeaders(),
@@ -475,7 +475,7 @@ describe("dashboard routes", () => {
 		const dashboardService = createDashboardServiceMock();
 		const app = createTestApp(dashboardService);
 
-		const response = await app.request(`/api/v1/dashboard/repos/${REPOSITORY_ID}`, {
+		const response = await app.request(`/api/v1/repositories/${REPOSITORY_ID}`, {
 			method: "PATCH",
 			headers: {
 				...authHeaders(),
@@ -492,7 +492,7 @@ describe("dashboard routes", () => {
 		const dashboardService = createDashboardServiceMock();
 		const app = createTestApp(dashboardService);
 
-		const response = await app.request(`/api/v1/dashboard/repos/${REPOSITORY_ID}/runs`, {
+		const response = await app.request(`/api/v1/runs/repositories/${REPOSITORY_ID}`, {
 			method: "POST",
 			headers: {
 				...authHeaders(),
@@ -509,7 +509,7 @@ describe("dashboard routes", () => {
 		const dashboardService = createDashboardServiceMock();
 		const app = createTestApp(dashboardService);
 
-		const response = await app.request(`/api/v1/dashboard/repos/${REPOSITORY_ID}/runs`, {
+		const response = await app.request(`/api/v1/runs/repositories/${REPOSITORY_ID}`, {
 			method: "POST",
 			headers: {
 				...authHeaders(),
