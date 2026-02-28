@@ -11,7 +11,7 @@ import { CreateProjectForm } from "./_components/create-project-form";
 
 export default async function ServerPage(props: PageProps<"/[slug]/projects/new">) {
 	const { slug } = await props.params;
-	const { options } = api("/project/organizations/:slugOrId/repositories", "GET");
+	const { options } = api("/organizations/:slugOrId/repositories", "GET");
 	const client = getQueryClient();
 
 	void (await client.prefetchQuery(

@@ -1,0 +1,22 @@
+{
+	"name": "@synk-ai/api-client",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"files": ["src"],
+	"exports": {
+		".": {
+			"types": "./src/index.ts",
+			"default": "./src/index.ts"
+		}
+	},
+	"scripts": {
+		"generate": "openapi-typescript ../../apps/api/openapi/openapi.json -o src/generated/openapi.ts",
+		"lint": "biome check .",
+		"typecheck": "bunx tsc --noEmit",
+		"test": "echo 'api-client test placeholder'"
+	},
+	"devDependencies": {
+		"typescript": "5.9.2"
+	}
+}

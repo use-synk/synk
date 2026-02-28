@@ -55,7 +55,7 @@ const runDetailSchema = z.object({
 });
 
 export const runsRoutes = {
-	"/dashboard/repos/:repositoryId/runs": {
+	"/runs/repositories/:repositoryId": {
 		GET: defineEndpoint({
 			method: "GET",
 			params: z.object({
@@ -100,7 +100,7 @@ export const runsRoutes = {
 			key: ({ params }) => ["runs", "create", params.repositoryId],
 		}),
 	},
-	"/dashboard/runs/:runId": {
+	"/runs/:runId": {
 		GET: defineEndpoint({
 			method: "GET",
 			params: z.object({

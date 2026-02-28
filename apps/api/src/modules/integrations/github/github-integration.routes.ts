@@ -1,5 +1,5 @@
 import { ERROR_CODES } from "@synk-ai/shared";
-import { Hono } from "hono";
+import { createRoute, OpenAPIHono, z as openApiZ } from "@hono/zod-openapi";
 import z from "zod";
 import { AccessDeniedError } from "../../../domain/errors/access-denied-error";
 import { InstallationStateError } from "../../../domain/errors/installation-state-error";
@@ -19,10 +19,77 @@ export type GitHubIntegrationRouteOptions = RouteContext & {
 
 export function createGitHubIntegrationRoutes(
 	options: GitHubIntegrationRouteOptions,
-): Hono<AppEnv> {
+): OpenAPIHono<AppEnv> {
 	const { auth, integrationService, logger } = options;
 
-	const router = new Hono<AppEnv>();
+	const router = new OpenAPIHono<AppEnv>();
+	const installInitRoute = createRoute({
+		method: "post",
+		path: "/install/init",
+		tags: ["integrations"],
+		operationId: "initiateGithubInstallation",
+		security: [{ cookieAuth: [] }],
+		request: {
+			body: {
+				required: true,
+				content: {
+					"application/json": {
+						schema: openApiZ.object({
+							organizationId: openApiZ.string(),
+						}),
+					},
+				},
+			},
+		},
+		responses: {
+			200: {
+				description: "GitHub installation flow started",
+				content: {
+					"application/json": {
+						schema: openApiZ.object({
+							data: openApiZ.object({
+								redirectUrl: openApiZ.string().url(),
+							}),
+						}),
+					},
+				},
+			},
+			400: { description: "Bad request" },
+			401: { description: "Unauthorized" },
+			403: { description: "Forbidden" },
+		},
+	});
+	const installCallbackRoute = createRoute({
+		method: "get",
+		path: "/install/callback",
+		tags: ["integrations"],
+		operationId: "completeGithubInstallation",
+		request: {
+			query: openApiZ.object({
+				installation_id: openApiZ.coerce.number().int().positive(),
+				setup_action: openApiZ.enum(["install", "update"]),
+				state: openApiZ.string().min(1),
+			}),
+		},
+		responses: {
+			200: {
+				description: "GitHub installation flow completed",
+				content: {
+					"application/json": {
+						schema: openApiZ.object({
+							data: openApiZ.object({
+								organizationSlug: openApiZ.string(),
+							}),
+						}),
+					},
+				},
+			},
+			400: { description: "Bad request" },
+			403: { description: "Forbidden" },
+			422: { description: "Invalid/expired installation state" },
+			500: { description: "Internal error" },
+		},
+	});
 
 	/**
 	 * POST /install/init
@@ -33,7 +100,8 @@ export function createGitHubIntegrationRoutes(
 	 * @throws 400 if the request body is invalid.
 	 * @throws 403 if the user is not a member of the target organization.
 	 */
-	router.post("/install/init", createRequireAuthMiddleware(auth), async (ctx) => {
+	router.use(installInitRoute.getRoutingPath(), createRequireAuthMiddleware(auth));
+	router.openapi(installInitRoute, async (ctx) => {
 		const authedCtx = ctx as typeof ctx & { var: AuthenticatedAppEnv["Variables"] };
 		const userId = authedCtx.get("user").id;
 
@@ -72,7 +140,7 @@ export function createGitHubIntegrationRoutes(
 	 *
 	 * Responds with JSON so the web app can handle redirect and error UI.
 	 */
-	router.get("/install/callback", async (ctx) => {
+	router.openapi(installCallbackRoute, async (ctx) => {
 		const query = ctx.req.query();
 		const queryResult = installationCallbackQuerySchema.safeParse(query);
 

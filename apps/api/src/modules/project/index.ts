@@ -1,1 +1,1 @@
-export { createProjectRoutes } from "./project.routes";
+export { ProjectService } from "./project.service";

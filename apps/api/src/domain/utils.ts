@@ -1,4 +1,6 @@
 import z from "zod";
+import { OrganizationNotFoundError } from "./errors/organization-not-found-error";
+import type { OrganizationRepository } from "./ports";
 
 const uuidSchema = z.string().uuid();
 
@@ -7,4 +9,28 @@ const uuidSchema = z.string().uuid();
  */
 export function isUuid(value: string): boolean {
 	return uuidSchema.safeParse(value).success;
+}
+
+/**
+ * Resolves a slug-or-ID string to an organization ID.
+ * If the value is already a UUID it is returned as-is; otherwise the
+ * organization is looked up by slug and its ID is returned.
+ *
+ * @throws {OrganizationNotFoundError} when the slug does not match any organization.
+ */
+export async function resolveOrganizationId(
+	slugOrId: string,
+	organizationRepository: Pick<OrganizationRepository, "findOrganizationBySlug">,
+): Promise<string> {
+	if (isUuid(slugOrId)) {
+		return slugOrId;
+	}
+
+	const org = await organizationRepository.findOrganizationBySlug(slugOrId);
+
+	if (!org) {
+		throw new OrganizationNotFoundError();
+	}
+
+	return org.id;
 }

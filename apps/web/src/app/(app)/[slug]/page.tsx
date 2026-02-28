@@ -13,7 +13,7 @@ export default async function Page(props: PageProps<"/[slug]">): Promise<React.R
 		redirect("/auth");
 	}
 
-	const { options } = api("/dashboard/org/:slugOrId/setup", "GET");
+	const { options } = api("/organizations/:slugOrId/setup", "GET");
 	const client = getQueryClient();
 
 	const { data: setupStatus } = await client.fetchQuery(

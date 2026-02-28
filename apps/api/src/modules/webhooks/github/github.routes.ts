@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { Hono } from "hono";
+import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import type { AppEnv } from "../../../types";
 import { GitHubWebhookService, type GitHubWebhookServiceOptions } from "./github.service";
 
@@ -10,16 +10,43 @@ const GITHUB_PROVIDER = "github" as const;
 
 export type GitHubWebhookRouteOptions = GitHubWebhookServiceOptions;
 
-export function createGitHubWebhookRoutes(options: GitHubWebhookRouteOptions): Hono<AppEnv> {
-	const route = new Hono<AppEnv>();
+export function createGitHubWebhookRoutes(options: GitHubWebhookRouteOptions): OpenAPIHono<AppEnv> {
+	const route = new OpenAPIHono<AppEnv>();
 	const service = new GitHubWebhookService(options);
+	const webhookRoute = createRoute({
+		method: "post",
+		path: "/",
+		tags: ["webhooks"],
+		operationId: "handleGithubWebhook",
+		request: {
+			headers: z.object({
+				"x-hub-signature-256": z.string().optional(),
+				"x-github-event": z.string(),
+				"x-github-delivery": z.string().optional(),
+				"x-request-id": z.string().optional(),
+			}),
+			body: {
+				required: true,
+				content: {
+					"application/json": {
+						schema: z.unknown(),
+					},
+				},
+			},
+		},
+		responses: {
+			200: { description: "Webhook event processed or ignored" },
+			400: { description: "Invalid webhook payload or headers" },
+			401: { description: "Invalid webhook signature" },
+		},
+	});
 
 	/**
 	 * POST /webhooks/github
 	 *
 	 * Handles GitHub webhooks.
 	 */
-	route.post("/", async (ctx) => {
+	route.openapi(webhookRoute, async (ctx) => {
 		const rawBody = await ctx.req.text();
 		const signatureHeader = ctx.req.header(GITHUB_SIGNATURE_HEADER);
 		const deliveryId = ctx.req.header(GITHUB_DELIVERY_HEADER);

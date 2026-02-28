@@ -1,1 +1,1 @@
-export { createDashboardRoutes } from "./dashboard.routes";
+export { DashboardService } from "./dashboard.service";

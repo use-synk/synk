@@ -170,7 +170,7 @@ describe("project routes — GET /organizations/:slugOrId/repositories", () => {
 		const app = createTestApp(projectService);
 
 		const response = await app.request(
-			`/api/v1/project/organizations/${ORGANIZATION_ID}/repositories`,
+			`/api/v1/organizations/${ORGANIZATION_ID}/repositories`,
 			{ headers: authHeaders() },
 		);
 
@@ -193,7 +193,7 @@ describe("project routes — GET /organizations/:slugOrId/repositories", () => {
 		const app = createTestApp(projectService);
 
 		await app.request(
-			`/api/v1/project/organizations/${ORGANIZATION_SLUG}/repositories`,
+			`/api/v1/organizations/${ORGANIZATION_SLUG}/repositories`,
 			{ headers: authHeaders() },
 		);
 
@@ -209,7 +209,7 @@ describe("project routes — GET /organizations/:slugOrId/repositories", () => {
 		const app = createTestApp(projectService);
 
 		await app.request(
-			`/api/v1/project/organizations/${ORGANIZATION_ID}/repositories`,
+			`/api/v1/organizations/${ORGANIZATION_ID}/repositories`,
 			{ headers: authHeaders() },
 		);
 
@@ -225,7 +225,7 @@ describe("project routes — GET /organizations/:slugOrId/repositories", () => {
 		const app = createTestApp(projectService);
 
 		await app.request(
-			`/api/v1/project/organizations/${ORGANIZATION_ID}/repositories?page=2&pageSize=25`,
+			`/api/v1/organizations/${ORGANIZATION_ID}/repositories?page=2&pageSize=25`,
 			{ headers: authHeaders() },
 		);
 
@@ -245,7 +245,7 @@ describe("project routes — GET /organizations/:slugOrId/repositories", () => {
 		const app = createTestApp(projectService);
 
 		const response = await app.request(
-			`/api/v1/project/organizations/${ORGANIZATION_ID}/repositories?page=3&pageSize=5`,
+			`/api/v1/organizations/${ORGANIZATION_ID}/repositories?page=3&pageSize=5`,
 			{ headers: authHeaders() },
 		);
 
@@ -262,7 +262,7 @@ describe("project routes — GET /organizations/:slugOrId/repositories", () => {
 		const app = createTestApp(projectService);
 
 		const response = await app.request(
-			`/api/v1/project/organizations/${ORGANIZATION_ID}/repositories`,
+			`/api/v1/organizations/${ORGANIZATION_ID}/repositories`,
 		);
 
 		expect(response.status).toBe(401);
@@ -274,7 +274,7 @@ describe("project routes — GET /organizations/:slugOrId/repositories", () => {
 		const app = createTestApp(projectService);
 
 		const response = await app.request(
-			`/api/v1/project/organizations/${ORGANIZATION_ID}/repositories?page=0`,
+			`/api/v1/organizations/${ORGANIZATION_ID}/repositories?page=0`,
 			{ headers: authHeaders() },
 		);
 
@@ -287,7 +287,7 @@ describe("project routes — GET /organizations/:slugOrId/repositories", () => {
 		const app = createTestApp(projectService);
 
 		const response = await app.request(
-			`/api/v1/project/organizations/${ORGANIZATION_ID}/repositories?pageSize=101`,
+			`/api/v1/organizations/${ORGANIZATION_ID}/repositories?pageSize=101`,
 			{ headers: authHeaders() },
 		);
 
@@ -303,7 +303,7 @@ describe("project routes — GET /organizations/:slugOrId/repositories", () => {
 		const app = createTestApp(projectService);
 
 		const response = await app.request(
-			`/api/v1/project/organizations/${ORGANIZATION_ID}/repositories`,
+			`/api/v1/organizations/${ORGANIZATION_ID}/repositories`,
 			{ headers: authHeaders() },
 		);
 
@@ -318,7 +318,7 @@ describe("project routes — GET /organizations/:slugOrId/repositories", () => {
 		const app = createTestApp(projectService);
 
 		const response = await app.request(
-			`/api/v1/project/organizations/${ORGANIZATION_ID}/repositories`,
+			`/api/v1/organizations/${ORGANIZATION_ID}/repositories`,
 			{ headers: authHeaders() },
 		);
 
@@ -333,7 +333,7 @@ describe("project routes — GET /organizations/:slugOrId/repositories", () => {
 		const app = createTestApp(projectService);
 
 		const response = await app.request(
-			`/api/v1/project/organizations/${ORGANIZATION_SLUG}/repositories`,
+			`/api/v1/organizations/${ORGANIZATION_SLUG}/repositories`,
 			{ headers: authHeaders() },
 		);
 
@@ -366,7 +366,7 @@ describe("project routes — POST /project", () => {
 		projectService.createProject.mockResolvedValueOnce(CREATED_PROJECT);
 		const app = createTestApp(projectService);
 
-		const response = await app.request("/api/v1/project", {
+		const response = await app.request("/api/v1/projects", {
 			method: "POST",
 			headers: { ...authHeaders(), "Content-Type": "application/json" },
 			body: JSON.stringify(validBody()),
@@ -394,7 +394,7 @@ describe("project routes — POST /project", () => {
 		projectService.createProject.mockResolvedValueOnce(CREATED_PROJECT);
 		const app = createTestApp(projectService);
 
-		await app.request("/api/v1/project", {
+		await app.request("/api/v1/projects", {
 			method: "POST",
 			headers: { ...authHeaders(), "Content-Type": "application/json" },
 			body: JSON.stringify(validBody()),
@@ -414,7 +414,7 @@ describe("project routes — POST /project", () => {
 		projectService.createProject.mockResolvedValueOnce(CREATED_PROJECT);
 		const app = createTestApp(projectService);
 
-		await app.request("/api/v1/project", {
+		await app.request("/api/v1/projects", {
 			method: "POST",
 			headers: { ...authHeaders(), "Content-Type": "application/json" },
 			body: JSON.stringify({ ...validBody(), slugOrId: ORGANIZATION_SLUG }),
@@ -432,7 +432,7 @@ describe("project routes — POST /project", () => {
 		);
 		const app = createTestApp(projectService);
 
-		const response = await app.request("/api/v1/project", {
+		const response = await app.request("/api/v1/projects", {
 			method: "POST",
 			headers: { ...authHeaders(), "Content-Type": "application/json" },
 			body: JSON.stringify({ ...validBody(), slugOrId: "unknown-slug" }),
@@ -446,7 +446,7 @@ describe("project routes — POST /project", () => {
 		const app = createTestApp(projectService);
 		const { name: _omitted, ...bodyWithoutName } = validBody();
 
-		const response = await app.request("/api/v1/project", {
+		const response = await app.request("/api/v1/projects", {
 			method: "POST",
 			headers: { ...authHeaders(), "Content-Type": "application/json" },
 			body: JSON.stringify(bodyWithoutName),
@@ -460,7 +460,7 @@ describe("project routes — POST /project", () => {
 		const projectService = createProjectServiceMock();
 		const app = createTestApp(projectService);
 
-		const response = await app.request("/api/v1/project", {
+		const response = await app.request("/api/v1/projects", {
 			method: "POST",
 			headers: { ...authHeaders(), "Content-Type": "application/json" },
 			body: "not-json",
@@ -475,7 +475,7 @@ describe("project routes — POST /project", () => {
 		const projectService = createProjectServiceMock();
 		const app = createTestApp(projectService);
 
-		const response = await app.request("/api/v1/project", {
+		const response = await app.request("/api/v1/projects", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify(validBody()),
@@ -492,7 +492,7 @@ describe("project routes — POST /project", () => {
 		);
 		const app = createTestApp(projectService);
 
-		const response = await app.request("/api/v1/project", {
+		const response = await app.request("/api/v1/projects", {
 			method: "POST",
 			headers: { ...authHeaders(), "Content-Type": "application/json" },
 			body: JSON.stringify(validBody()),
@@ -508,7 +508,7 @@ describe("project routes — POST /project", () => {
 		);
 		const app = createTestApp(projectService);
 
-		const response = await app.request("/api/v1/project", {
+		const response = await app.request("/api/v1/projects", {
 			method: "POST",
 			headers: { ...authHeaders(), "Content-Type": "application/json" },
 			body: JSON.stringify(validBody()),
