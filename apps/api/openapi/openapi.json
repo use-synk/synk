@@ -236,7 +236,7 @@
         }
       }
     },
-    "/api/v1/organizations/{organizationId}/projects": {
+    "/api/v1/organizations/{slugOrId}/projects": {
       "get": {
         "tags": [
           "organizations",
@@ -254,7 +254,7 @@
               "type": "string"
             },
             "required": true,
-            "name": "organizationId",
+            "name": "slugOrId",
             "in": "path"
           },
           {

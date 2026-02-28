@@ -52,14 +52,19 @@ export class ProjectService implements ProjectServiceContract {
 		return this.deps.projectRepository.findProject(input.projectId);
 	}
 
-	listProjects(input: ListProjectsInput): Promise<PaginatedResult<Project>> {
-		this.deps.authorizationRepository.assertOrganizationMembership({
-			organizationId: input.organizationId,
+	async listProjects(input: ListProjectsInput): Promise<PaginatedResult<Project>> {
+		const organizationId = await resolveOrganizationId(
+			input.slugOrId,
+			this.deps.organizationRepository,
+		);
+
+		await this.deps.authorizationRepository.assertOrganizationMembership({
+			organizationId,
 			userId: input.userId,
 		});
 
 		return this.deps.projectRepository.listProjects({
-			organizationId: input.organizationId,
+			organizationId,
 			pagination: input.pagination,
 		});
 	}

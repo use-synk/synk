@@ -51,12 +51,12 @@ export function createOrganizationsRoutes({
 	});
 	const listProjectsRoute = createRoute({
 		method: "get",
-		path: "/{organizationId}/projects",
+		path: "/{slugOrId}/projects",
 		tags: ["organizations", "projects"],
 		operationId: "listOrganizationProjects",
 		security: [{ cookieAuth: [] }],
 		request: {
-			params: openApiZ.object({ organizationId: openApiZ.string() }),
+			params: openApiZ.object({ slugOrId: openApiZ.string() }),
 			query: openApiZ.object({
 				page: openApiZ.coerce.number().int().min(1).optional(),
 				pageSize: openApiZ.coerce.number().int().min(1).max(100).optional(),
@@ -145,7 +145,7 @@ export function createOrganizationsRoutes({
 
 	router.openapi(listProjectsRoute, async (ctx) => {
 		const userId = ctx.get("user").id;
-		const organizationId = ctx.req.param("organizationId");
+		const slugOrId = ctx.req.param("slugOrId");
 
 		const queryResult = listProjectsQuerySchema.safeParse(ctx.req.query());
 		if (!queryResult.success) {
@@ -155,7 +155,7 @@ export function createOrganizationsRoutes({
 		const { page = 1, pageSize = 10 } = queryResult.data;
 
 		const result = await projectService.listProjects({
-			organizationId,
+			slugOrId,
 			userId,
 			pagination: { page, pageSize },
 		});

@@ -341,6 +341,75 @@ describe("project routes — GET /organizations/:slugOrId/repositories", () => {
 	});
 });
 
+describe("project routes — GET /organizations/:slugOrId/projects", () => {
+	beforeEach(() => {
+		mock.restore();
+		getSessionMock.mockResolvedValue({
+			user: { id: USER_ID },
+			session: {
+				token: SESSION_TOKEN,
+				userId: USER_ID,
+				expiresAt: new Date("2099-01-01T00:00:00.000Z"),
+			},
+		});
+	});
+
+	it("returns project list with pagination envelope for an organization UUID", async () => {
+		const projectService = createProjectServiceMock();
+		projectService.listProjects.mockResolvedValueOnce({
+			items: [CREATED_PROJECT],
+			total: 1,
+		});
+		const app = createTestApp(projectService);
+
+		const response = await app.request(
+			`/api/v1/organizations/${ORGANIZATION_ID}/projects`,
+			{ headers: authHeaders() },
+		);
+
+		expect(response.status).toBe(200);
+		const body = (await response.json()) as {
+			data: Array<{ id: string; name: string; updatedAt: string }>;
+			pagination: { page: number; pageSize: number; total: number; totalPages: number };
+		};
+
+		expect(body.data).toHaveLength(1);
+		expect(body.data[0]?.id).toBe(PROJECT_ID);
+		expect(body.data[0]?.name).toBe(PROJECT_NAME);
+		expect(body.data[0]?.updatedAt).toBe(NOW_ISO);
+		expect(body.pagination).toEqual({ page: 1, pageSize: 10, total: 1, totalPages: 1 });
+	});
+
+	it("passes a slug through to the service unchanged", async () => {
+		const projectService = createProjectServiceMock();
+		const app = createTestApp(projectService);
+
+		await app.request(
+			`/api/v1/organizations/${ORGANIZATION_SLUG}/projects`,
+			{ headers: authHeaders() },
+		);
+
+		expect(projectService.listProjects).toHaveBeenCalledWith({
+			userId: USER_ID,
+			slugOrId: ORGANIZATION_SLUG,
+			pagination: { page: 1, pageSize: 10 },
+		});
+	});
+
+	it("returns 401 when the request has no authentication", async () => {
+		getSessionMock.mockResolvedValue(null);
+		const projectService = createProjectServiceMock();
+		const app = createTestApp(projectService);
+
+		const response = await app.request(
+			`/api/v1/organizations/${ORGANIZATION_ID}/projects`,
+		);
+
+		expect(response.status).toBe(401);
+		expect(projectService.listProjects).not.toHaveBeenCalled();
+	});
+});
+
 describe("project routes — POST /project", () => {
 	beforeEach(() => {
 		mock.restore();

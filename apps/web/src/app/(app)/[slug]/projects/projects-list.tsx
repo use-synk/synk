@@ -3,11 +3,11 @@ import { api } from "@/server/api";
 import { useSuspenseQuery } from "@tanstack/react-query";
 
 export function ProjectsList({ organizationId }: { organizationId: string }) {
-	const { options } = api("/organizations/:organizationId/projects", "GET");
+	const { options } = api("/organizations/:slugOrId/projects", "GET");
 
 	const {
 		data: { data: projects },
-	} = useSuspenseQuery(options({ params: { organizationId }, query: { page: 1, pageSize: 12 } }));
+	} = useSuspenseQuery(options({ params: { slugOrId: organizationId }, query: { page: 1, pageSize: 12 } }));
 
 	if (projects.length === 0) {
 		return <div>No projects found</div>;
