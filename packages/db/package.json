@@ -16,13 +16,14 @@
 		}
 	},
 	"scripts": {
-		"build": "tsc -p tsconfig.json",
+		"build": "prisma generate --config src/prisma.config.ts && tsc -p tsconfig.json",
 		"lint": "biome check .",
 		"lint:write": "biome check . --write",
 		"lint:unsafe": "biome check . --write --unsafe",
 		"typecheck": "bunx tsc --noEmit",
 		"test": "echo 'db test placeholder'",
-		"generate": "pnpm dlx prisma generate --config src/prisma.config.ts",
+		"generate": "prisma generate --config src/prisma.config.ts",
+		"db:generate": "prisma generate --config src/prisma.config.ts",
 		"db:migrate": "prisma migrate dev --config src/prisma.config.ts",
 		"db:studio": "prisma studio --config src/prisma.config.ts"
 	},

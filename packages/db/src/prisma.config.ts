@@ -1,8 +1,10 @@
 import "dotenv/config";
-import { databaseEnvironmentSchema, parseEnvironment } from "@synk-ai/shared";
 import { defineConfig } from "prisma/config";
 
-const environment = parseEnvironment(databaseEnvironmentSchema);
+// DATABASE_URL is validated at runtime in src/index.ts via parseEnvironment.
+// prisma generate only reads schema files and does not connect to a database,
+// so a placeholder is acceptable here when DATABASE_URL is not set (e.g. CI).
+const databaseUrl = process.env.DATABASE_URL ?? "postgresql://localhost/placeholder";
 
 export default defineConfig({
 	schema: "./schemas",
@@ -11,6 +13,6 @@ export default defineConfig({
 		path: "prisma/migrations",
 	},
 	datasource: {
-		url: environment.DATABASE_URL,
+		url: databaseUrl,
 	},
 });
