@@ -1,4 +1,3 @@
-import { HTTPException } from "hono/http-exception";
 import type { PaginatedResult } from "../../domain";
 import type { Project } from "../../domain/models/project";
 import type {
@@ -11,23 +10,16 @@ import type {
 	ProjectServiceDependencies,
 	UpdateProjectInput,
 } from "../../domain/services/project-service";
-import { isUuid } from "../../domain/utils";
+import { resolveOrganizationId } from "../../domain/utils";
 
 export class ProjectService implements ProjectServiceContract {
 	constructor(private readonly deps: ProjectServiceDependencies) {}
 
 	async createProject(input: CreateProjectInput) {
-		let organizationId = input.slugOrId;
-
-		if (!isUuid(input.slugOrId)) {
-			const org = await this.deps.organizationRepository.findOrganizationBySlug(input.slugOrId);
-
-			if (!org) {
-				throw new HTTPException(404, { message: "Organization not found" });
-			}
-
-			organizationId = org.id;
-		}
+		const organizationId = await resolveOrganizationId(
+			input.slugOrId,
+			this.deps.organizationRepository,
+		);
 
 		await this.deps.authorizationRepository.assertOrganizationMembership({
 			organizationId,
@@ -73,17 +65,10 @@ export class ProjectService implements ProjectServiceContract {
 	}
 
 	async listOrganizationRepositories(input: ListOrganizationRepositoriesInput) {
-		let organizationId = input.slugOrId;
-
-		if (!isUuid(input.slugOrId)) {
-			const org = await this.deps.organizationRepository.findOrganizationBySlug(input.slugOrId);
-
-			if (!org) {
-				throw new HTTPException(404, { message: "Organization not found" });
-			}
-
-			organizationId = org.id;
-		}
+		const organizationId = await resolveOrganizationId(
+			input.slugOrId,
+			this.deps.organizationRepository,
+		);
 
 		await this.deps.authorizationRepository.assertOrganizationMembership({
 			organizationId,
