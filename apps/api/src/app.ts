@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { OpenAPIHono } from "@hono/zod-openapi";
 import { cors } from "hono/cors";
 import type { AppDependencies } from "./composition/dependencies";
 import { API_PREFIX } from "./consts";
@@ -35,7 +35,7 @@ type AppOptions = {
 	listInstallationRepositories?: ListInstallationRepositories;
 };
 
-export const createApp = (options: AppOptions): Hono<AppEnv> => {
+export const createApp = (options: AppOptions): OpenAPIHono<AppEnv> => {
 	const { env, logger, enqueueAnalyzeChanges, dependencies } = options;
 
 	const webhookRepositories = createPrismaWebhookRepositories();
@@ -45,7 +45,7 @@ export const createApp = (options: AppOptions): Hono<AppEnv> => {
 	const listInstallationRepositories: ListInstallationRepositories =
 		options.listInstallationRepositories ?? dependencies.listInstallationRepositories;
 
-	const app = new Hono<AppEnv>();
+	const app = new OpenAPIHono<AppEnv>();
 
 	const authService = createAuthService();
 

@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { createRoute, OpenAPIHono, z as openApiZ } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
 import z from "zod";
 import type { DashboardServiceContract } from "../../domain/services";
@@ -12,11 +12,152 @@ export function createRunsRoutes({
 }: RouteContext & {
 	dashboardService: DashboardServiceContract;
 }) {
-	const router = new Hono<AuthenticatedAppEnv>();
+	const router = new OpenAPIHono<AuthenticatedAppEnv>();
+	const paginationSchema = openApiZ.object({
+		page: openApiZ.number().int().min(1),
+		pageSize: openApiZ.number().int().min(1),
+		total: openApiZ.number().int().min(0),
+		totalPages: openApiZ.number().int().min(0),
+	});
+	const getRunRoute = createRoute({
+		method: "get",
+		path: "/{runId}",
+		tags: ["runs"],
+		operationId: "getRunDetail",
+		security: [{ cookieAuth: [] }],
+		request: { params: openApiZ.object({ runId: openApiZ.string() }) },
+		responses: {
+			200: {
+				description: "Run details",
+				content: {
+					"application/json": {
+						schema: openApiZ.object({
+							data: openApiZ.object({
+								id: openApiZ.string(),
+								repositoryId: openApiZ.string(),
+								status: openApiZ.string(),
+								triggerType: openApiZ.string(),
+								triggerRef: openApiZ.string(),
+								triggerCommitSha: openApiZ.string(),
+								triggerMergeRequestNumber: openApiZ.number().nullable(),
+								triggerMeta: openApiZ.unknown(),
+								docsAffected: openApiZ.boolean().nullable(),
+								docPrNumber: openApiZ.number().nullable(),
+								docPrUrl: openApiZ.string().nullable(),
+								prLink: openApiZ.string().nullable(),
+								tokenUsage: openApiZ.unknown(),
+								error: openApiZ.string().nullable(),
+								attemptCount: openApiZ.number(),
+								result: openApiZ.unknown(),
+								aiReasoning: openApiZ.unknown(),
+								queuedAt: openApiZ.string(),
+								startedAt: openApiZ.string().nullable(),
+								completedAt: openApiZ.string().nullable(),
+								createdAt: openApiZ.string(),
+								updatedAt: openApiZ.string(),
+							}),
+						}),
+					},
+				},
+			},
+			401: { description: "Unauthorized" },
+			403: { description: "Forbidden" },
+			404: { description: "Run not found" },
+		},
+	});
+	const listRunsRoute = createRoute({
+		method: "get",
+		path: "/repositories/{repositoryId}",
+		tags: ["runs"],
+		operationId: "listRepositoryRuns",
+		security: [{ cookieAuth: [] }],
+		request: {
+			params: openApiZ.object({ repositoryId: openApiZ.string() }),
+			query: openApiZ.object({
+				page: openApiZ.coerce.number().int().min(1).optional(),
+				pageSize: openApiZ.coerce.number().int().min(1).max(100).optional(),
+				status: openApiZ.array(openApiZ.string()).optional(),
+			}),
+		},
+		responses: {
+			200: {
+				description: "Repository runs",
+				content: {
+					"application/json": {
+						schema: openApiZ.object({
+							data: openApiZ.array(
+								openApiZ.object({
+									id: openApiZ.string(),
+									status: openApiZ.string(),
+									triggerType: openApiZ.string(),
+									triggerRef: openApiZ.string(),
+									triggerCommitSha: openApiZ.string(),
+									docsAffected: openApiZ.boolean().nullable(),
+									docPrUrl: openApiZ.string().nullable(),
+									error: openApiZ.string().nullable(),
+									createdAt: openApiZ.string(),
+									startedAt: openApiZ.string().nullable(),
+									completedAt: openApiZ.string().nullable(),
+								}),
+							),
+							pagination: paginationSchema,
+						}),
+					},
+				},
+			},
+			400: { description: "Bad request" },
+			401: { description: "Unauthorized" },
+			403: { description: "Forbidden" },
+		},
+	});
+	const triggerRunRoute = createRoute({
+		method: "post",
+		path: "/repositories/{repositoryId}",
+		tags: ["runs"],
+		operationId: "triggerRepositoryRun",
+		security: [{ cookieAuth: [] }],
+		request: {
+			params: openApiZ.object({ repositoryId: openApiZ.string() }),
+			body: {
+				required: true,
+				content: {
+					"application/json": {
+						schema: openApiZ.object({
+							commitSha: openApiZ.string(),
+							ref: openApiZ.string().optional(),
+						}),
+					},
+				},
+			},
+		},
+		responses: {
+			200: {
+				description: "Manual run accepted",
+				content: {
+					"application/json": {
+						schema: openApiZ.object({
+							data: openApiZ.object({
+								repositoryId: openApiZ.string(),
+								triggerType: openApiZ.literal("manual"),
+								triggerRef: openApiZ.string(),
+								triggerCommitSha: openApiZ.string(),
+								accepted: openApiZ.literal(true),
+							}),
+						}),
+					},
+				},
+			},
+			400: { description: "Bad request" },
+			401: { description: "Unauthorized" },
+			403: { description: "Forbidden" },
+			404: { description: "Repository not found" },
+			409: { description: "Repository inactive" },
+		},
+	});
 
 	router.use("*", createRequireAuthMiddleware(auth));
 
-	router.get("/:runId", async (ctx) => {
+	router.openapi(getRunRoute, async (ctx) => {
 		const userId = ctx.get("user").id;
 		const runId = ctx.req.param("runId");
 
@@ -34,7 +175,7 @@ export function createRunsRoutes({
 		});
 	});
 
-	router.get("/repositories/:repositoryId", async (ctx) => {
+	router.openapi(listRunsRoute, async (ctx) => {
 		const userId = ctx.get("user").id;
 		const repositoryId = ctx.req.param("repositoryId");
 
@@ -74,7 +215,7 @@ export function createRunsRoutes({
 		});
 	});
 
-	router.post("/repositories/:repositoryId", async (ctx) => {
+	router.openapi(triggerRunRoute, async (ctx) => {
 		const userId = ctx.get("user").id;
 		const repositoryId = ctx.req.param("repositoryId");
 

@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { createRoute, OpenAPIHono, z as openApiZ } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
 import z from "zod";
 import type { DashboardServiceContract } from "../../domain/services";
@@ -16,11 +16,125 @@ export function createOrganizationsRoutes({
 	dashboardService: DashboardServiceContract;
 	projectService: ProjectServiceContract;
 }) {
-	const router = new Hono<AuthenticatedAppEnv>();
+	const router = new OpenAPIHono<AuthenticatedAppEnv>();
+	const paginationSchema = openApiZ.object({
+		page: openApiZ.number().int().min(1),
+		pageSize: openApiZ.number().int().min(1),
+		total: openApiZ.number().int().min(0),
+		totalPages: openApiZ.number().int().min(0),
+	});
+	const setupRoute = createRoute({
+		method: "get",
+		path: "/{slugOrId}/setup",
+		tags: ["organizations"],
+		operationId: "getOrganizationSetupStatus",
+		security: [{ cookieAuth: [] }],
+		request: { params: openApiZ.object({ slugOrId: openApiZ.string() }) },
+		responses: {
+			200: {
+				description: "Organization setup status",
+				content: {
+					"application/json": {
+						schema: openApiZ.object({
+							data: openApiZ.object({
+								hasInstallations: openApiZ.boolean(),
+								hasRepositories: openApiZ.boolean(),
+								hasProjects: openApiZ.boolean(),
+							}),
+						}),
+					},
+				},
+			},
+			401: { description: "Unauthorized" },
+			403: { description: "Forbidden" },
+		},
+	});
+	const listProjectsRoute = createRoute({
+		method: "get",
+		path: "/{organizationId}/projects",
+		tags: ["organizations", "projects"],
+		operationId: "listOrganizationProjects",
+		security: [{ cookieAuth: [] }],
+		request: {
+			params: openApiZ.object({ organizationId: openApiZ.string() }),
+			query: openApiZ.object({
+				page: openApiZ.coerce.number().int().min(1).optional(),
+				pageSize: openApiZ.coerce.number().int().min(1).max(100).optional(),
+			}),
+		},
+		responses: {
+			200: {
+				description: "Organization projects",
+				content: {
+					"application/json": {
+						schema: openApiZ.object({
+							data: openApiZ.array(
+								openApiZ.object({
+									id: openApiZ.string(),
+									name: openApiZ.string(),
+									organizationId: openApiZ.string(),
+									sourceRepositoryId: openApiZ.string(),
+									docsRepositoryId: openApiZ.string().nullable(),
+									config: openApiZ.record(openApiZ.string(), openApiZ.unknown()),
+									createdAt: openApiZ.string(),
+									updatedAt: openApiZ.string(),
+								}),
+							),
+							pagination: paginationSchema,
+						}),
+					},
+				},
+			},
+			400: { description: "Bad request" },
+			401: { description: "Unauthorized" },
+			403: { description: "Forbidden" },
+		},
+	});
+	const listRepositoriesRoute = createRoute({
+		method: "get",
+		path: "/{slugOrId}/repositories",
+		tags: ["organizations", "repositories"],
+		operationId: "listOrganizationRepositories",
+		security: [{ cookieAuth: [] }],
+		request: {
+			params: openApiZ.object({ slugOrId: openApiZ.string() }),
+			query: openApiZ.object({
+				page: openApiZ.coerce.number().int().min(1).optional(),
+				pageSize: openApiZ.coerce.number().int().min(1).max(100).optional(),
+			}),
+		},
+		responses: {
+			200: {
+				description: "Organization repositories",
+				content: {
+					"application/json": {
+						schema: openApiZ.object({
+							data: openApiZ.array(
+								openApiZ.object({
+									id: openApiZ.string(),
+									installationId: openApiZ.string(),
+									fullName: openApiZ.string(),
+									defaultBranch: openApiZ.string(),
+									status: openApiZ.string(),
+									isActive: openApiZ.boolean(),
+									updatedAt: openApiZ.string(),
+								}),
+							),
+							pagination: paginationSchema,
+						}),
+					},
+				},
+			},
+			400: { description: "Bad request" },
+			401: { description: "Unauthorized" },
+			403: { description: "Forbidden" },
+			404: { description: "Organization not found" },
+		},
+	});
 
 	router.use("*", createRequireAuthMiddleware(auth));
 
-	router.get("/:slugOrId/setup", async (ctx) => {
+	router.openapi(setupRoute, async (ctx) => {
 		const userId = ctx.get("user").id;
 		const slugOrId = ctx.req.param("slugOrId");
 
@@ -29,7 +143,7 @@ export function createOrganizationsRoutes({
 		return ctx.json({ data: result });
 	});
 
-	router.get("/:organizationId/projects", async (ctx) => {
+	router.openapi(listProjectsRoute, async (ctx) => {
 		const userId = ctx.get("user").id;
 		const organizationId = ctx.req.param("organizationId");
 
@@ -60,7 +174,7 @@ export function createOrganizationsRoutes({
 		});
 	});
 
-	router.get("/:slugOrId/repositories", async (ctx) => {
+	router.openapi(listRepositoriesRoute, async (ctx) => {
 		const userId = ctx.get("user").id;
 		const slugOrId = ctx.req.param("slugOrId");
 

@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { createRoute, OpenAPIHono, z as openApiZ } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
 import z from "zod";
 import type { DashboardServiceContract } from "../../domain/services";
@@ -15,11 +15,102 @@ export function createRepositoriesRoutes({
 }: RouteContext & {
 	dashboardService: DashboardServiceContract;
 }) {
-	const router = new Hono<AuthenticatedAppEnv>();
+	const router = new OpenAPIHono<AuthenticatedAppEnv>();
+	const paginationSchema = openApiZ.object({
+		page: openApiZ.number().int().min(1),
+		pageSize: openApiZ.number().int().min(1),
+		total: openApiZ.number().int().min(0),
+		totalPages: openApiZ.number().int().min(0),
+	});
+	const patchRepositoryRoute = createRoute({
+		method: "patch",
+		path: "/{repositoryId}",
+		tags: ["repositories"],
+		operationId: "patchRepository",
+		security: [{ cookieAuth: [] }],
+		request: {
+			params: openApiZ.object({ repositoryId: openApiZ.string() }),
+			body: {
+				required: true,
+				content: {
+					"application/json": {
+						schema: openApiZ.object({
+							isActive: openApiZ.boolean().optional(),
+						}),
+					},
+				},
+			},
+		},
+		responses: {
+			200: {
+				description: "Repository updated",
+				content: {
+					"application/json": {
+						schema: openApiZ.object({
+							data: openApiZ.object({
+								id: openApiZ.string(),
+								installationId: openApiZ.string(),
+								defaultBranch: openApiZ.string(),
+								status: openApiZ.string(),
+								isActive: openApiZ.boolean(),
+								docsConfig: openApiZ.unknown(),
+								createdAt: openApiZ.string(),
+								updatedAt: openApiZ.string(),
+							}),
+						}),
+					},
+				},
+			},
+			400: { description: "Bad request" },
+			401: { description: "Unauthorized" },
+			403: { description: "Forbidden" },
+		},
+	});
+	const listByInstallationRoute = createRoute({
+		method: "get",
+		path: "/installations/{installationId}",
+		tags: ["repositories"],
+		operationId: "listInstallationRepositories",
+		security: [{ cookieAuth: [] }],
+		request: {
+			params: openApiZ.object({ installationId: openApiZ.string() }),
+			query: openApiZ.object({
+				page: openApiZ.coerce.number().int().min(1).optional(),
+				pageSize: openApiZ.coerce.number().int().min(1).max(100).optional(),
+			}),
+		},
+		responses: {
+			200: {
+				description: "Repositories for an installation",
+				content: {
+					"application/json": {
+						schema: openApiZ.object({
+							data: openApiZ.array(
+								openApiZ.object({
+									id: openApiZ.string(),
+									installationId: openApiZ.string(),
+									fullName: openApiZ.string(),
+									defaultBranch: openApiZ.string(),
+									status: openApiZ.string(),
+									isActive: openApiZ.boolean(),
+									docsConfig: openApiZ.unknown(),
+									updatedAt: openApiZ.string(),
+								}),
+							),
+							pagination: paginationSchema,
+						}),
+					},
+				},
+			},
+			400: { description: "Bad request" },
+			401: { description: "Unauthorized" },
+			403: { description: "Forbidden" },
+		},
+	});
 
 	router.use("*", createRequireAuthMiddleware(auth));
 
-	router.patch("/:repositoryId", async (ctx) => {
+	router.openapi(patchRepositoryRoute, async (ctx) => {
 		const userId = ctx.get("user").id;
 		const repositoryId = ctx.req.param("repositoryId");
 
@@ -50,7 +141,7 @@ export function createRepositoriesRoutes({
 		});
 	});
 
-	router.get("/installations/:installationId", async (ctx) => {
+	router.openapi(listByInstallationRoute, async (ctx) => {
 		const userId = ctx.get("user").id;
 		const installationId = ctx.req.param("installationId");
 

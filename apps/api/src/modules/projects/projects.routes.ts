@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { createRoute, OpenAPIHono, z as openApiZ } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
 import z from "zod";
 import type { ProjectServiceContract } from "../../domain/services/project-service";
@@ -12,11 +12,58 @@ export function createProjectsRoutes({
 }: RouteContext & {
 	projectService: ProjectServiceContract;
 }) {
-	const router = new Hono<AuthenticatedAppEnv>();
+	const router = new OpenAPIHono<AuthenticatedAppEnv>();
+	const createProjectRoute = createRoute({
+		method: "post",
+		path: "/",
+		tags: ["projects"],
+		operationId: "createProject",
+		security: [{ cookieAuth: [] }],
+		request: {
+			body: {
+				required: true,
+				content: {
+					"application/json": {
+						schema: openApiZ.object({
+							name: openApiZ.string().min(1),
+							slugOrId: openApiZ.string().min(1),
+							sourceRepositoryId: openApiZ.string().min(1),
+							docsRepositoryId: openApiZ.string().min(1),
+						}),
+					},
+				},
+			},
+		},
+		responses: {
+			200: {
+				description: "Project created",
+				content: {
+					"application/json": {
+						schema: openApiZ.object({
+							data: openApiZ.object({
+								id: openApiZ.string(),
+								name: openApiZ.string(),
+								organizationId: openApiZ.string(),
+								sourceRepositoryId: openApiZ.string(),
+								docsRepositoryId: openApiZ.string().nullable(),
+								config: openApiZ.record(openApiZ.string(), openApiZ.unknown()),
+								createdAt: openApiZ.string(),
+								updatedAt: openApiZ.string(),
+							}),
+						}),
+					},
+				},
+			},
+			400: { description: "Bad request" },
+			401: { description: "Unauthorized" },
+			403: { description: "Forbidden" },
+			404: { description: "Organization not found" },
+		},
+	});
 
 	router.use("*", createRequireAuthMiddleware(auth));
 
-	router.post("/", async (ctx) => {
+	router.openapi(createProjectRoute, async (ctx) => {
 		const userId = ctx.get("user").id;
 
 		let body: unknown;
