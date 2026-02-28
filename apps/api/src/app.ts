@@ -10,10 +10,12 @@ import { createLoggingMiddleware } from "./middleware/logging";
 import { requestIdMiddleware } from "./middleware/request-id";
 import { createAuthRoutes } from "./modules/auth/auth.routes";
 import { createAuthService } from "./modules/auth/auth.service";
-import { createDashboardRoutes } from "./modules/dashboard/dashboard.routes";
 import { createHealthRoutes } from "./modules/health/health.routes";
 import { createGitHubIntegrationRoutes } from "./modules/integrations/github";
-import { createProjectRoutes } from "./modules/project";
+import { createOrganizationsRoutes } from "./modules/organizations";
+import { createProjectsRoutes } from "./modules/projects";
+import { createRepositoriesRoutes } from "./modules/repositories";
+import { createRunsRoutes } from "./modules/runs";
 import {
 	type ListInstallationRepositories,
 	createGitHubWebhookRoutes,
@@ -69,13 +71,23 @@ export const createApp = (options: AppOptions): Hono<AppEnv> => {
 
 	app.route("/health", createHealthRoutes(routeCtx));
 	app.route(`${API_PREFIX}/auth`, createAuthRoutes(authService));
-	app.route(
-		`${API_PREFIX}/dashboard`,
-		createDashboardRoutes({
-			...routeCtx,
-			dashboardService: dependencies.dashboardService,
-		}),
-	);
+	app.route(`${API_PREFIX}/projects`, createProjectsRoutes({
+		...routeCtx,
+		projectService: dependencies.projectService,
+	}));
+	app.route(`${API_PREFIX}/organizations`, createOrganizationsRoutes({
+		...routeCtx,
+		dashboardService: dependencies.dashboardService,
+		projectService: dependencies.projectService,
+	}));
+	app.route(`${API_PREFIX}/repositories`, createRepositoriesRoutes({
+		...routeCtx,
+		dashboardService: dependencies.dashboardService,
+	}));
+	app.route(`${API_PREFIX}/runs`, createRunsRoutes({
+		...routeCtx,
+		dashboardService: dependencies.dashboardService,
+	}));
 
 	// integrations
 	app.route(
@@ -84,15 +96,6 @@ export const createApp = (options: AppOptions): Hono<AppEnv> => {
 			...routeCtx,
 			integrationService: dependencies.integrationService,
 			logger,
-		}),
-	);
-
-	app.route(
-		`${API_PREFIX}/project`,
-		createProjectRoutes({
-			auth: authService,
-			gitSha: env.GIT_SHA,
-			projectService: dependencies.projectService,
 		}),
 	);
 
