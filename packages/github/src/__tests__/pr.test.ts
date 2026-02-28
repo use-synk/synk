@@ -8,7 +8,9 @@ const createOctokitMock = () => {
 	const createTree = mock(async () => ({ data: { sha: "new-tree-sha" } }));
 	const createCommit = mock(async () => ({ data: { sha: "new-commit-sha" } }));
 	const createRef = mock(async () => ({}));
-	const createPull = mock(async () => ({ data: { number: 42, html_url: "https://github.com/acme/docs/pull/42" } }));
+	const createPull = mock(async () => ({
+		data: { number: 42, html_url: "https://github.com/acme/docs/pull/42" },
+	}));
 	const addLabels = mock(async () => ({}));
 	const addAssignees = mock(async () => ({}));
 	const requestReviewers = mock(async () => ({}));
@@ -70,7 +72,11 @@ describe("createDocUpdatePR", () => {
 			repo: "docs",
 			baseBranch: "main",
 			files: [
-				{ path: "docs/intro.md", content: "# Intro", reasoning: "Updated onboarding instructions." },
+				{
+					path: "docs/intro.md",
+					content: "# Intro",
+					reasoning: "Updated onboarding instructions.",
+				},
 				{ path: "docs/setup.md", content: "# Setup", reasoning: "Documented a new env var." },
 			],
 			triggerInfo: {

@@ -1,4 +1,4 @@
-import { db, Prisma } from "@synk-ai/db";
+import { type Prisma, db } from "@synk-ai/db";
 import {
 	type DocAdapter,
 	type DocFile,
@@ -9,8 +9,8 @@ import {
 } from "@synk-ai/doc-adapters";
 import {
 	type DiffFile,
-	createDocUpdatePR,
 	type RepoTreeFile,
+	createDocUpdatePR,
 	createInstallationOctokit,
 	credentialsFromEnvironment,
 	fetchFileContent,
@@ -330,8 +330,10 @@ const mergePrConfig = (
 	dbConfig: Partial<PullRequestConfig> | null,
 ): PullRequestConfig => ({
 	labels: fileConfig?.labels ?? dbConfig?.labels ?? [...DEFAULT_PULL_REQUEST_CONFIG.labels],
-	assignees: fileConfig?.assignees ?? dbConfig?.assignees ?? [...DEFAULT_PULL_REQUEST_CONFIG.assignees],
-	reviewers: fileConfig?.reviewers ?? dbConfig?.reviewers ?? [...DEFAULT_PULL_REQUEST_CONFIG.reviewers],
+	assignees: fileConfig?.assignees ??
+		dbConfig?.assignees ?? [...DEFAULT_PULL_REQUEST_CONFIG.assignees],
+	reviewers: fileConfig?.reviewers ??
+		dbConfig?.reviewers ?? [...DEFAULT_PULL_REQUEST_CONFIG.reviewers],
 	draft: fileConfig?.draft ?? dbConfig?.draft ?? DEFAULT_PULL_REQUEST_CONFIG.draft,
 });
 
@@ -423,7 +425,8 @@ const resolveDocsConfig = (
 	repository: RepositoryWithInstallation,
 	synkAiFileConfig: ParsedSynkAiConfig | null,
 ): ResolvedDocsConfig => {
-	const fromFile = synkAiFileConfig === null ? null : resolveDocsConfigFromParsedFile(synkAiFileConfig);
+	const fromFile =
+		synkAiFileConfig === null ? null : resolveDocsConfigFromParsedFile(synkAiFileConfig);
 
 	const fromDatabase = parseDocsConfigFromObject(repository.docsConfig);
 
@@ -747,9 +750,7 @@ const loadRepository = async (
 	}
 	if (repository.provider !== PROVIDER_GITHUB) {
 		// Unsupported provider is a configuration error that will not resolve on retry.
-		throw new UnrecoverableError(
-			`Unsupported repository provider '${repository.provider}'.`,
-		);
+		throw new UnrecoverableError(`Unsupported repository provider '${repository.provider}'.`);
 	}
 	if (repository.installation.id !== payload.installationId) {
 		// Mismatched installation ID means the job payload is stale or invalid.
@@ -902,12 +903,10 @@ export const processAnalyzeChangesJob = async (
 			return;
 		}
 
-		const { value: synkAiFileConfig, durationMs: loadSynkAiFileConfigDurationMs } = await measureStep(
-			jobLogger,
-			runId,
-			"load-synk-ai-config",
-			async () => readSynkAiConfigFromFile(octokit, context),
-		);
+		const { value: synkAiFileConfig, durationMs: loadSynkAiFileConfigDurationMs } =
+			await measureStep(jobLogger, runId, "load-synk-ai-config", async () =>
+				readSynkAiConfigFromFile(octokit, context),
+			);
 		timings.loadSynkAiConfig = loadSynkAiFileConfigDurationMs;
 		const { value: resolvedConfig, durationMs: resolveConfigDurationMs } = await measureStep(
 			jobLogger,

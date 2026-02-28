@@ -3,9 +3,7 @@
 	"version": "0.0.0",
 	"private": true,
 	"type": "module",
-	"files": [
-		"dist"
-	],
+	"files": ["dist"],
 	"exports": {
 		"./server": {
 			"types": "./dist/server.d.ts",

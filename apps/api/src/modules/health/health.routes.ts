@@ -1,4 +1,4 @@
-import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
+import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import type { AppEnv, RouteContext } from "../../types";
 
 export function createHealthRoutes({ gitSha }: RouteContext) {

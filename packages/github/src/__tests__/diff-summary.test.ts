@@ -1,7 +1,7 @@
 import { describe, expect, it, mock } from "bun:test";
 
-import { summarizeDiff } from "../diff-summary";
 import type { DiffFile } from "../diff";
+import { summarizeDiff } from "../diff-summary";
 
 const toPatch = (input: { additions: readonly string[]; removals?: readonly string[] }): string => {
 	const removalLines = (input.removals ?? []).map((line) => `-${line}`);

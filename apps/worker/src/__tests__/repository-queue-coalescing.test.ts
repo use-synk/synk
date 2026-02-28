@@ -1,13 +1,13 @@
+import { describe, expect, it, mock } from "bun:test";
 import {
 	ANALYZE_CHANGES_COALESCE_WINDOW_MS,
+	type AnalyzeChangesJobPayload,
 	buildAnalyzeChangesActiveJobId,
 	calculateCoalesceDelayMs,
 	getRepositoryActiveJob,
 	isAlreadyExistingJobError,
 	parsePendingPayloadRecord,
-	type AnalyzeChangesJobPayload,
 } from "@synk-ai/shared";
-import { describe, expect, it, mock } from "bun:test";
 
 const payload: AnalyzeChangesJobPayload = {
 	installationId: "installation-1",
@@ -93,9 +93,7 @@ describe("calculateCoalesceDelayMs", () => {
 
 	it("clamps negative elapsed time to avoid delay larger than window", () => {
 		const nowMs = 10_000;
-		expect(calculateCoalesceDelayMs(nowMs + 1_000, nowMs)).toBe(
-			ANALYZE_CHANGES_COALESCE_WINDOW_MS,
-		);
+		expect(calculateCoalesceDelayMs(nowMs + 1_000, nowMs)).toBe(ANALYZE_CHANGES_COALESCE_WINDOW_MS);
 	});
 });
 

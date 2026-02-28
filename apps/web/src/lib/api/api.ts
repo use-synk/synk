@@ -1,5 +1,5 @@
+import { type ErrorResponse, errorResponseSchema } from "@synk-ai/shared";
 import { type QueryOptions, queryOptions } from "@tanstack/react-query";
-import { errorResponseSchema, type ErrorResponse } from "@synk-ai/shared";
 import type { StandardSchemaV1 } from "../types/standard-schema";
 
 type OptionalSchema = StandardSchemaV1 | undefined;
@@ -369,10 +369,12 @@ export function createApiClient<const TRoutes extends ApiContract>(
 
 		const $fetch: FetchFn<Config> = (
 			hasArgs
-				? (args: RequestArgsFromConfig<Config> & {
-						signal?: AbortSignal;
-						headers?: HeadersInit;
-					}) => {
+				? (
+						args: RequestArgsFromConfig<Config> & {
+							signal?: AbortSignal;
+							headers?: HeadersInit;
+						},
+					) => {
 						const { signal, headers, ...rawArgs } = args as Record<string, unknown> & {
 							signal?: AbortSignal;
 							headers?: HeadersInit;

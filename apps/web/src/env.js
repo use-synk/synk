@@ -8,12 +8,10 @@ export const env = createEnv({
 	 */
 	server: {
 		BETTER_AUTH_SECRET: process.env.NODE_ENV === "production" ? z.string() : z.string(),
-		BETTER_AUTH_GITHUB_CLIENT_ID: z
-			.string()
-			.refine((value) => !/^\d+$/.test(value), {
-				message:
-					"Expected an OAuth Client ID, not a numeric GitHub App ID. Use the GitHub App/OAuth Client ID value instead.",
-			}),
+		BETTER_AUTH_GITHUB_CLIENT_ID: z.string().refine((value) => !/^\d+$/.test(value), {
+			message:
+				"Expected an OAuth Client ID, not a numeric GitHub App ID. Use the GitHub App/OAuth Client ID value instead.",
+		}),
 		BETTER_AUTH_GITHUB_CLIENT_SECRET: z.string(),
 		DATABASE_URL: z.string().url(),
 		NODE_ENV: z.enum(["development", "test", "production"]).default("development"),

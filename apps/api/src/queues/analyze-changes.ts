@@ -3,12 +3,12 @@ import {
 	ANALYZE_CHANGES_JOB_ATTEMPTS,
 	ANALYZE_CHANGES_JOB_BACKOFF_TYPE,
 	ANALYZE_CHANGES_QUEUE_NAME,
+	type AnalyzeChangesJobPayload,
+	type PendingAnalyzeChangesPayload,
 	buildAnalyzeChangesActiveJobId,
 	buildAnalyzeChangesPendingPayloadKey,
 	getRepositoryActiveJob,
 	isAlreadyExistingJobError,
-	type PendingAnalyzeChangesPayload,
-	type AnalyzeChangesJobPayload,
 } from "@synk-ai/shared";
 import { Queue } from "bullmq";
 
@@ -113,23 +113,23 @@ export const createAnalyzeChangesEnqueuer = (
 				throw error;
 			}
 
-				const jobAfterConflict = await getRepositoryActiveJob(queue, payload.repositoryId);
-				if (jobAfterConflict !== null) {
-					return;
-				}
+			const jobAfterConflict = await getRepositoryActiveJob(queue, payload.repositoryId);
+			if (jobAfterConflict !== null) {
+				return;
+			}
 
-				try {
-					await queue.add(ANALYZE_CHANGES_QUEUE_NAME, payload, {
-						jobId: activeJobId,
-						delay: ACTIVE_JOB_START_DELAY_MS,
-						removeOnComplete: true,
-						removeOnFail: true,
-					});
-				} catch (retryError) {
-					if (!isAlreadyExistingJobError(retryError)) {
-						throw retryError;
-					}
+			try {
+				await queue.add(ANALYZE_CHANGES_QUEUE_NAME, payload, {
+					jobId: activeJobId,
+					delay: ACTIVE_JOB_START_DELAY_MS,
+					removeOnComplete: true,
+					removeOnFail: true,
+				});
+			} catch (retryError) {
+				if (!isAlreadyExistingJobError(retryError)) {
+					throw retryError;
 				}
 			}
-		};
+		}
 	};
+};

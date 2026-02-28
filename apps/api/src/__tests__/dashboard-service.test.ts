@@ -1,7 +1,7 @@
 import { describe, expect, it, mock } from "bun:test";
-import { HTTPException } from "hono/http-exception";
-import { DashboardService } from "../modules/dashboard/dashboard.service";
+import type { HTTPException } from "hono/http-exception";
 import type { DashboardServiceDependencies } from "../domain/services/dashboard-service";
+import { DashboardService } from "../modules/dashboard/dashboard.service";
 
 const INSTALLATION_ID = "11111111-1111-4111-8111-111111111111";
 const REPOSITORY_ID = "22222222-2222-4222-8222-222222222222";
@@ -20,18 +20,21 @@ const createDependencies = (): DashboardServiceDependencies => {
 
 	const dashboardRepository: DashboardServiceDependencies["dashboardRepository"] = {
 		updateRepository: mock(
-			async (command: Parameters<DashboardServiceDependencies["dashboardRepository"]["updateRepository"]>[0]) =>
-				({
-					id: command.repositoryId,
-					installationId: INSTALLATION_ID,
-					fullName: "acme/docs",
-					defaultBranch: "main",
-					status: "active" as const,
-					isActive: command.patch.isActive ?? true,
-					docsConfig: {},
-					createdAt: NOW,
-					updatedAt: NOW,
-				}),
+			async (
+				command: Parameters<
+					DashboardServiceDependencies["dashboardRepository"]["updateRepository"]
+				>[0],
+			) => ({
+				id: command.repositoryId,
+				installationId: INSTALLATION_ID,
+				fullName: "acme/docs",
+				defaultBranch: "main",
+				status: "active" as const,
+				isActive: command.patch.isActive ?? true,
+				docsConfig: {},
+				createdAt: NOW,
+				updatedAt: NOW,
+			}),
 		),
 		listInstallationRepositories: mock(async () => ({ items: [], total: 0 })),
 		listRepositoryRuns: mock(async () => ({ items: [], total: 0 })),

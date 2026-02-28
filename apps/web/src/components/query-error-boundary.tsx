@@ -32,7 +32,10 @@ export class QueryErrorBoundary extends Component<Props, State> {
 						<EmptyTitle>Something went wrong</EmptyTitle>
 						<EmptyDescription>{getErrorMessage(this.state.error)}</EmptyDescription>
 					</EmptyHeader>
-					<Link href={fallbackHref} className="text-primary hover:underline text-sm font-medium mt-4">
+					<Link
+						href={fallbackHref}
+						className="text-primary hover:underline text-sm font-medium mt-4"
+					>
 						{fallbackLabel}
 					</Link>
 				</Empty>

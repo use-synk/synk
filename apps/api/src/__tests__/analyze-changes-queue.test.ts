@@ -1,13 +1,13 @@
+import { describe, expect, it, mock } from "bun:test";
 import {
 	ANALYZE_CHANGES_COALESCE_WINDOW_MS,
 	ANALYZE_CHANGES_JOB_ATTEMPTS,
 	ANALYZE_CHANGES_JOB_BACKOFF_TYPE,
 	ANALYZE_CHANGES_QUEUE_NAME,
+	type AnalyzeChangesJobPayload,
 	buildAnalyzeChangesActiveJobId,
 	buildAnalyzeChangesPendingPayloadKey,
-	type AnalyzeChangesJobPayload,
 } from "@synk-ai/shared";
-import { describe, expect, it, mock } from "bun:test";
 
 const MockQueue = mock();
 

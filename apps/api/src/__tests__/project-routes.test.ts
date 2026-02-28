@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
-import { HTTPException } from "hono/http-exception";
 import { createMockDb } from "@synk-ai/test-utils";
+import { HTTPException } from "hono/http-exception";
 import type { AppDependencies } from "../composition/dependencies";
 import { AccessDeniedError } from "../domain/errors/access-denied-error";
 import type { ProjectServiceContract } from "../domain/services/project-service";
@@ -169,10 +169,9 @@ describe("project routes — GET /organizations/:slugOrId/repositories", () => {
 		const projectService = createProjectServiceMock();
 		const app = createTestApp(projectService);
 
-		const response = await app.request(
-			`/api/v1/organizations/${ORGANIZATION_ID}/repositories`,
-			{ headers: authHeaders() },
-		);
+		const response = await app.request(`/api/v1/organizations/${ORGANIZATION_ID}/repositories`, {
+			headers: authHeaders(),
+		});
 
 		expect(response.status).toBe(200);
 		const body = (await response.json()) as {
@@ -192,10 +191,9 @@ describe("project routes — GET /organizations/:slugOrId/repositories", () => {
 		const projectService = createProjectServiceMock();
 		const app = createTestApp(projectService);
 
-		await app.request(
-			`/api/v1/organizations/${ORGANIZATION_SLUG}/repositories`,
-			{ headers: authHeaders() },
-		);
+		await app.request(`/api/v1/organizations/${ORGANIZATION_SLUG}/repositories`, {
+			headers: authHeaders(),
+		});
 
 		expect(projectService.listOrganizationRepositories).toHaveBeenCalledWith({
 			userId: USER_ID,
@@ -208,10 +206,9 @@ describe("project routes — GET /organizations/:slugOrId/repositories", () => {
 		const projectService = createProjectServiceMock();
 		const app = createTestApp(projectService);
 
-		await app.request(
-			`/api/v1/organizations/${ORGANIZATION_ID}/repositories`,
-			{ headers: authHeaders() },
-		);
+		await app.request(`/api/v1/organizations/${ORGANIZATION_ID}/repositories`, {
+			headers: authHeaders(),
+		});
 
 		expect(projectService.listOrganizationRepositories).toHaveBeenCalledWith({
 			userId: USER_ID,
@@ -224,10 +221,9 @@ describe("project routes — GET /organizations/:slugOrId/repositories", () => {
 		const projectService = createProjectServiceMock();
 		const app = createTestApp(projectService);
 
-		await app.request(
-			`/api/v1/organizations/${ORGANIZATION_ID}/repositories?page=2&pageSize=25`,
-			{ headers: authHeaders() },
-		);
+		await app.request(`/api/v1/organizations/${ORGANIZATION_ID}/repositories?page=2&pageSize=25`, {
+			headers: authHeaders(),
+		});
 
 		expect(projectService.listOrganizationRepositories).toHaveBeenCalledWith({
 			userId: USER_ID,
@@ -261,9 +257,7 @@ describe("project routes — GET /organizations/:slugOrId/repositories", () => {
 		const projectService = createProjectServiceMock();
 		const app = createTestApp(projectService);
 
-		const response = await app.request(
-			`/api/v1/organizations/${ORGANIZATION_ID}/repositories`,
-		);
+		const response = await app.request(`/api/v1/organizations/${ORGANIZATION_ID}/repositories`);
 
 		expect(response.status).toBe(401);
 		expect(projectService.listOrganizationRepositories).not.toHaveBeenCalled();
@@ -302,10 +296,9 @@ describe("project routes — GET /organizations/:slugOrId/repositories", () => {
 		);
 		const app = createTestApp(projectService);
 
-		const response = await app.request(
-			`/api/v1/organizations/${ORGANIZATION_ID}/repositories`,
-			{ headers: authHeaders() },
-		);
+		const response = await app.request(`/api/v1/organizations/${ORGANIZATION_ID}/repositories`, {
+			headers: authHeaders(),
+		});
 
 		expect(response.status).toBe(403);
 	});
@@ -317,10 +310,9 @@ describe("project routes — GET /organizations/:slugOrId/repositories", () => {
 		);
 		const app = createTestApp(projectService);
 
-		const response = await app.request(
-			`/api/v1/organizations/${ORGANIZATION_ID}/repositories`,
-			{ headers: authHeaders() },
-		);
+		const response = await app.request(`/api/v1/organizations/${ORGANIZATION_ID}/repositories`, {
+			headers: authHeaders(),
+		});
 
 		expect(response.status).toBe(403);
 	});
@@ -332,10 +324,9 @@ describe("project routes — GET /organizations/:slugOrId/repositories", () => {
 		);
 		const app = createTestApp(projectService);
 
-		const response = await app.request(
-			`/api/v1/organizations/${ORGANIZATION_SLUG}/repositories`,
-			{ headers: authHeaders() },
-		);
+		const response = await app.request(`/api/v1/organizations/${ORGANIZATION_SLUG}/repositories`, {
+			headers: authHeaders(),
+		});
 
 		expect(response.status).toBe(404);
 	});
@@ -362,10 +353,9 @@ describe("project routes — GET /organizations/:slugOrId/projects", () => {
 		});
 		const app = createTestApp(projectService);
 
-		const response = await app.request(
-			`/api/v1/organizations/${ORGANIZATION_ID}/projects`,
-			{ headers: authHeaders() },
-		);
+		const response = await app.request(`/api/v1/organizations/${ORGANIZATION_ID}/projects`, {
+			headers: authHeaders(),
+		});
 
 		expect(response.status).toBe(200);
 		const body = (await response.json()) as {
@@ -384,10 +374,9 @@ describe("project routes — GET /organizations/:slugOrId/projects", () => {
 		const projectService = createProjectServiceMock();
 		const app = createTestApp(projectService);
 
-		await app.request(
-			`/api/v1/organizations/${ORGANIZATION_SLUG}/projects`,
-			{ headers: authHeaders() },
-		);
+		await app.request(`/api/v1/organizations/${ORGANIZATION_SLUG}/projects`, {
+			headers: authHeaders(),
+		});
 
 		expect(projectService.listProjects).toHaveBeenCalledWith({
 			userId: USER_ID,
@@ -401,9 +390,7 @@ describe("project routes — GET /organizations/:slugOrId/projects", () => {
 		const projectService = createProjectServiceMock();
 		const app = createTestApp(projectService);
 
-		const response = await app.request(
-			`/api/v1/organizations/${ORGANIZATION_ID}/projects`,
-		);
+		const response = await app.request(`/api/v1/organizations/${ORGANIZATION_ID}/projects`);
 
 		expect(response.status).toBe(401);
 		expect(projectService.listProjects).not.toHaveBeenCalled();

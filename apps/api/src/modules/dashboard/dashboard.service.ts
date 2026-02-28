@@ -114,10 +114,7 @@ export class DashboardService implements DashboardServiceContract {
 	}
 
 	async getOrganizationSetupStatus(slugOrId: string, userId: string) {
-		const organizationId = await resolveOrganizationId(
-			slugOrId,
-			this.deps.organizationRepository,
-		);
+		const organizationId = await resolveOrganizationId(slugOrId, this.deps.organizationRepository);
 
 		await this.deps.authorizationRepository.assertOrganizationMembership({
 			userId,
