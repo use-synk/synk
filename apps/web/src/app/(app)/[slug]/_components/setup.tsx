@@ -10,8 +10,12 @@ import Link from "next/link";
 import type z from "zod";
 
 export async function OrganizationSetup({
+	organizationSlug,
 	setupStatus,
-}: { setupStatus: z.infer<typeof organizationSetupStatusResponseSchema> }) {
+}: {
+	setupStatus: z.infer<typeof organizationSetupStatusResponseSchema>;
+	organizationSlug: string;
+}) {
 	return (
 		<main className="pb-24">
 			<section className="py-12 bg-linear-to-bl from-lime-50 to-background relative">
@@ -60,10 +64,17 @@ export async function OrganizationSetup({
 									button below to create a new project and start syncing your repositories.
 								</p>
 								<div className="mt-8">
-									<Button variant={"outline"} disabled={!setupStatus.hasInstallations}>
-										<PlusIcon />
-										Create project
-									</Button>
+									<Button
+										variant={"outline"}
+										disabled={!setupStatus.hasInstallations}
+										render={
+											<Link href={`${organizationSlug}/projects/new`}>
+												<PlusIcon />
+												Create project
+											</Link>
+										}
+										nativeButton={false}
+									/>
 								</div>
 							</div>
 						}

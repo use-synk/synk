@@ -1,105 +1,27 @@
-"use client";
 import { PageDescription, PageTitle } from "@/components/typography";
 import { Separator } from "@/components/ui/separator";
-import type { Repository } from "@/lib/api/schemas";
+import { api } from "@/server/api";
+import { getQueryClient } from "@/server/api/tanstack-query/make-query-client";
+import { HydrationBoundary, dehydrate } from "@tanstack/react-query";
 import { ArrowLeftIcon, BookOpenIcon, Building2Icon, UserIcon } from "lucide-react";
+import { headers } from "next/headers";
 import Link from "next/link";
+import { Suspense } from "react";
 import { CreateProjectForm } from "./_components/create-project-form";
 
-const repositories: Repository[] = [
-	{
-		id: "1",
-		fullName: "chris23lngr/nvim",
-		defaultBranch: "master",
-		installationId: "1",
-		status: "active",
-		isActive: true,
-		updatedAt: new Date().toISOString(),
-		docsConfig: {},
-	},
-	{
-		id: "2",
-		fullName: "neovim/neovim",
-		defaultBranch: "master",
-		installationId: "2",
-		status: "active",
-		isActive: true,
-		updatedAt: new Date().toISOString(),
-		docsConfig: {},
-	},
-	{
-		id: "3",
-		fullName: "rust-lang/rust",
-		defaultBranch: "master",
-		installationId: "3",
-		status: "active",
-		isActive: true,
-		updatedAt: new Date().toISOString(),
-		docsConfig: {},
-	},
-	{
-		id: "4",
-		fullName: "typescript-lang/typescript",
-		defaultBranch: "master",
-		installationId: "4",
-		status: "active",
-		isActive: true,
-		updatedAt: new Date().toISOString(),
-		docsConfig: {},
-	},
-	{
-		id: "5",
-		fullName: "shadcn-ui/ui",
-		defaultBranch: "master",
-		installationId: "5",
-		status: "active",
-		isActive: true,
-		updatedAt: new Date().toISOString(),
-		docsConfig: {},
-	},
-	{
-		id: "6",
-		fullName: "tailwindlabs/tailwindcss",
-		defaultBranch: "master",
-		installationId: "6",
-		status: "active",
-		isActive: true,
-		updatedAt: new Date().toISOString(),
-		docsConfig: {},
-	},
-	{
-		id: "7",
-		fullName: "vercel/next.js",
-		defaultBranch: "master",
-		installationId: "7",
-		status: "active",
-		isActive: true,
-		updatedAt: new Date().toISOString(),
-		docsConfig: {},
-	},
-	{
-		id: "8",
-		fullName: "facebook/react",
-		defaultBranch: "master",
-		installationId: "8",
-		status: "active",
-		isActive: true,
-		updatedAt: new Date().toISOString(),
-		docsConfig: {},
-	},
-	{
-		id: "9",
-		fullName: "angular/angular",
-		defaultBranch: "master",
-		installationId: "9",
-		status: "active",
-		isActive: true,
-		updatedAt: new Date().toISOString(),
-		docsConfig: {},
-	},
-];
+export default async function ServerPage(props: PageProps<"/[slug]/projects/new">) {
+	const { slug } = await props.params;
+	const { options } = api("/project/organizations/:slugOrId/repositories", "GET");
+	const client = getQueryClient();
 
-export default function ServerPage() {
+	void (await client.prefetchQuery(
+		options({
+			params: { slugOrId: slug },
+			query: { page: 1, pageSize: 100 },
+			headers: await headers(),
+		}),
+	));
+
 	return (
 		<main>
 			<section className="py-12">
@@ -133,125 +55,11 @@ export default function ServerPage() {
 								</Link>
 							</div>
 						</div>
-						<CreateProjectForm repositories={repositories} className="col-span-2" />
-						{/* <div className="col-span-2">
-							<div className="rounded-lg ring-1 ring-zinc-700/10 shadow-xl shadow-zinc-700/5 overflow-hidden">
-								<div className="p-8 border-b border-zinc-200 bg-zinc-50">
-									<p className="font-medium text-zinc-800">Target repository</p>
-									<p className="text-sm text-zinc-500 mt-1">
-										This is the repository that will be used to store the documentation.
-									</p>
-								</div>
-								<div className="p-8">
-									<p className="text-sm font-medium text-zinc-800">Select source</p>
-									<Select>
-										<SelectTrigger className={"w-full mt-2"}>
-											<SelectValue placeholder="Select a repository" />
-										</SelectTrigger>
-										<SelectContent>
-											<SelectGroup>
-												<SelectLabel>GitHub</SelectLabel>
-												<SelectItem value="chris23lngr/neovim">
-													<span>chris23lngr/nvim</span>
-												</SelectItem>
-												<SelectItem value="neovim/neovim">
-													<span>neovim/neovim</span>
-												</SelectItem>
-											</SelectGroup>
-										</SelectContent>
-									</Select>
-									<p className="text-xs text-zinc-500 mt-2">
-										Can't find your repository? Make sure you have connected your GitHub account.
-									</p>
-								</div>
-								<div className="p-8 pt-0">
-									<p className="text-sm font-medium text-zinc-800">Framework</p>
-									<Select>
-										<SelectTrigger className={"w-full mt-2"}>
-											<SelectValue placeholder="Select a framework" />
-										</SelectTrigger>
-										<SelectContent>
-											<SelectGroup>
-												<SelectLabel>GitHub</SelectLabel>
-												<SelectItem value="chris23lngr/neovim">
-													<span>chris23lngr/nvim</span>
-												</SelectItem>
-												<SelectItem value="neovim/neovim">
-													<span>neovim/neovim</span>
-												</SelectItem>
-											</SelectGroup>
-										</SelectContent>
-									</Select>
-									<p className="text-xs text-zinc-500 mt-2">
-										Can't find your repository? Make sure you have connected your GitHub account.
-									</p>
-								</div>
-							</div>
-							<div className="rounded-lg ring-1 ring-zinc-700/10 shadow-xl shadow-zinc-700/5 overflow-hidden mt-12">
-								<div className="p-8 border-b border-zinc-200 bg-zinc-50">
-									<p className="font-medium text-zinc-800">Source repository</p>
-									<p className="text-sm text-zinc-500 mt-1">
-										Configure the source repository to be used for documentation.
-									</p>
-								</div>
-								<div className="p-8">
-									<div className="flex items-center gap-2">
-										<Checkbox /> <Label>Same as source repository</Label>
-									</div>
-									<div className="mt-4 pl-6">
-										<Combobox
-											items={[
-												"chris23lngr/nvim",
-												"neovim/neovim",
-												"rust-lang/rust",
-												"typescript-lang/typescript",
-												"shadcn-ui/ui",
-											]}
-										>
-											<ComboboxInput />
-											<ComboboxContent>
-												<ComboboxEmpty>No repositories found.</ComboboxEmpty>
-												<ComboboxList>
-													{(item) => (
-														<ComboboxItem value={item} key={item}>
-															{item}
-														</ComboboxItem>
-													)}
-												</ComboboxList>
-											</ComboboxContent>
-										</Combobox>
-										<p className="text-xs text-zinc-500 mt-2">
-											Can't find your repository? Make sure you have connected your GitHub account.
-										</p>
-									</div>
-								</div>
-								<div className="p-8">
-									<p className="text-sm font-medium text-zinc-800">Framework</p>
-									<Select>
-										<SelectTrigger className={"w-full mt-2"}>
-											<SelectValue placeholder="Select a framework" />
-										</SelectTrigger>
-										<SelectContent>
-											<SelectGroup>
-												<SelectLabel>GitHub</SelectLabel>
-												<SelectItem value="chris23lngr/neovim">
-													<span>chris23lngr/nvim</span>
-												</SelectItem>
-												<SelectItem value="neovim/neovim">
-													<span>neovim/neovim</span>
-												</SelectItem>
-											</SelectGroup>
-										</SelectContent>
-									</Select>
-									<p className="text-xs text-zinc-500 mt-2">
-										Can't find your repository? Make sure you have connected your GitHub account.
-									</p>
-								</div>
-							</div>
-							<div className="mt-12 flex justify-end">
-								<Button>Create project</Button>
-							</div>
-						</div> */}
+						<HydrationBoundary state={dehydrate(client)}>
+							<Suspense fallback={<div>Loading...</div>}>
+								<CreateProjectForm className="col-span-2" organizationSlug={slug} />
+							</Suspense>
+						</HydrationBoundary>
 					</div>
 				</div>
 			</section>

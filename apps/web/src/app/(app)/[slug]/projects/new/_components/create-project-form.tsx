@@ -1,22 +1,65 @@
 "use client";
 
-import type { Repository } from "@/lib/api/schemas";
 import { cn } from "@/lib/utils";
+import { api } from "@/server/api";
+import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import { BookOpenIcon, GitBranchIcon } from "lucide-react";
+import { toast } from "sonner";
 import { CreateProjectFormPrimitive } from "./create-project-form-primitive";
 
 export function CreateProjectForm({
 	className,
-	repositories,
+	organizationSlug,
 	...props
 }: React.ComponentProps<"div"> & {
-	repositories: Repository[];
+	organizationSlug: string;
 }) {
+	const { options } = api("/project/organizations/:slugOrId/repositories", "GET");
+	const { data: result, isLoading } = useSuspenseQuery(
+		options({
+			params: { slugOrId: organizationSlug },
+			query: { page: 1, pageSize: 100 },
+		}),
+	);
+
+	const { $fetch } = api("/project", "POST");
+	const { mutate } = useMutation({
+		mutationFn: $fetch,
+		onError: (error) => {
+			toast.error("Failed to create project", {
+				description: error.message ?? "Unknown error occurred",
+			});
+		},
+		onSuccess: () => {
+			toast.success("Project created successfully");
+		},
+	});
+
+	if (isLoading) return <p>Loading...</p>;
+
+	if (!result?.data)
+		return (
+			<div>
+				<p>No repositories found.</p>
+				<p>Result</p>
+				<pre>{JSON.stringify(result, null, 2)}</pre>
+			</div>
+		);
+
 	return (
 		<div className={cn(className)} {...props}>
 			<CreateProjectFormPrimitive
-				repositories={repositories}
-				onSubmit={() => {}}
+				repositories={result.data}
+				onSubmit={({ sourceRepository, targetRepository }) => {
+					mutate({
+						body: {
+							name: "test project",
+							slugOrId: organizationSlug,
+							docsRepositoryId: targetRepository,
+							sourceRepositoryId: sourceRepository,
+						},
+					});
+				}}
 				render={({ Form, Source, Target, Complete }) => (
 					<Form className="space-y-8">
 						<div className="rounded-lg ">

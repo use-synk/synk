@@ -1,4 +1,4 @@
-import type { PaginatedResult } from "../models";
+import type { PaginatedResult, RepositoryListItem } from "../models";
 import type { Project } from "../models/project";
 
 export type CreateProjectInput = {
@@ -9,6 +9,14 @@ export type CreateProjectInput = {
 };
 
 export type ListProjectsQuery = {
+	organizationId: string;
+	pagination: {
+		page: number;
+		pageSize: number;
+	};
+};
+
+export type ListOrganizationRepositoriesQuery = {
 	organizationId: string;
 	pagination: {
 		page: number;
@@ -28,6 +36,9 @@ export type UpdateProjectCommand = {
 export interface ProjectRepository {
 	findProject(projectId: string): Promise<Project | null>;
 	listProjects(query: ListProjectsQuery): Promise<PaginatedResult<Project>>;
+	listOrganizationRepositories(
+		query: ListOrganizationRepositoriesQuery,
+	): Promise<PaginatedResult<RepositoryListItem>>;
 	createProject(project: CreateProjectInput): Promise<Project>;
 	updateProject(command: UpdateProjectCommand): Promise<Project>;
 	deleteProject(projectId: string): Promise<Project>;
