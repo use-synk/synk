@@ -76,7 +76,7 @@ type CreateProjectFormPrimitiveRender = (props: {
 type CreateProjectFormPrimitiveProps = {
 	repositories: Repository[];
 	render: CreateProjectFormPrimitiveRender;
-	onSubmit: (values: z.infer<typeof formSchema>) => void;
+	onSubmit: (values: z.infer<typeof formSchema> & { name: string }) => void;
 };
 
 const formSchema = z.object({
@@ -104,7 +104,12 @@ export function CreateProjectFormPrimitive({
 			onSubmit: formSchema,
 		},
 		onSubmit: ({ value }) => {
-			onSubmit(value);
+			// The name of the project is always set to the name of the repository where the docs are (target repo).
+			const targetRepoId = value.targetRepository;
+			const targetRepo = repositories.find((repo) => repo.id === targetRepoId);
+			const name = targetRepo ? targetRepo.fullName : "";
+
+			onSubmit({ ...value, name });
 		},
 	});
 

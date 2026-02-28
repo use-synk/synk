@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { api } from "@/server/api";
+import { getQueryClient } from "@/server/api/tanstack-query/make-query-client";
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import { BookOpenIcon, GitBranchIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -14,6 +15,7 @@ export function CreateProjectForm({
 }: React.ComponentProps<"div"> & {
 	organizationSlug: string;
 }) {
+	const client = getQueryClient();
 	const { options } = api("/organizations/:slugOrId/repositories", "GET");
 	const { data: result, isLoading } = useSuspenseQuery(
 		options({
@@ -32,6 +34,12 @@ export function CreateProjectForm({
 		},
 		onSuccess: () => {
 			toast.success("Project created successfully");
+			client.invalidateQueries({
+				queryKey: api("/organizations/:slugOrId/projects", "GET").keyFn({
+					params: { slugOrId: organizationSlug },
+					query: { page: 1, pageSize: 10 },
+				}),
+			});
 		},
 	});
 
@@ -50,10 +58,10 @@ export function CreateProjectForm({
 		<div className={cn(className)} {...props}>
 			<CreateProjectFormPrimitive
 				repositories={result.data}
-				onSubmit={({ sourceRepository, targetRepository }) => {
+				onSubmit={({ name, sourceRepository, targetRepository }) => {
 					mutate({
 						body: {
-							name: "test project",
+							name,
 							slugOrId: organizationSlug,
 							docsRepositoryId: targetRepository,
 							sourceRepositoryId: sourceRepository,
