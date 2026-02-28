@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Item, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
 import { useForm } from "@tanstack/react-form";
 import React from "react";
+import { toast } from "sonner";
 import z from "zod";
 
 const frameworks = [
@@ -107,9 +108,17 @@ export function CreateProjectFormPrimitive({
 			// The name of the project is always set to the name of the repository where the docs are (target repo).
 			const targetRepoId = value.targetRepository;
 			const targetRepo = repositories.find((repo) => repo.id === targetRepoId);
-			const name = targetRepo ? targetRepo.fullName : "";
 
-			onSubmit({ ...value, name });
+			if (!targetRepo?.fullName) {
+				toast.error("Unable to create project", {
+					description: "Couldn't find target repository name",
+				});
+				return;
+			}
+
+			const name = targetRepo.fullName;
+
+			if (name) onSubmit({ ...value, name });
 		},
 	});
 
