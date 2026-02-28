@@ -11,7 +11,7 @@ export type ProjectServiceDependencies = {
 
 export type CreateProjectInput = {
 	userId: string;
-	organizationId: string;
+	slugOrId: string;
 	name: string;
 	sourceRepositoryId: string;
 	docsRepositoryId: string;

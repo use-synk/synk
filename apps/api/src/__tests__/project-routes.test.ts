@@ -15,9 +15,24 @@ const ORGANIZATION_ID = "11111111-1111-4111-8111-111111111111";
 const ORGANIZATION_SLUG = "acme";
 const INSTALLATION_ID = "22222222-2222-4222-8222-222222222222";
 const REPOSITORY_ID = "33333333-3333-4333-8333-333333333333";
+const PROJECT_ID = "44444444-4444-4444-8444-444444444444";
+const SOURCE_REPOSITORY_ID = "55555555-5555-4555-8555-555555555555";
+const DOCS_REPOSITORY_ID = "66666666-6666-4666-8666-666666666666";
+const PROJECT_NAME = "my-project";
 const USER_ID = "user-1";
 const NOW = new Date("2026-02-19T20:00:00.000Z");
 const NOW_ISO = NOW.toISOString();
+
+const CREATED_PROJECT = {
+	id: PROJECT_ID,
+	name: PROJECT_NAME,
+	organizationId: ORGANIZATION_ID,
+	sourceRepositoryId: SOURCE_REPOSITORY_ID,
+	docsRepositoryId: DOCS_REPOSITORY_ID,
+	config: {},
+	createdAt: NOW,
+	updatedAt: NOW,
+};
 
 type SessionResult = {
 	user: { id: string };
@@ -323,5 +338,182 @@ describe("project routes — GET /organizations/:slugOrId/repositories", () => {
 		);
 
 		expect(response.status).toBe(404);
+	});
+});
+
+describe("project routes — POST /project", () => {
+	beforeEach(() => {
+		mock.restore();
+		getSessionMock.mockResolvedValue({
+			user: { id: USER_ID },
+			session: {
+				token: SESSION_TOKEN,
+				userId: USER_ID,
+				expiresAt: new Date("2099-01-01T00:00:00.000Z"),
+			},
+		});
+	});
+
+	const validBody = () => ({
+		name: PROJECT_NAME,
+		slugOrId: ORGANIZATION_ID,
+		sourceRepositoryId: SOURCE_REPOSITORY_ID,
+		docsRepositoryId: DOCS_REPOSITORY_ID,
+	});
+
+	it("returns 200 with the created project wrapped in a data envelope", async () => {
+		const projectService = createProjectServiceMock();
+		projectService.createProject.mockResolvedValueOnce(CREATED_PROJECT);
+		const app = createTestApp(projectService);
+
+		const response = await app.request("/api/v1/project", {
+			method: "POST",
+			headers: { ...authHeaders(), "Content-Type": "application/json" },
+			body: JSON.stringify(validBody()),
+		});
+
+		expect(response.status).toBe(200);
+		const body = (await response.json()) as {
+			data: {
+				id: string;
+				name: string;
+				organizationId: string;
+				sourceRepositoryId: string;
+				docsRepositoryId: string;
+			};
+		};
+		expect(body.data.id).toBe(PROJECT_ID);
+		expect(body.data.name).toBe(PROJECT_NAME);
+		expect(body.data.organizationId).toBe(ORGANIZATION_ID);
+		expect(body.data.sourceRepositoryId).toBe(SOURCE_REPOSITORY_ID);
+		expect(body.data.docsRepositoryId).toBe(DOCS_REPOSITORY_ID);
+	});
+
+	it("calls the service with userId from the authenticated session and all body fields", async () => {
+		const projectService = createProjectServiceMock();
+		projectService.createProject.mockResolvedValueOnce(CREATED_PROJECT);
+		const app = createTestApp(projectService);
+
+		await app.request("/api/v1/project", {
+			method: "POST",
+			headers: { ...authHeaders(), "Content-Type": "application/json" },
+			body: JSON.stringify(validBody()),
+		});
+
+		expect(projectService.createProject).toHaveBeenCalledWith({
+			userId: USER_ID,
+			name: PROJECT_NAME,
+			slugOrId: ORGANIZATION_ID,
+			sourceRepositoryId: SOURCE_REPOSITORY_ID,
+			docsRepositoryId: DOCS_REPOSITORY_ID,
+		});
+	});
+
+	it("passes a slug through to the service unchanged", async () => {
+		const projectService = createProjectServiceMock();
+		projectService.createProject.mockResolvedValueOnce(CREATED_PROJECT);
+		const app = createTestApp(projectService);
+
+		await app.request("/api/v1/project", {
+			method: "POST",
+			headers: { ...authHeaders(), "Content-Type": "application/json" },
+			body: JSON.stringify({ ...validBody(), slugOrId: ORGANIZATION_SLUG }),
+		});
+
+		expect(projectService.createProject).toHaveBeenCalledWith(
+			expect.objectContaining({ slugOrId: ORGANIZATION_SLUG }),
+		);
+	});
+
+	it("returns 404 when the service reports the organization was not found", async () => {
+		const projectService = createProjectServiceMock();
+		projectService.createProject.mockRejectedValueOnce(
+			new HTTPException(404, { message: "Organization not found" }),
+		);
+		const app = createTestApp(projectService);
+
+		const response = await app.request("/api/v1/project", {
+			method: "POST",
+			headers: { ...authHeaders(), "Content-Type": "application/json" },
+			body: JSON.stringify({ ...validBody(), slugOrId: "unknown-slug" }),
+		});
+
+		expect(response.status).toBe(404);
+	});
+
+	it("returns 400 when a required body field is missing", async () => {
+		const projectService = createProjectServiceMock();
+		const app = createTestApp(projectService);
+		const { name: _omitted, ...bodyWithoutName } = validBody();
+
+		const response = await app.request("/api/v1/project", {
+			method: "POST",
+			headers: { ...authHeaders(), "Content-Type": "application/json" },
+			body: JSON.stringify(bodyWithoutName),
+		});
+
+		expect(response.status).toBe(400);
+		expect(projectService.createProject).not.toHaveBeenCalled();
+	});
+
+	it("returns 400 when the request body is not valid JSON", async () => {
+		const projectService = createProjectServiceMock();
+		const app = createTestApp(projectService);
+
+		const response = await app.request("/api/v1/project", {
+			method: "POST",
+			headers: { ...authHeaders(), "Content-Type": "application/json" },
+			body: "not-json",
+		});
+
+		expect(response.status).toBe(400);
+		expect(projectService.createProject).not.toHaveBeenCalled();
+	});
+
+	it("returns 401 when the request has no authentication", async () => {
+		getSessionMock.mockResolvedValue(null);
+		const projectService = createProjectServiceMock();
+		const app = createTestApp(projectService);
+
+		const response = await app.request("/api/v1/project", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify(validBody()),
+		});
+
+		expect(response.status).toBe(401);
+		expect(projectService.createProject).not.toHaveBeenCalled();
+	});
+
+	it("returns 403 when the service throws an AccessDeniedError", async () => {
+		const projectService = createProjectServiceMock();
+		projectService.createProject.mockRejectedValueOnce(
+			new AccessDeniedError("You are not a member of this organization"),
+		);
+		const app = createTestApp(projectService);
+
+		const response = await app.request("/api/v1/project", {
+			method: "POST",
+			headers: { ...authHeaders(), "Content-Type": "application/json" },
+			body: JSON.stringify(validBody()),
+		});
+
+		expect(response.status).toBe(403);
+	});
+
+	it("returns 403 when the service throws a 403 HTTPException", async () => {
+		const projectService = createProjectServiceMock();
+		projectService.createProject.mockRejectedValueOnce(
+			new HTTPException(403, { message: "You are not a member of this organization" }),
+		);
+		const app = createTestApp(projectService);
+
+		const response = await app.request("/api/v1/project", {
+			method: "POST",
+			headers: { ...authHeaders(), "Content-Type": "application/json" },
+			body: JSON.stringify(validBody()),
+		});
+
+		expect(response.status).toBe(403);
 	});
 });

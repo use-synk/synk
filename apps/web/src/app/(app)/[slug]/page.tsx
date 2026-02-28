@@ -21,7 +21,7 @@ export default async function Page(props: PageProps<"/[slug]">): Promise<React.R
 	);
 
 	if (!setupStatus.hasInstallations || !setupStatus.hasRepositories || !setupStatus.hasProjects) {
-		return <OrganizationSetup setupStatus={setupStatus} />;
+		return <OrganizationSetup setupStatus={setupStatus} organizationSlug={slug} />;
 	}
 
 	return (

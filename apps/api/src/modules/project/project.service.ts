@@ -16,15 +16,27 @@ import { isUuid } from "../../domain/utils";
 export class ProjectService implements ProjectServiceContract {
 	constructor(private readonly deps: ProjectServiceDependencies) {}
 
-	createProject(input: CreateProjectInput) {
-		this.deps.authorizationRepository.assertOrganizationMembership({
-			organizationId: input.organizationId,
+	async createProject(input: CreateProjectInput) {
+		let organizationId = input.slugOrId;
+
+		if (!isUuid(input.slugOrId)) {
+			const org = await this.deps.organizationRepository.findOrganizationBySlug(input.slugOrId);
+
+			if (!org) {
+				throw new HTTPException(404, { message: "Organization not found" });
+			}
+
+			organizationId = org.id;
+		}
+
+		await this.deps.authorizationRepository.assertOrganizationMembership({
+			organizationId,
 			userId: input.userId,
 		});
 
 		return this.deps.projectRepository.createProject({
 			name: input.name,
-			organizationId: input.organizationId,
+			organizationId,
 			sourceRepositoryId: input.sourceRepositoryId,
 			docsRepositoryId: input.docsRepositoryId,
 		});

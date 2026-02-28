@@ -37,7 +37,7 @@ export function createProjectRoutes({
 
 		const result = await projectService.createProject({
 			userId,
-			organizationId: bodyResult.data.organizationId,
+			slugOrId: bodyResult.data.slugOrId,
 			name: bodyResult.data.name,
 			sourceRepositoryId: bodyResult.data.sourceRepositoryId,
 			docsRepositoryId: bodyResult.data.docsRepositoryId,
