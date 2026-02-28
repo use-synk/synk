@@ -82,6 +82,71 @@ const createDependencies = (): ProjectServiceDependencies => {
 	return { authorizationRepository, organizationRepository, projectRepository };
 };
 
+describe("ProjectService.listProjects", () => {
+	it("uses the UUID directly without resolving an org slug", async () => {
+		const deps = createDependencies();
+		const service = new ProjectService(deps);
+
+		await service.listProjects({
+			userId: USER_ID,
+			slugOrId: ORGANIZATION_ID,
+			pagination: { page: 1, pageSize: 10 },
+		});
+
+		expect(deps.organizationRepository.findOrganizationBySlug).not.toHaveBeenCalled();
+	});
+
+	it("resolves an org slug to an organization ID before querying projects", async () => {
+		const deps = createDependencies();
+		const service = new ProjectService(deps);
+
+		await service.listProjects({
+			userId: USER_ID,
+			slugOrId: ORGANIZATION_SLUG,
+			pagination: { page: 1, pageSize: 10 },
+		});
+
+		expect(deps.organizationRepository.findOrganizationBySlug).toHaveBeenCalledWith(
+			ORGANIZATION_SLUG,
+		);
+		expect(deps.projectRepository.listProjects).toHaveBeenCalledWith(
+			expect.objectContaining({ organizationId: ORGANIZATION_ID }),
+		);
+	});
+
+	it("asserts organization membership using the resolved organization ID", async () => {
+		const deps = createDependencies();
+		const service = new ProjectService(deps);
+
+		await service.listProjects({
+			userId: USER_ID,
+			slugOrId: ORGANIZATION_SLUG,
+			pagination: { page: 1, pageSize: 10 },
+		});
+
+		expect(deps.authorizationRepository.assertOrganizationMembership).toHaveBeenCalledWith({
+			organizationId: ORGANIZATION_ID,
+			userId: USER_ID,
+		});
+	});
+
+	it("throws 404 when the slug does not resolve to an organization", async () => {
+		const deps = createDependencies();
+		deps.organizationRepository.findOrganizationBySlug = mock(async () => null);
+		const service = new ProjectService(deps);
+
+		await expect(
+			service.listProjects({
+				userId: USER_ID,
+				slugOrId: "unknown-slug",
+				pagination: { page: 1, pageSize: 10 },
+			}),
+		).rejects.toBeInstanceOf(OrganizationNotFoundError);
+
+		expect(deps.projectRepository.listProjects).not.toHaveBeenCalled();
+	});
+});
+
 describe("ProjectService.listOrganizationRepositories", () => {
 	it("uses the UUID directly without resolving an org slug", async () => {
 		const deps = createDependencies();

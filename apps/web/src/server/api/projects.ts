@@ -36,11 +36,11 @@ export const projectRoutes = {
 			key: () => ["projects", "create"],
 		}),
 	},
-	"/organizations/:organizationId/projects": {
+	"/organizations/:slugOrId/projects": {
 		GET: defineEndpoint({
 			method: "GET",
 			params: z.object({
-				organizationId: z.string(),
+				slugOrId: z.string(),
 			}),
 			query: z.object({
 				page: z.number(),
@@ -63,7 +63,7 @@ export const projectRoutes = {
 			}),
 			key: ({ params, query }) => [
 				"projects",
-				params.organizationId,
+				params.slugOrId,
 				`${query.page}`,
 				`${query.pageSize}`,
 			],

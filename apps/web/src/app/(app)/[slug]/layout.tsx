@@ -1,5 +1,5 @@
-import { AppSidebar } from "@/components/app-sidebar";
 import { FlashErrorToast } from "@/components/flash-error-toast";
+import { AppSidebar } from "@/components/sidebar/app-sidebar";
 import { SiteNav } from "@/components/site-nav";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { SidebarProvider } from "@/components/ui/sidebar";

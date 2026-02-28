@@ -52,7 +52,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/organizations/{organizationId}/projects": {
+    "/api/v1/organizations/{slugOrId}/projects": {
         parameters: {
             query?: never;
             header?: never;
@@ -352,7 +352,7 @@ export interface operations {
             };
             header?: never;
             path: {
-                organizationId: string;
+                slugOrId: string;
             };
             cookie?: never;
         };

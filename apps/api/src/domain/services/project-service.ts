@@ -19,7 +19,7 @@ export type CreateProjectInput = {
 
 export type ListProjectsInput = {
 	userId: string;
-	organizationId: string;
+	slugOrId: string;
 	pagination: Pagination;
 };
 
