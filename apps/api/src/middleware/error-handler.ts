@@ -3,6 +3,7 @@ import type { ErrorHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { AccessDeniedError } from "../domain/errors/access-denied-error";
 import { InstallationStateError } from "../domain/errors/installation-state-error";
+import { OrganizationNotFoundError } from "../domain/errors/organization-not-found-error";
 import type { Logger } from "../logger";
 import type { AppEnv } from "../types";
 
@@ -41,6 +42,13 @@ export const createErrorHandler =
 			return c.json<ErrorResponse>(
 				{ error: { code: toErrorCode(422), message: err.message } },
 				422,
+			);
+		}
+		if (err instanceof OrganizationNotFoundError) {
+			logger.warn({ status: 404 }, err.message);
+			return c.json<ErrorResponse>(
+				{ error: { code: toErrorCode(404), message: err.message } },
+				404,
 			);
 		}
 

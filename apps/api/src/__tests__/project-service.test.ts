@@ -1,5 +1,6 @@
 import { describe, expect, it, mock } from "bun:test";
 import { HTTPException } from "hono/http-exception";
+import { OrganizationNotFoundError } from "../domain/errors";
 import type { ProjectServiceDependencies } from "../domain/services/project-service";
 import { ProjectService } from "../modules/project/project.service";
 
@@ -156,7 +157,7 @@ describe("ProjectService.listOrganizationRepositories", () => {
 				slugOrId: "unknown-slug",
 				pagination: { page: 1, pageSize: 10 },
 			}),
-		).rejects.toMatchObject({ status: 404 } satisfies Pick<HTTPException, "status">);
+		).rejects.toBeInstanceOf(OrganizationNotFoundError);
 
 		expect(deps.projectRepository.listOrganizationRepositories).not.toHaveBeenCalled();
 	});
@@ -301,7 +302,7 @@ describe("ProjectService.createProject", () => {
 				sourceRepositoryId: SOURCE_REPOSITORY_ID,
 				docsRepositoryId: DOCS_REPOSITORY_ID,
 			}),
-		).rejects.toMatchObject({ status: 404 } satisfies Pick<HTTPException, "status">);
+		).rejects.toBeInstanceOf(OrganizationNotFoundError);
 
 		expect(deps.projectRepository.createProject).not.toHaveBeenCalled();
 	});
