@@ -111,6 +111,13 @@
         "typescript": "5.9.2",
       },
     },
+    "packages/api-client": {
+      "name": "@synk-ai/api-client",
+      "version": "0.0.0",
+      "devDependencies": {
+        "typescript": "5.9.2",
+      },
+    },
     "packages/auth": {
       "name": "@synk-ai/auth",
       "version": "0.0.0",
@@ -632,6 +639,8 @@
     "@synk-ai/ai": ["@synk-ai/ai@workspace:packages/ai"],
 
     "@synk-ai/api": ["@synk-ai/api@workspace:apps/api"],
+
+    "@synk-ai/api-client": ["@synk-ai/api-client@workspace:packages/api-client"],
 
     "@synk-ai/auth": ["@synk-ai/auth@workspace:packages/auth"],
 
