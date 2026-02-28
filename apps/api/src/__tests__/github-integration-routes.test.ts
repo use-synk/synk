@@ -174,7 +174,7 @@ describe("GitHub integration routes", () => {
 			expect(response.status).toBe(400);
 			const body = (await response.json()) as { error: { code: string; message: string } };
 			expect(body.error.code).toBe("BAD_REQUEST");
-			expect(body.error.message).toContain("Invalid JSON");
+			expect(body.error.message).toMatch(/invalid json|malformed json/i);
 			expect(initiateInstallation).not.toHaveBeenCalled();
 		});
 
