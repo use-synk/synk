@@ -1,26 +1,26 @@
 import { db } from "@synk-ai/db";
 import {
 	ANALYZE_CHANGES_COALESCE_WINDOW_MS,
+	type AnalyzeChangesJobPayload,
+	type PendingAnalyzeChangesPayload,
 	buildAnalyzeChangesActiveJobId,
 	buildAnalyzeChangesPendingPayloadKey,
 	calculateCoalesceDelayMs,
 	getRepositoryActiveJob,
 	isAlreadyExistingJobError,
 	parsePendingPayloadRecord,
-	type PendingAnalyzeChangesPayload,
-	type AnalyzeChangesJobPayload,
 } from "@synk-ai/shared";
-import { UnrecoverableError, type Job, type JobsOptions } from "bullmq";
+import { type Job, type JobsOptions, UnrecoverableError } from "bullmq";
 import { parseWorkerEnvironment } from "./env";
 import { processAnalyzeChangesJob } from "./jobs/analyze-changes";
 import { createLogger } from "./logger";
 import {
+	type AnalyzeChangesDlqPayload,
+	createAnalyzeChangesDlqQueue,
 	createAnalyzeChangesQueue,
 	createAnalyzeChangesQueueEvents,
-	createAnalyzeChangesDlqQueue,
 	createAnalyzeChangesWorker,
 	createRedisConnectionOptions,
-	type AnalyzeChangesDlqPayload,
 } from "./queue";
 
 const SHUTDOWN_TIMEOUT_MS = 30_000;
@@ -144,12 +144,9 @@ const enqueuePendingPayloadForRepository = async (
 	}
 };
 
-const isJobPermanentlyFailed = (
-	job: Job<AnalyzeChangesJobPayload>,
-	error: Error,
-): boolean => {
+const isJobPermanentlyFailed = (job: Job<AnalyzeChangesJobPayload>, error: Error): boolean => {
 	const maxAttempts = job.opts.attempts ?? 1;
-	return (job.attemptsMade >= maxAttempts) || (error instanceof UnrecoverableError);
+	return job.attemptsMade >= maxAttempts || error instanceof UnrecoverableError;
 };
 
 const moveToDlq = async (

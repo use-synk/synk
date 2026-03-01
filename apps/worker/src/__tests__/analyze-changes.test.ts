@@ -1,6 +1,6 @@
-import { UnrecoverableError, type Job } from "bullmq";
-import type { Logger } from "pino";
 import { beforeEach, describe, expect, it, mock } from "bun:test";
+import { type Job, UnrecoverableError } from "bullmq";
+import type { Logger } from "pino";
 
 // ---------------------------------------------------------------------------
 // Module mocks — mock.module is hoisted by Bun's bundler. Variables declared
@@ -861,9 +861,9 @@ describe("processAnalyzeChangesJob", () => {
 			.mockReturnValueOnce([{ filename: "src/index.ts" }]);
 		mockFetchRepoTree.mockRejectedValue(notFoundApiError);
 
-		await expect(
-			processAnalyzeChangesJob(makeJob(), makeLogger()),
-		).rejects.toThrow(UnrecoverableError);
+		await expect(processAnalyzeChangesJob(makeJob(), makeLogger())).rejects.toThrow(
+			UnrecoverableError,
+		);
 
 		// Run should still be recorded as failed
 		expect(mockUpdateAnalysisRun).toHaveBeenCalledWith(

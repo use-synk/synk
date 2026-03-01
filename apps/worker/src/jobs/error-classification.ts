@@ -41,10 +41,7 @@ export const classifyError = (error: unknown): JobErrorClassification => {
 		) {
 			return "retryable";
 		}
-		if (
-			status >= HTTP_CLIENT_ERROR_MIN &&
-			status <= HTTP_CLIENT_ERROR_MAX
-		) {
+		if (status >= HTTP_CLIENT_ERROR_MIN && status <= HTTP_CLIENT_ERROR_MAX) {
 			return "non-retryable";
 		}
 	}

@@ -127,8 +127,7 @@ const parseMetaJson = (content: string): FumadocsMeta | null => {
 	return null;
 };
 
-const isSeparator = (entry: string): boolean =>
-	entry.startsWith("---") && entry.endsWith("---");
+const isSeparator = (entry: string): boolean => entry.startsWith("---") && entry.endsWith("---");
 
 const isRestEntry = (entry: string): boolean => entry.startsWith("...");
 

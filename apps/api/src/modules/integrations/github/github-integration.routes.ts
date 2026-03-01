@@ -1,7 +1,7 @@
-import { ERROR_CODES } from "@synk-ai/shared";
-import { createRoute, OpenAPIHono, z as openApiZ } from "@hono/zod-openapi";
-import z from "zod";
+import { OpenAPIHono, createRoute, z as openApiZ } from "@hono/zod-openapi";
 import type { Hook } from "@hono/zod-openapi";
+import { ERROR_CODES } from "@synk-ai/shared";
+import z from "zod";
 import { AccessDeniedError } from "../../../domain/errors/access-denied-error";
 import { InstallationStateError } from "../../../domain/errors/installation-state-error";
 import type { GitHubIntegrationServiceContract } from "../../../domain/services/github-integration-service";
@@ -18,7 +18,7 @@ export type GitHubIntegrationRouteOptions = RouteContext & {
 	logger: Logger;
 };
 
-const githubIntegrationValidationHook: Hook<unknown, AppEnv, string, Response | void> = (
+const githubIntegrationValidationHook: Hook<unknown, AppEnv, string, Response | undefined> = (
 	result,
 	ctx,
 ) => {
@@ -159,10 +159,7 @@ export function createGitHubIntegrationRoutes(
 					);
 				}
 				if (error instanceof AccessDeniedError) {
-					return ctx.json(
-						{ error: { code: ERROR_CODES.FORBIDDEN, message: error.message } },
-						403,
-					);
+					return ctx.json({ error: { code: ERROR_CODES.FORBIDDEN, message: error.message } }, 403);
 				}
 				logger.error({ err: error }, "unhandled error in github install callback");
 				return ctx.json(

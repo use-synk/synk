@@ -1,4 +1,4 @@
-import { db, Prisma } from "@synk-ai/db";
+import { type Prisma, db } from "@synk-ai/db";
 import {
 	type DocAdapter,
 	type DocFile,
@@ -9,8 +9,8 @@ import {
 } from "@synk-ai/doc-adapters";
 import {
 	type DiffFile,
-	createDocUpdatePR,
 	type RepoTreeFile,
+	createDocUpdatePR,
 	createInstallationOctokit,
 	credentialsFromEnvironment,
 	fetchFileContent,
@@ -41,7 +41,8 @@ type RepositoryWithInstallation = {
 	provider: "github" | "gitlab" | "bitbucket";
 	fullName: string;
 	defaultBranch: string;
-	docsConfig: unknown;
+	projectId: string;
+	projectConfig: unknown;
 	installation: {
 		id: string;
 		provider: "github" | "gitlab" | "bitbucket";
@@ -330,8 +331,10 @@ const mergePrConfig = (
 	dbConfig: Partial<PullRequestConfig> | null,
 ): PullRequestConfig => ({
 	labels: fileConfig?.labels ?? dbConfig?.labels ?? [...DEFAULT_PULL_REQUEST_CONFIG.labels],
-	assignees: fileConfig?.assignees ?? dbConfig?.assignees ?? [...DEFAULT_PULL_REQUEST_CONFIG.assignees],
-	reviewers: fileConfig?.reviewers ?? dbConfig?.reviewers ?? [...DEFAULT_PULL_REQUEST_CONFIG.reviewers],
+	assignees: fileConfig?.assignees ??
+		dbConfig?.assignees ?? [...DEFAULT_PULL_REQUEST_CONFIG.assignees],
+	reviewers: fileConfig?.reviewers ??
+		dbConfig?.reviewers ?? [...DEFAULT_PULL_REQUEST_CONFIG.reviewers],
 	draft: fileConfig?.draft ?? dbConfig?.draft ?? DEFAULT_PULL_REQUEST_CONFIG.draft,
 });
 
@@ -423,9 +426,10 @@ const resolveDocsConfig = (
 	repository: RepositoryWithInstallation,
 	synkAiFileConfig: ParsedSynkAiConfig | null,
 ): ResolvedDocsConfig => {
-	const fromFile = synkAiFileConfig === null ? null : resolveDocsConfigFromParsedFile(synkAiFileConfig);
+	const fromFile =
+		synkAiFileConfig === null ? null : resolveDocsConfigFromParsedFile(synkAiFileConfig);
 
-	const fromDatabase = parseDocsConfigFromObject(repository.docsConfig);
+	const fromDatabase = parseDocsConfigFromObject(repository.projectConfig);
 
 	// Config merging: file config > database config > auto-detected defaults
 	return mergeResolvedConfig(
@@ -448,7 +452,7 @@ const resolvePrConfig = (
 					draft: synkAiFileConfig.pr.draft,
 				};
 
-	const fromDatabase = parsePrConfigFromObject(repository.docsConfig);
+	const fromDatabase = parsePrConfigFromObject(repository.projectConfig);
 	return mergePrConfig(fromFile, fromDatabase);
 };
 
@@ -595,7 +599,7 @@ const collectDocFiles = async (
 };
 
 const storeResolvedDocsConfig = async (
-	repositoryId: string,
+	projectId: string,
 	docsConfig: DocsConfig,
 	ignorePaths: string[],
 	previousConfig: unknown,
@@ -621,9 +625,9 @@ const storeResolvedDocsConfig = async (
 			ignore_paths: ignorePaths,
 		},
 	};
-	await db.providerRepository.update({
-		where: { id: repositoryId },
-		data: { docsConfig: configJson as unknown as Prisma.InputJsonValue },
+	await db.project.update({
+		where: { id: projectId },
+		data: { config: configJson as unknown as Prisma.InputJsonValue },
 	});
 };
 
@@ -727,7 +731,6 @@ const loadRepository = async (
 			provider: true,
 			fullName: true,
 			defaultBranch: true,
-			docsConfig: true,
 			installation: {
 				select: {
 					id: true,
@@ -747,9 +750,7 @@ const loadRepository = async (
 	}
 	if (repository.provider !== PROVIDER_GITHUB) {
 		// Unsupported provider is a configuration error that will not resolve on retry.
-		throw new UnrecoverableError(
-			`Unsupported repository provider '${repository.provider}'.`,
-		);
+		throw new UnrecoverableError(`Unsupported repository provider '${repository.provider}'.`);
 	}
 	if (repository.installation.id !== payload.installationId) {
 		// Mismatched installation ID means the job payload is stale or invalid.
@@ -762,13 +763,32 @@ const loadRepository = async (
 			`Repository installation is not active (status: ${repository.installation.status}).`,
 		);
 	}
-	return repository;
+	const project = await db.project.findFirst({
+		where: {
+			OR: [
+				{ sourceRepositoryId: payload.repositoryId },
+				{ docsRepositoryId: payload.repositoryId },
+			],
+		},
+		select: {
+			id: true,
+			config: true,
+		},
+	});
+	if (project === null) {
+		throw new UnrecoverableError(`No project is linked to repository '${payload.repositoryId}'.`);
+	}
+	return {
+		...repository,
+		projectId: project.id,
+		projectConfig: project.config,
+	};
 };
 
 /**
  * Creates the analysis run record on the first attempt, or updates the existing
  * record on subsequent retry attempts. The unique constraint on
- * (repositoryId, triggerCommitSha, triggerType) guarantees exactly one run
+ * (projectId, repositoryId, triggerCommitSha, triggerType) guarantees exactly one run
  * per commit event, updated in-place across retries.
  */
 const upsertInitialRun = async (
@@ -783,13 +803,15 @@ const upsertInitialRun = async (
 	};
 	const run = await db.analysisRun.upsert({
 		where: {
-			repositoryId_triggerCommitSha_triggerType: {
+			projectId_repositoryId_triggerCommitSha_triggerType: {
+				projectId: repository.projectId,
 				repositoryId: repository.id,
 				triggerCommitSha: job.data.trigger.commitSha,
 				triggerType: job.data.trigger.type,
 			},
 		},
 		create: {
+			projectId: repository.projectId,
 			repositoryId: repository.id,
 			provider: repository.provider,
 			triggerType: job.data.trigger.type,
@@ -902,12 +924,10 @@ export const processAnalyzeChangesJob = async (
 			return;
 		}
 
-		const { value: synkAiFileConfig, durationMs: loadSynkAiFileConfigDurationMs } = await measureStep(
-			jobLogger,
-			runId,
-			"load-synk-ai-config",
-			async () => readSynkAiConfigFromFile(octokit, context),
-		);
+		const { value: synkAiFileConfig, durationMs: loadSynkAiFileConfigDurationMs } =
+			await measureStep(jobLogger, runId, "load-synk-ai-config", async () =>
+				readSynkAiConfigFromFile(octokit, context),
+			);
 		timings.loadSynkAiConfig = loadSynkAiFileConfigDurationMs;
 		const { value: resolvedConfig, durationMs: resolveConfigDurationMs } = await measureStep(
 			jobLogger,
@@ -960,10 +980,10 @@ export const processAnalyzeChangesJob = async (
 		});
 
 		await storeResolvedDocsConfig(
-			repository.id,
+			repository.projectId,
 			docsConfig,
 			resolvedConfig.ignorePaths,
-			repository.docsConfig,
+			repository.projectConfig,
 		);
 
 		// Re-use the tree fetched during auto-detection when the docs repository

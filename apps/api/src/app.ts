@@ -71,23 +71,35 @@ export const createApp = (options: AppOptions): OpenAPIHono<AppEnv> => {
 
 	app.route("/health", createHealthRoutes(routeCtx));
 	app.route(`${API_PREFIX}/auth`, createAuthRoutes(authService));
-	app.route(`${API_PREFIX}/projects`, createProjectsRoutes({
-		...routeCtx,
-		projectService: dependencies.projectService,
-	}));
-	app.route(`${API_PREFIX}/organizations`, createOrganizationsRoutes({
-		...routeCtx,
-		dashboardService: dependencies.dashboardService,
-		projectService: dependencies.projectService,
-	}));
-	app.route(`${API_PREFIX}/repositories`, createRepositoriesRoutes({
-		...routeCtx,
-		dashboardService: dependencies.dashboardService,
-	}));
-	app.route(`${API_PREFIX}/runs`, createRunsRoutes({
-		...routeCtx,
-		dashboardService: dependencies.dashboardService,
-	}));
+	app.route(
+		`${API_PREFIX}/projects`,
+		createProjectsRoutes({
+			...routeCtx,
+			projectService: dependencies.projectService,
+		}),
+	);
+	app.route(
+		`${API_PREFIX}/organizations`,
+		createOrganizationsRoutes({
+			...routeCtx,
+			dashboardService: dependencies.dashboardService,
+			projectService: dependencies.projectService,
+		}),
+	);
+	app.route(
+		`${API_PREFIX}/repositories`,
+		createRepositoriesRoutes({
+			...routeCtx,
+			dashboardService: dependencies.dashboardService,
+		}),
+	);
+	app.route(
+		`${API_PREFIX}/runs`,
+		createRunsRoutes({
+			...routeCtx,
+			dashboardService: dependencies.dashboardService,
+		}),
+	);
 
 	// integrations
 	app.route(

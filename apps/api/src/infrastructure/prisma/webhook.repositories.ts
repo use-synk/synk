@@ -1,8 +1,5 @@
 import { db } from "@synk-ai/db";
-import type {
-	WebhookEventLogRepository,
-	WebhookRepository,
-} from "../../domain/ports/index";
+import type { WebhookEventLogRepository, WebhookRepository } from "../../domain/ports/index";
 
 const createPrismaWebhookRepository = (): WebhookRepository => ({
 	findInstallation: async ({ provider, providerInstallationId }) =>

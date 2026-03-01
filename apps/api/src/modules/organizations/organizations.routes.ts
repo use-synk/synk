@@ -1,4 +1,4 @@
-import { createRoute, OpenAPIHono, z as openApiZ } from "@hono/zod-openapi";
+import { OpenAPIHono, createRoute, z as openApiZ } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
 import z from "zod";
 import type { DashboardServiceContract } from "../../domain/services";

@@ -1,6 +1,6 @@
-import type { RepositoryPayload } from "./github.schemas";
 import type { WebhookRepository } from "../../../domain/ports/index";
 import { PROVIDER_GITHUB, REPOSITORY_ACTIVE } from "./constants";
+import type { RepositoryPayload } from "./github.schemas";
 import type { GitHubInstallationRepository, ListInstallationRepositories } from "./types";
 
 export type PersistableRepository = {

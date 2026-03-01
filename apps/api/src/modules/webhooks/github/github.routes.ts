@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
+import { OpenAPIHono, createRoute, z } from "@hono/zod-openapi";
 import type { AppEnv } from "../../../types";
 import { GitHubWebhookService, type GitHubWebhookServiceOptions } from "./github.service";
 
@@ -96,10 +96,7 @@ export function createGitHubWebhookRoutes(options: GitHubWebhookRouteOptions): O
 				status: "failed",
 				error: "Invalid JSON payload",
 			});
-			return ctx.json(
-				{ error: { code: "BAD_REQUEST", message: "Invalid JSON payload" } },
-				400,
-			);
+			return ctx.json({ error: { code: "BAD_REQUEST", message: "Invalid JSON payload" } }, 400);
 		}
 
 		try {
@@ -132,9 +129,7 @@ export function createGitHubWebhookRoutes(options: GitHubWebhookRouteOptions): O
 const parseJsonPayload = (rawBody: string): Record<string, unknown> | null => {
 	try {
 		const parsed = JSON.parse(rawBody);
-		return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
-			? parsed
-			: null;
+		return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed) ? parsed : null;
 	} catch {
 		return null;
 	}

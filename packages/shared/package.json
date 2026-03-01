@@ -3,10 +3,7 @@
 	"version": "0.0.0",
 	"private": true,
 	"type": "module",
-	"files": [
-		"dist",
-		"src"
-	],
+	"files": ["dist", "src"],
 	"exports": {
 		".": {
 			"types": "./src/index.ts",

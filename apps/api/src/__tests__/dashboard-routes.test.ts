@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, mock } from "bun:test";
-import { HTTPException } from "hono/http-exception";
 import { createMockDb } from "@synk-ai/test-utils";
+import { HTTPException } from "hono/http-exception";
 import type { AppDependencies } from "../composition/dependencies";
 import { AccessDeniedError } from "../domain/errors/access-denied-error";
 import type { DashboardServiceContract } from "../domain/services/index";
@@ -45,17 +45,19 @@ mock.module("../modules/auth/auth.service.js", () => ({
 const { createApp } = await import("../app");
 
 const createDashboardServiceMock = () => {
-	const patchRepository = mock(async (input: Parameters<DashboardServiceContract["patchRepository"]>[0]) => ({
-		id: input.repositoryId,
-		installationId: INSTALLATION_ID,
-		fullName: "acme/docs",
-		defaultBranch: "main",
-		status: "active",
-		isActive: input.isActive ?? true,
-		docsConfig: { docs: { path: "docs" } },
-		createdAt: NOW,
-		updatedAt: NOW,
-	}));
+	const patchRepository = mock(
+		async (input: Parameters<DashboardServiceContract["patchRepository"]>[0]) => ({
+			id: input.repositoryId,
+			installationId: INSTALLATION_ID,
+			fullName: "acme/docs",
+			defaultBranch: "main",
+			status: "active",
+			isActive: input.isActive ?? true,
+			docsConfig: { docs: { path: "docs" } },
+			createdAt: NOW,
+			updatedAt: NOW,
+		}),
+	);
 
 	const listInstallationRepositories = mock(async () => ({
 		items: [
@@ -92,13 +94,15 @@ const createDashboardServiceMock = () => {
 		total: 1,
 	}));
 
-	const triggerManualRun = mock(async (input: Parameters<DashboardServiceContract["triggerManualRun"]>[0]) => ({
-		repositoryId: input.repositoryId,
-		triggerType: "manual",
-		triggerRef: input.ref ?? "refs/heads/main",
-		triggerCommitSha: input.commitSha,
-		accepted: true,
-	}));
+	const triggerManualRun = mock(
+		async (input: Parameters<DashboardServiceContract["triggerManualRun"]>[0]) => ({
+			repositoryId: input.repositoryId,
+			triggerType: "manual",
+			triggerRef: input.ref ?? "refs/heads/main",
+			triggerCommitSha: input.commitSha,
+			accepted: true,
+		}),
+	);
 
 	const getRunDetail = mock(async () => ({
 		id: RUN_ID,
@@ -195,10 +199,9 @@ describe("dashboard routes", () => {
 		const dashboardService = createDashboardServiceMock();
 		const app = createTestApp(dashboardService);
 
-		const response = await app.request(
-			`/api/v1/repositories/installations/${INSTALLATION_ID}`,
-			{ headers: authHeaders() },
-		);
+		const response = await app.request(`/api/v1/repositories/installations/${INSTALLATION_ID}`, {
+			headers: authHeaders(),
+		});
 
 		expect(response.status).toBe(200);
 		const body = (await response.json()) as {

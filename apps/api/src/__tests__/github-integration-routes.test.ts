@@ -355,7 +355,9 @@ describe("GitHub integration routes", () => {
 
 			expect(response.status).toBe(422);
 			const body = (await response.json()) as { error: { code: string; message: string } };
-			expect(body).toEqual({ error: { code: "UNPROCESSABLE_ENTITY", message: expect.any(String) } });
+			expect(body).toEqual({
+				error: { code: "UNPROCESSABLE_ENTITY", message: expect.any(String) },
+			});
 			expect(completeInstallation).toHaveBeenCalledWith({
 				token: "bad-token",
 				installationId: 12345,

@@ -1,9 +1,9 @@
+import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { createHmac } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { type MockDb, createMockDb } from "@synk-ai/test-utils";
 import { HTTPException } from "hono/http-exception";
-import { beforeEach, describe, expect, it, mock } from "bun:test";
-import { createMockDb, type MockDb } from "@synk-ai/test-utils";
 
 const mockDb: MockDb = createMockDb();
 
@@ -18,11 +18,11 @@ mock.module("../modules/auth/auth.service.js", () => ({
 const { createApp } = await import("../app");
 import type { AppDependencies } from "../composition/dependencies";
 import { createLogger } from "../logger";
-import type { AnalyzeChangesEnqueuer } from "../queues/analyze-changes";
 import type {
 	GitHubInstallationRepository,
 	ListInstallationRepositories,
 } from "../modules/webhooks/github/index";
+import type { AnalyzeChangesEnqueuer } from "../queues/analyze-changes";
 
 const WEBHOOK_SECRET = "test-webhook-secret";
 
@@ -504,8 +504,7 @@ describe("POST /api/v1/webhooks/github", () => {
 		await expect(response.json()).resolves.toEqual({
 			status: {
 				ok: false,
-				message:
-					"Missing repository details for installation_repositories.added: 67890",
+				message: "Missing repository details for installation_repositories.added: 67890",
 			},
 		});
 	});

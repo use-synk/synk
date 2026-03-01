@@ -34,12 +34,9 @@ describe("classifyError — retryable HTTP errors", () => {
 		expect(classifyError(makeHttpError(429))).toBe("retryable");
 	});
 
-	it.each([500, 502, 503, 504, 599])(
-		"classifies HTTP %i (server error) as retryable",
-		(status) => {
-			expect(classifyError(makeHttpError(status))).toBe("retryable");
-		},
-	);
+	it.each([500, 502, 503, 504, 599])("classifies HTTP %i (server error) as retryable", (status) => {
+		expect(classifyError(makeHttpError(status))).toBe("retryable");
+	});
 });
 
 // ---------------------------------------------------------------------------

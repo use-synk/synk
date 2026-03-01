@@ -84,7 +84,10 @@ const generateOpenApi = async (): Promise<void> => {
 		`${API_PREFIX}/repositories`,
 		createRepositoriesRoutes({ ...routeCtx, dashboardService: dependencies.dashboardService }),
 	);
-	app.route(`${API_PREFIX}/runs`, createRunsRoutes({ ...routeCtx, dashboardService: dependencies.dashboardService }));
+	app.route(
+		`${API_PREFIX}/runs`,
+		createRunsRoutes({ ...routeCtx, dashboardService: dependencies.dashboardService }),
+	);
 	app.route(
 		`${API_PREFIX}/integrations/github`,
 		createGitHubIntegrationRoutes({
