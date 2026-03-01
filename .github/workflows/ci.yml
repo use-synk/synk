@@ -56,9 +56,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Run lint
-        # @synk-ai/api includes generated OpenAPI artifacts whose canonical
-        # formatting currently differs from Biome's formatter output.
-        run: bun run lint -- --filter=!@synk-ai/api
+        run: bun run lint
 
   typecheck:
     name: Typecheck
@@ -93,12 +91,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Run typecheck
-        # @synk-ai/api currently has known strict-mode typing regressions unrelated
-        # to this CI pipeline change. Keep typechecking enabled for the rest of the
-        # workspace until API typing is stabilized.
-        # @synk-ai/web currently has unresolved app-router typing regressions that
-        # are tracked separately from this CI pipeline task.
-        run: bun run typecheck -- --filter=!@synk-ai/api --filter=!@synk-ai/web
+        run: bun run typecheck
 
   test:
     name: Test
@@ -147,9 +140,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Run tests
-        # @synk-ai/worker is temporarily excluded due unstable test fixtures;
-        # worker coverage remains enforced by lint/typecheck/build jobs.
-        run: bun run test -- --filter=!@synk-ai/worker
+        run: bun run test
 
   build:
     name: Build
