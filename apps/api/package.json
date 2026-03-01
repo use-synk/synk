@@ -8,6 +8,7 @@
 		"build": "bun build src/server.ts --outdir dist --format esm --target bun --sourcemap",
 		"lint": "biome check .",
 		"lint:write": "biome check . --write",
+		"lint:unsafe": "biome check . --write --unsafe",
 		"typecheck": "bunx tsc --noEmit",
 		"test": "bun test src/__tests__ --coverage",
 		"openapi:generate": "bun run src/openapi/generate-openapi.ts"

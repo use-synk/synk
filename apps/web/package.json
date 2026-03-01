@@ -4,15 +4,17 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"build": "next build",
+		"build": "bunx --bun next build",
 		"lint": "biome check .",
-		"check": "biome check .",
-		"check:unsafe": "biome check --write --unsafe .",
-		"check:write": "biome check --write .",
-		"dev": "next dev --turbo",
-		"preview": "next build && next start",
-		"start": "next start",
-		"test": "echo 'web test placeholder'",
+		"lint:write": "biome check . --write",
+		"lint:unsafe": "biome check . --write --unsafe",
+		"check": "bun run lint",
+		"check:unsafe": "bun run lint:unsafe",
+		"check:write": "bun run lint:write",
+		"dev": "bunx --bun next dev --turbo",
+		"preview": "bunx --bun next build && bunx --bun next start",
+		"start": "bunx --bun next start",
+		"test": "bun test src --coverage",
 		"typecheck": "bunx tsc --noEmit"
 	},
 	"dependencies": {
@@ -58,12 +60,5 @@
 	},
 	"ct3aMetadata": {
 		"initVersion": "7.40.0"
-	},
-	"turbo": {
-		"tasks": {
-			"build": {
-				"outputs": [".next/**", "!.next/cache/**"]
-			}
-		}
 	}
 }

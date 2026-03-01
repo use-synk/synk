@@ -13,6 +13,8 @@
 	"scripts": {
 		"build": "tsc -p tsconfig.build.json",
 		"lint": "biome check .",
+		"lint:write": "biome check . --write",
+		"lint:unsafe": "biome check . --write --unsafe",
 		"typecheck": "bunx tsc -p tsconfig.json",
 		"test": "bun test src/__tests__ --coverage"
 	},
