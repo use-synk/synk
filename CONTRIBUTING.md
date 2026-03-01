@@ -34,3 +34,8 @@ Thank you for your interest in contributing to `synk`. We welcome all contributi
     ```bash
     bun dev
     ```
+
+## Engineering Standards
+
+Monorepo package and task conventions are defined in `docs/MONOREPO-STANDARDS.md`.
+All workspace scripts and Turborepo task changes should follow that document.

@@ -2,6 +2,14 @@
 	"name": "@synk-ai/config",
 	"version": "0.0.0",
 	"private": true,
+	"scripts": {
+		"build": "bun -e \"process.exit(0)\"",
+		"lint": "biome check .",
+		"lint:write": "biome check . --write",
+		"lint:unsafe": "biome check . --write --unsafe",
+		"typecheck": "bun -e \"process.exit(0)\"",
+		"test": "bun -e \"process.exit(0)\""
+	},
 	"exports": {
 		"./tsconfig.base.json": "./tsconfig.base.json",
 		"./biome.json": "./biome.json"

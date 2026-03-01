@@ -3,6 +3,10 @@
 	"tasks": {
 		"build": {
 			"outputs": [".next/**", "!.next/cache/**"]
+		},
+		"typecheck": {
+			"dependsOn": ["^build", "^typecheck"],
+			"outputs": ["tsconfig.tsbuildinfo", ".next/cache/.tsbuildinfo"]
 		}
 	}
 }

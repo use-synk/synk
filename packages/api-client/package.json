@@ -11,8 +11,9 @@
 		}
 	},
 	"scripts": {
-		"build": "bun run generate && bunx tsc --noEmit",
-		"generate": "openapi-typescript ../../apps/api/openapi/openapi.json -o src/generated/openapi.ts",
+		"build": "bun run openapi:generate && bunx tsc --noEmit",
+		"openapi:generate": "openapi-typescript ../../apps/api/openapi/openapi.json -o src/generated/openapi.ts",
+		"generate": "bun run openapi:generate",
 		"lint": "biome check .",
 		"lint:write": "biome check . --write",
 		"lint:unsafe": "biome check . --write --unsafe",
