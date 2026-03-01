@@ -1,1260 +1,1408 @@
 {
-	"openapi": "3.1.0",
-	"info": {
-		"title": "Synk API",
-		"version": "v1",
-		"description": "Resource-oriented API contract for Synk services"
-	},
-	"components": {
-		"securitySchemes": {
-			"cookieAuth": {
-				"type": "apiKey",
-				"in": "cookie",
-				"name": "better-auth.session_token"
-			}
-		},
-		"schemas": {},
-		"parameters": {}
-	},
-	"paths": {
-		"/health": {
-			"get": {
-				"tags": ["health"],
-				"operationId": "getHealth",
-				"responses": {
-					"200": {
-						"description": "Service health status",
-						"content": {
-							"application/json": {
-								"schema": {
-									"type": "object",
-									"properties": {
-										"status": {
-											"type": "string",
-											"enum": ["ok"]
-										},
-										"version": {
-											"type": "string"
-										}
-									},
-									"required": ["status", "version"]
-								}
-							}
-						}
-					}
-				}
-			}
-		},
-		"/api/v1/projects": {
-			"post": {
-				"tags": ["projects"],
-				"operationId": "createProject",
-				"security": [
-					{
-						"cookieAuth": []
-					}
-				],
-				"requestBody": {
-					"required": true,
-					"content": {
-						"application/json": {
-							"schema": {
-								"type": "object",
-								"properties": {
-									"name": {
-										"type": "string",
-										"minLength": 1
-									},
-									"slugOrId": {
-										"type": "string",
-										"minLength": 1
-									},
-									"sourceRepositoryId": {
-										"type": "string",
-										"minLength": 1
-									},
-									"docsRepositoryId": {
-										"type": "string",
-										"minLength": 1
-									}
-								},
-								"required": ["name", "slugOrId", "sourceRepositoryId", "docsRepositoryId"]
-							}
-						}
-					}
-				},
-				"responses": {
-					"200": {
-						"description": "Project created",
-						"content": {
-							"application/json": {
-								"schema": {
-									"type": "object",
-									"properties": {
-										"data": {
-											"type": "object",
-											"properties": {
-												"id": {
-													"type": "string"
-												},
-												"name": {
-													"type": "string"
-												},
-												"organizationId": {
-													"type": "string"
-												},
-												"sourceRepositoryId": {
-													"type": "string"
-												},
-												"docsRepositoryId": {
-													"type": ["string", "null"]
-												},
-												"config": {
-													"type": "object",
-													"additionalProperties": {}
-												},
-												"createdAt": {
-													"type": "string"
-												},
-												"updatedAt": {
-													"type": "string"
-												}
-											},
-											"required": [
-												"id",
-												"name",
-												"organizationId",
-												"sourceRepositoryId",
-												"docsRepositoryId",
-												"config",
-												"createdAt",
-												"updatedAt"
-											]
-										}
-									},
-									"required": ["data"]
-								}
-							}
-						}
-					},
-					"400": {
-						"description": "Bad request"
-					},
-					"401": {
-						"description": "Unauthorized"
-					},
-					"403": {
-						"description": "Forbidden"
-					},
-					"404": {
-						"description": "Organization not found"
-					}
-				}
-			}
-		},
-		"/api/v1/organizations/{slugOrId}/setup": {
-			"get": {
-				"tags": ["organizations"],
-				"operationId": "getOrganizationSetupStatus",
-				"security": [
-					{
-						"cookieAuth": []
-					}
-				],
-				"parameters": [
-					{
-						"schema": {
-							"type": "string"
-						},
-						"required": true,
-						"name": "slugOrId",
-						"in": "path"
-					}
-				],
-				"responses": {
-					"200": {
-						"description": "Organization setup status",
-						"content": {
-							"application/json": {
-								"schema": {
-									"type": "object",
-									"properties": {
-										"data": {
-											"type": "object",
-											"properties": {
-												"hasInstallations": {
-													"type": "boolean"
-												},
-												"hasRepositories": {
-													"type": "boolean"
-												},
-												"hasProjects": {
-													"type": "boolean"
-												}
-											},
-											"required": ["hasInstallations", "hasRepositories", "hasProjects"]
-										}
-									},
-									"required": ["data"]
-								}
-							}
-						}
-					},
-					"401": {
-						"description": "Unauthorized"
-					},
-					"403": {
-						"description": "Forbidden"
-					}
-				}
-			}
-		},
-		"/api/v1/organizations/{slugOrId}/projects": {
-			"get": {
-				"tags": ["organizations", "projects"],
-				"operationId": "listOrganizationProjects",
-				"security": [
-					{
-						"cookieAuth": []
-					}
-				],
-				"parameters": [
-					{
-						"schema": {
-							"type": "string"
-						},
-						"required": true,
-						"name": "slugOrId",
-						"in": "path"
-					},
-					{
-						"schema": {
-							"type": "integer",
-							"minimum": 1
-						},
-						"required": false,
-						"name": "page",
-						"in": "query"
-					},
-					{
-						"schema": {
-							"type": "integer",
-							"minimum": 1,
-							"maximum": 100
-						},
-						"required": false,
-						"name": "pageSize",
-						"in": "query"
-					}
-				],
-				"responses": {
-					"200": {
-						"description": "Organization projects",
-						"content": {
-							"application/json": {
-								"schema": {
-									"type": "object",
-									"properties": {
-										"data": {
-											"type": "array",
-											"items": {
-												"type": "object",
-												"properties": {
-													"id": {
-														"type": "string"
-													},
-													"name": {
-														"type": "string"
-													},
-													"organizationId": {
-														"type": "string"
-													},
-													"sourceRepositoryId": {
-														"type": "string"
-													},
-													"docsRepositoryId": {
-														"type": ["string", "null"]
-													},
-													"config": {
-														"type": "object",
-														"additionalProperties": {}
-													},
-													"createdAt": {
-														"type": "string"
-													},
-													"updatedAt": {
-														"type": "string"
-													}
-												},
-												"required": [
-													"id",
-													"name",
-													"organizationId",
-													"sourceRepositoryId",
-													"docsRepositoryId",
-													"config",
-													"createdAt",
-													"updatedAt"
-												]
-											}
-										},
-										"pagination": {
-											"type": "object",
-											"properties": {
-												"page": {
-													"type": "integer",
-													"minimum": 1
-												},
-												"pageSize": {
-													"type": "integer",
-													"minimum": 1
-												},
-												"total": {
-													"type": "integer",
-													"minimum": 0
-												},
-												"totalPages": {
-													"type": "integer",
-													"minimum": 0
-												}
-											},
-											"required": ["page", "pageSize", "total", "totalPages"]
-										}
-									},
-									"required": ["data", "pagination"]
-								}
-							}
-						}
-					},
-					"400": {
-						"description": "Bad request"
-					},
-					"401": {
-						"description": "Unauthorized"
-					},
-					"403": {
-						"description": "Forbidden"
-					}
-				}
-			}
-		},
-		"/api/v1/organizations/{slugOrId}/repositories": {
-			"get": {
-				"tags": ["organizations", "repositories"],
-				"operationId": "listOrganizationRepositories",
-				"security": [
-					{
-						"cookieAuth": []
-					}
-				],
-				"parameters": [
-					{
-						"schema": {
-							"type": "string"
-						},
-						"required": true,
-						"name": "slugOrId",
-						"in": "path"
-					},
-					{
-						"schema": {
-							"type": "integer",
-							"minimum": 1
-						},
-						"required": false,
-						"name": "page",
-						"in": "query"
-					},
-					{
-						"schema": {
-							"type": "integer",
-							"minimum": 1,
-							"maximum": 100
-						},
-						"required": false,
-						"name": "pageSize",
-						"in": "query"
-					}
-				],
-				"responses": {
-					"200": {
-						"description": "Organization repositories",
-						"content": {
-							"application/json": {
-								"schema": {
-									"type": "object",
-									"properties": {
-										"data": {
-											"type": "array",
-											"items": {
-												"type": "object",
-												"properties": {
-													"id": {
-														"type": "string"
-													},
-													"installationId": {
-														"type": "string"
-													},
-													"fullName": {
-														"type": "string"
-													},
-													"defaultBranch": {
-														"type": "string"
-													},
-													"status": {
-														"type": "string"
-													},
-													"isActive": {
-														"type": "boolean"
-													},
-													"updatedAt": {
-														"type": "string"
-													}
-												},
-												"required": [
-													"id",
-													"installationId",
-													"fullName",
-													"defaultBranch",
-													"status",
-													"isActive",
-													"updatedAt"
-												]
-											}
-										},
-										"pagination": {
-											"type": "object",
-											"properties": {
-												"page": {
-													"type": "integer",
-													"minimum": 1
-												},
-												"pageSize": {
-													"type": "integer",
-													"minimum": 1
-												},
-												"total": {
-													"type": "integer",
-													"minimum": 0
-												},
-												"totalPages": {
-													"type": "integer",
-													"minimum": 0
-												}
-											},
-											"required": ["page", "pageSize", "total", "totalPages"]
-										}
-									},
-									"required": ["data", "pagination"]
-								}
-							}
-						}
-					},
-					"400": {
-						"description": "Bad request"
-					},
-					"401": {
-						"description": "Unauthorized"
-					},
-					"403": {
-						"description": "Forbidden"
-					},
-					"404": {
-						"description": "Organization not found"
-					}
-				}
-			}
-		},
-		"/api/v1/repositories/{repositoryId}": {
-			"patch": {
-				"tags": ["repositories"],
-				"operationId": "patchRepository",
-				"security": [
-					{
-						"cookieAuth": []
-					}
-				],
-				"parameters": [
-					{
-						"schema": {
-							"type": "string"
-						},
-						"required": true,
-						"name": "repositoryId",
-						"in": "path"
-					}
-				],
-				"requestBody": {
-					"required": true,
-					"content": {
-						"application/json": {
-							"schema": {
-								"type": "object",
-								"properties": {
-									"isActive": {
-										"type": "boolean"
-									}
-								}
-							}
-						}
-					}
-				},
-				"responses": {
-					"200": {
-						"description": "Repository updated",
-						"content": {
-							"application/json": {
-								"schema": {
-									"type": "object",
-									"properties": {
-										"data": {
-											"type": "object",
-											"properties": {
-												"id": {
-													"type": "string"
-												},
-												"installationId": {
-													"type": "string"
-												},
-												"defaultBranch": {
-													"type": "string"
-												},
-												"status": {
-													"type": "string"
-												},
-												"isActive": {
-													"type": "boolean"
-												},
-												"docsConfig": {},
-												"createdAt": {
-													"type": "string"
-												},
-												"updatedAt": {
-													"type": "string"
-												}
-											},
-											"required": [
-												"id",
-												"installationId",
-												"defaultBranch",
-												"status",
-												"isActive",
-												"createdAt",
-												"updatedAt"
-											]
-										}
-									},
-									"required": ["data"]
-								}
-							}
-						}
-					},
-					"400": {
-						"description": "Bad request"
-					},
-					"401": {
-						"description": "Unauthorized"
-					},
-					"403": {
-						"description": "Forbidden"
-					}
-				}
-			}
-		},
-		"/api/v1/repositories/installations/{installationId}": {
-			"get": {
-				"tags": ["repositories"],
-				"operationId": "listInstallationRepositories",
-				"security": [
-					{
-						"cookieAuth": []
-					}
-				],
-				"parameters": [
-					{
-						"schema": {
-							"type": "string"
-						},
-						"required": true,
-						"name": "installationId",
-						"in": "path"
-					},
-					{
-						"schema": {
-							"type": "integer",
-							"minimum": 1
-						},
-						"required": false,
-						"name": "page",
-						"in": "query"
-					},
-					{
-						"schema": {
-							"type": "integer",
-							"minimum": 1,
-							"maximum": 100
-						},
-						"required": false,
-						"name": "pageSize",
-						"in": "query"
-					}
-				],
-				"responses": {
-					"200": {
-						"description": "Repositories for an installation",
-						"content": {
-							"application/json": {
-								"schema": {
-									"type": "object",
-									"properties": {
-										"data": {
-											"type": "array",
-											"items": {
-												"type": "object",
-												"properties": {
-													"id": {
-														"type": "string"
-													},
-													"installationId": {
-														"type": "string"
-													},
-													"fullName": {
-														"type": "string"
-													},
-													"defaultBranch": {
-														"type": "string"
-													},
-													"status": {
-														"type": "string"
-													},
-													"isActive": {
-														"type": "boolean"
-													},
-													"docsConfig": {},
-													"updatedAt": {
-														"type": "string"
-													}
-												},
-												"required": [
-													"id",
-													"installationId",
-													"fullName",
-													"defaultBranch",
-													"status",
-													"isActive",
-													"updatedAt"
-												]
-											}
-										},
-										"pagination": {
-											"type": "object",
-											"properties": {
-												"page": {
-													"type": "integer",
-													"minimum": 1
-												},
-												"pageSize": {
-													"type": "integer",
-													"minimum": 1
-												},
-												"total": {
-													"type": "integer",
-													"minimum": 0
-												},
-												"totalPages": {
-													"type": "integer",
-													"minimum": 0
-												}
-											},
-											"required": ["page", "pageSize", "total", "totalPages"]
-										}
-									},
-									"required": ["data", "pagination"]
-								}
-							}
-						}
-					},
-					"400": {
-						"description": "Bad request"
-					},
-					"401": {
-						"description": "Unauthorized"
-					},
-					"403": {
-						"description": "Forbidden"
-					}
-				}
-			}
-		},
-		"/api/v1/runs/{runId}": {
-			"get": {
-				"tags": ["runs"],
-				"operationId": "getRunDetail",
-				"security": [
-					{
-						"cookieAuth": []
-					}
-				],
-				"parameters": [
-					{
-						"schema": {
-							"type": "string"
-						},
-						"required": true,
-						"name": "runId",
-						"in": "path"
-					}
-				],
-				"responses": {
-					"200": {
-						"description": "Run details",
-						"content": {
-							"application/json": {
-								"schema": {
-									"type": "object",
-									"properties": {
-										"data": {
-											"type": "object",
-											"properties": {
-												"id": {
-													"type": "string"
-												},
-												"repositoryId": {
-													"type": "string"
-												},
-												"status": {
-													"type": "string"
-												},
-												"triggerType": {
-													"type": "string"
-												},
-												"triggerRef": {
-													"type": "string"
-												},
-												"triggerCommitSha": {
-													"type": "string"
-												},
-												"triggerMergeRequestNumber": {
-													"type": ["number", "null"]
-												},
-												"triggerMeta": {},
-												"docsAffected": {
-													"type": ["boolean", "null"]
-												},
-												"docPrNumber": {
-													"type": ["number", "null"]
-												},
-												"docPrUrl": {
-													"type": ["string", "null"]
-												},
-												"prLink": {
-													"type": ["string", "null"]
-												},
-												"tokenUsage": {},
-												"error": {
-													"type": ["string", "null"]
-												},
-												"attemptCount": {
-													"type": "number"
-												},
-												"result": {},
-												"aiReasoning": {},
-												"queuedAt": {
-													"type": "string"
-												},
-												"startedAt": {
-													"type": ["string", "null"]
-												},
-												"completedAt": {
-													"type": ["string", "null"]
-												},
-												"createdAt": {
-													"type": "string"
-												},
-												"updatedAt": {
-													"type": "string"
-												}
-											},
-											"required": [
-												"id",
-												"repositoryId",
-												"status",
-												"triggerType",
-												"triggerRef",
-												"triggerCommitSha",
-												"triggerMergeRequestNumber",
-												"docsAffected",
-												"docPrNumber",
-												"docPrUrl",
-												"prLink",
-												"error",
-												"attemptCount",
-												"queuedAt",
-												"startedAt",
-												"completedAt",
-												"createdAt",
-												"updatedAt"
-											]
-										}
-									},
-									"required": ["data"]
-								}
-							}
-						}
-					},
-					"401": {
-						"description": "Unauthorized"
-					},
-					"403": {
-						"description": "Forbidden"
-					},
-					"404": {
-						"description": "Run not found"
-					}
-				}
-			}
-		},
-		"/api/v1/runs/repositories/{repositoryId}": {
-			"get": {
-				"tags": ["runs"],
-				"operationId": "listRepositoryRuns",
-				"security": [
-					{
-						"cookieAuth": []
-					}
-				],
-				"parameters": [
-					{
-						"schema": {
-							"type": "string"
-						},
-						"required": true,
-						"name": "repositoryId",
-						"in": "path"
-					},
-					{
-						"schema": {
-							"type": "integer",
-							"minimum": 1
-						},
-						"required": false,
-						"name": "page",
-						"in": "query"
-					},
-					{
-						"schema": {
-							"type": "integer",
-							"minimum": 1,
-							"maximum": 100
-						},
-						"required": false,
-						"name": "pageSize",
-						"in": "query"
-					},
-					{
-						"schema": {
-							"type": "array",
-							"items": {
-								"type": "string"
-							}
-						},
-						"required": false,
-						"name": "status",
-						"in": "query"
-					}
-				],
-				"responses": {
-					"200": {
-						"description": "Repository runs",
-						"content": {
-							"application/json": {
-								"schema": {
-									"type": "object",
-									"properties": {
-										"data": {
-											"type": "array",
-											"items": {
-												"type": "object",
-												"properties": {
-													"id": {
-														"type": "string"
-													},
-													"status": {
-														"type": "string"
-													},
-													"triggerType": {
-														"type": "string"
-													},
-													"triggerRef": {
-														"type": "string"
-													},
-													"triggerCommitSha": {
-														"type": "string"
-													},
-													"docsAffected": {
-														"type": ["boolean", "null"]
-													},
-													"docPrUrl": {
-														"type": ["string", "null"]
-													},
-													"error": {
-														"type": ["string", "null"]
-													},
-													"createdAt": {
-														"type": "string"
-													},
-													"startedAt": {
-														"type": ["string", "null"]
-													},
-													"completedAt": {
-														"type": ["string", "null"]
-													}
-												},
-												"required": [
-													"id",
-													"status",
-													"triggerType",
-													"triggerRef",
-													"triggerCommitSha",
-													"docsAffected",
-													"docPrUrl",
-													"error",
-													"createdAt",
-													"startedAt",
-													"completedAt"
-												]
-											}
-										},
-										"pagination": {
-											"type": "object",
-											"properties": {
-												"page": {
-													"type": "integer",
-													"minimum": 1
-												},
-												"pageSize": {
-													"type": "integer",
-													"minimum": 1
-												},
-												"total": {
-													"type": "integer",
-													"minimum": 0
-												},
-												"totalPages": {
-													"type": "integer",
-													"minimum": 0
-												}
-											},
-											"required": ["page", "pageSize", "total", "totalPages"]
-										}
-									},
-									"required": ["data", "pagination"]
-								}
-							}
-						}
-					},
-					"400": {
-						"description": "Bad request"
-					},
-					"401": {
-						"description": "Unauthorized"
-					},
-					"403": {
-						"description": "Forbidden"
-					}
-				}
-			},
-			"post": {
-				"tags": ["runs"],
-				"operationId": "triggerRepositoryRun",
-				"security": [
-					{
-						"cookieAuth": []
-					}
-				],
-				"parameters": [
-					{
-						"schema": {
-							"type": "string"
-						},
-						"required": true,
-						"name": "repositoryId",
-						"in": "path"
-					}
-				],
-				"requestBody": {
-					"required": true,
-					"content": {
-						"application/json": {
-							"schema": {
-								"type": "object",
-								"properties": {
-									"commitSha": {
-										"type": "string"
-									},
-									"ref": {
-										"type": "string"
-									}
-								},
-								"required": ["commitSha"]
-							}
-						}
-					}
-				},
-				"responses": {
-					"200": {
-						"description": "Manual run accepted",
-						"content": {
-							"application/json": {
-								"schema": {
-									"type": "object",
-									"properties": {
-										"data": {
-											"type": "object",
-											"properties": {
-												"repositoryId": {
-													"type": "string"
-												},
-												"triggerType": {
-													"type": "string",
-													"enum": ["manual"]
-												},
-												"triggerRef": {
-													"type": "string"
-												},
-												"triggerCommitSha": {
-													"type": "string"
-												},
-												"accepted": {
-													"type": "boolean",
-													"enum": [true]
-												}
-											},
-											"required": [
-												"repositoryId",
-												"triggerType",
-												"triggerRef",
-												"triggerCommitSha",
-												"accepted"
-											]
-										}
-									},
-									"required": ["data"]
-								}
-							}
-						}
-					},
-					"400": {
-						"description": "Bad request"
-					},
-					"401": {
-						"description": "Unauthorized"
-					},
-					"403": {
-						"description": "Forbidden"
-					},
-					"404": {
-						"description": "Repository not found"
-					},
-					"409": {
-						"description": "Repository inactive"
-					}
-				}
-			}
-		},
-		"/api/v1/integrations/github/install/init": {
-			"post": {
-				"tags": ["integrations"],
-				"operationId": "initiateGithubInstallation",
-				"security": [
-					{
-						"cookieAuth": []
-					}
-				],
-				"requestBody": {
-					"required": true,
-					"content": {
-						"application/json": {
-							"schema": {
-								"type": "object",
-								"properties": {
-									"organizationId": {
-										"type": "string",
-										"format": "uuid"
-									}
-								},
-								"required": ["organizationId"],
-								"additionalProperties": false
-							}
-						}
-					}
-				},
-				"responses": {
-					"200": {
-						"description": "GitHub installation flow started",
-						"content": {
-							"application/json": {
-								"schema": {
-									"type": "object",
-									"properties": {
-										"data": {
-											"type": "object",
-											"properties": {
-												"redirectUrl": {
-													"type": "string",
-													"format": "uri"
-												}
-											},
-											"required": ["redirectUrl"]
-										}
-									},
-									"required": ["data"]
-								}
-							}
-						}
-					},
-					"400": {
-						"description": "Bad request"
-					},
-					"401": {
-						"description": "Unauthorized"
-					},
-					"403": {
-						"description": "Forbidden"
-					}
-				}
-			}
-		},
-		"/api/v1/integrations/github/install/callback": {
-			"get": {
-				"tags": ["integrations"],
-				"operationId": "completeGithubInstallation",
-				"parameters": [
-					{
-						"schema": {
-							"type": "integer",
-							"exclusiveMinimum": 0
-						},
-						"required": true,
-						"name": "installation_id",
-						"in": "query"
-					},
-					{
-						"schema": {
-							"type": "string",
-							"enum": ["install", "update"]
-						},
-						"required": true,
-						"name": "setup_action",
-						"in": "query"
-					},
-					{
-						"schema": {
-							"type": "string",
-							"minLength": 1
-						},
-						"required": true,
-						"name": "state",
-						"in": "query"
-					}
-				],
-				"responses": {
-					"200": {
-						"description": "GitHub installation flow completed",
-						"content": {
-							"application/json": {
-								"schema": {
-									"type": "object",
-									"properties": {
-										"data": {
-											"type": "object",
-											"properties": {
-												"organizationSlug": {
-													"type": "string"
-												}
-											},
-											"required": ["organizationSlug"]
-										}
-									},
-									"required": ["data"]
-								}
-							}
-						}
-					},
-					"400": {
-						"description": "Bad request"
-					},
-					"403": {
-						"description": "Forbidden"
-					},
-					"422": {
-						"description": "Invalid/expired installation state"
-					},
-					"500": {
-						"description": "Internal error"
-					}
-				}
-			}
-		},
-		"/api/v1/webhooks/github": {
-			"post": {
-				"tags": ["webhooks"],
-				"operationId": "handleGithubWebhook",
-				"parameters": [
-					{
-						"schema": {
-							"type": "string"
-						},
-						"required": false,
-						"name": "x-hub-signature-256",
-						"in": "header"
-					},
-					{
-						"schema": {
-							"type": "string"
-						},
-						"required": true,
-						"name": "x-github-event",
-						"in": "header"
-					},
-					{
-						"schema": {
-							"type": "string"
-						},
-						"required": false,
-						"name": "x-github-delivery",
-						"in": "header"
-					},
-					{
-						"schema": {
-							"type": "string"
-						},
-						"required": false,
-						"name": "x-request-id",
-						"in": "header"
-					}
-				],
-				"requestBody": {
-					"required": true,
-					"content": {
-						"application/json": {
-							"schema": {}
-						}
-					}
-				},
-				"responses": {
-					"200": {
-						"description": "Webhook event processed or ignored"
-					},
-					"400": {
-						"description": "Invalid webhook payload or headers"
-					},
-					"401": {
-						"description": "Invalid webhook signature"
-					}
-				}
-			}
-		}
-	},
-	"webhooks": {}
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Synk API",
+    "version": "v1",
+    "description": "Resource-oriented API contract for Synk services"
+  },
+  "components": {
+    "securitySchemes": {
+      "cookieAuth": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "better-auth.session_token"
+      }
+    },
+    "schemas": {},
+    "parameters": {}
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "description": "Service health status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "ok"
+                      ]
+                    },
+                    "version": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "version"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects": {
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "operationId": "createProject",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "slugOrId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "sourceRepositoryId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "docsRepositoryId": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "name",
+                  "slugOrId",
+                  "sourceRepositoryId",
+                  "docsRepositoryId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Project created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "organizationId": {
+                          "type": "string"
+                        },
+                        "sourceRepositoryId": {
+                          "type": "string"
+                        },
+                        "docsRepositoryId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "config": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "name",
+                        "organizationId",
+                        "sourceRepositoryId",
+                        "docsRepositoryId",
+                        "config",
+                        "createdAt",
+                        "updatedAt"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Organization not found"
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{slugOrId}/setup": {
+      "get": {
+        "tags": [
+          "organizations"
+        ],
+        "operationId": "getOrganizationSetupStatus",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "slugOrId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Organization setup status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "hasInstallations": {
+                          "type": "boolean"
+                        },
+                        "hasRepositories": {
+                          "type": "boolean"
+                        },
+                        "hasProjects": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "hasInstallations",
+                        "hasRepositories",
+                        "hasProjects"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{slugOrId}/projects": {
+      "get": {
+        "tags": [
+          "organizations",
+          "projects"
+        ],
+        "operationId": "listOrganizationProjects",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "slugOrId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "required": false,
+            "name": "page",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "required": false,
+            "name": "pageSize",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Organization projects",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "organizationId": {
+                            "type": "string"
+                          },
+                          "sourceRepositoryId": {
+                            "type": "string"
+                          },
+                          "docsRepositoryId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "config": {
+                            "type": "object",
+                            "additionalProperties": {}
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "organizationId",
+                          "sourceRepositoryId",
+                          "docsRepositoryId",
+                          "config",
+                          "createdAt",
+                          "updatedAt"
+                        ]
+                      }
+                    },
+                    "pagination": {
+                      "type": "object",
+                      "properties": {
+                        "page": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "pageSize": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "total": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "totalPages": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "page",
+                        "pageSize",
+                        "total",
+                        "totalPages"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "pagination"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{slugOrId}/repositories": {
+      "get": {
+        "tags": [
+          "organizations",
+          "repositories"
+        ],
+        "operationId": "listOrganizationRepositories",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "slugOrId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "required": false,
+            "name": "page",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "required": false,
+            "name": "pageSize",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Organization repositories",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "installationId": {
+                            "type": "string"
+                          },
+                          "fullName": {
+                            "type": "string"
+                          },
+                          "defaultBranch": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "isActive": {
+                            "type": "boolean"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "installationId",
+                          "fullName",
+                          "defaultBranch",
+                          "status",
+                          "isActive",
+                          "updatedAt"
+                        ]
+                      }
+                    },
+                    "pagination": {
+                      "type": "object",
+                      "properties": {
+                        "page": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "pageSize": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "total": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "totalPages": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "page",
+                        "pageSize",
+                        "total",
+                        "totalPages"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "pagination"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Organization not found"
+          }
+        }
+      }
+    },
+    "/api/v1/repositories/{repositoryId}": {
+      "patch": {
+        "tags": [
+          "repositories"
+        ],
+        "operationId": "patchRepository",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "repositoryId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "isActive": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Repository updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "installationId": {
+                          "type": "string"
+                        },
+                        "defaultBranch": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "isActive": {
+                          "type": "boolean"
+                        },
+                        "docsConfig": {},
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "installationId",
+                        "defaultBranch",
+                        "status",
+                        "isActive",
+                        "createdAt",
+                        "updatedAt"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/api/v1/repositories/installations/{installationId}": {
+      "get": {
+        "tags": [
+          "repositories"
+        ],
+        "operationId": "listInstallationRepositories",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "installationId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "required": false,
+            "name": "page",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "required": false,
+            "name": "pageSize",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Repositories for an installation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "installationId": {
+                            "type": "string"
+                          },
+                          "fullName": {
+                            "type": "string"
+                          },
+                          "defaultBranch": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "isActive": {
+                            "type": "boolean"
+                          },
+                          "docsConfig": {},
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "installationId",
+                          "fullName",
+                          "defaultBranch",
+                          "status",
+                          "isActive",
+                          "updatedAt"
+                        ]
+                      }
+                    },
+                    "pagination": {
+                      "type": "object",
+                      "properties": {
+                        "page": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "pageSize": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "total": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "totalPages": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "page",
+                        "pageSize",
+                        "total",
+                        "totalPages"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "pagination"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/api/v1/runs/{runId}": {
+      "get": {
+        "tags": [
+          "runs"
+        ],
+        "operationId": "getRunDetail",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "runId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Run details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "repositoryId": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string"
+                        },
+                        "triggerType": {
+                          "type": "string"
+                        },
+                        "triggerRef": {
+                          "type": "string"
+                        },
+                        "triggerCommitSha": {
+                          "type": "string"
+                        },
+                        "triggerMergeRequestNumber": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "triggerMeta": {},
+                        "docsAffected": {
+                          "type": [
+                            "boolean",
+                            "null"
+                          ]
+                        },
+                        "docPrNumber": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "docPrUrl": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "prLink": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "tokenUsage": {},
+                        "error": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "attemptCount": {
+                          "type": "number"
+                        },
+                        "result": {},
+                        "aiReasoning": {},
+                        "queuedAt": {
+                          "type": "string"
+                        },
+                        "startedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "completedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "repositoryId",
+                        "status",
+                        "triggerType",
+                        "triggerRef",
+                        "triggerCommitSha",
+                        "triggerMergeRequestNumber",
+                        "docsAffected",
+                        "docPrNumber",
+                        "docPrUrl",
+                        "prLink",
+                        "error",
+                        "attemptCount",
+                        "queuedAt",
+                        "startedAt",
+                        "completedAt",
+                        "createdAt",
+                        "updatedAt"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Run not found"
+          }
+        }
+      }
+    },
+    "/api/v1/runs/repositories/{repositoryId}": {
+      "get": {
+        "tags": [
+          "runs"
+        ],
+        "operationId": "listRepositoryRuns",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "repositoryId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "required": false,
+            "name": "page",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "required": false,
+            "name": "pageSize",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "required": false,
+            "name": "status",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Repository runs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "triggerType": {
+                            "type": "string"
+                          },
+                          "triggerRef": {
+                            "type": "string"
+                          },
+                          "triggerCommitSha": {
+                            "type": "string"
+                          },
+                          "docsAffected": {
+                            "type": [
+                              "boolean",
+                              "null"
+                            ]
+                          },
+                          "docPrUrl": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "error": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "startedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "completedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "status",
+                          "triggerType",
+                          "triggerRef",
+                          "triggerCommitSha",
+                          "docsAffected",
+                          "docPrUrl",
+                          "error",
+                          "createdAt",
+                          "startedAt",
+                          "completedAt"
+                        ]
+                      }
+                    },
+                    "pagination": {
+                      "type": "object",
+                      "properties": {
+                        "page": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "pageSize": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "total": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "totalPages": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "page",
+                        "pageSize",
+                        "total",
+                        "totalPages"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "pagination"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "runs"
+        ],
+        "operationId": "triggerRepositoryRun",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "repositoryId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "commitSha": {
+                    "type": "string"
+                  },
+                  "ref": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "commitSha"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Manual run accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "repositoryId": {
+                          "type": "string"
+                        },
+                        "triggerType": {
+                          "type": "string",
+                          "enum": [
+                            "manual"
+                          ]
+                        },
+                        "triggerRef": {
+                          "type": "string"
+                        },
+                        "triggerCommitSha": {
+                          "type": "string"
+                        },
+                        "accepted": {
+                          "type": "boolean",
+                          "enum": [
+                            true
+                          ]
+                        }
+                      },
+                      "required": [
+                        "repositoryId",
+                        "triggerType",
+                        "triggerRef",
+                        "triggerCommitSha",
+                        "accepted"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Repository not found"
+          },
+          "409": {
+            "description": "Repository inactive"
+          }
+        }
+      }
+    },
+    "/api/v1/integrations/github/install/init": {
+      "post": {
+        "tags": [
+          "integrations"
+        ],
+        "operationId": "initiateGithubInstallation",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "organizationId": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "organizationId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "GitHub installation flow started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "redirectUrl": {
+                          "type": "string",
+                          "format": "uri"
+                        }
+                      },
+                      "required": [
+                        "redirectUrl"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/api/v1/integrations/github/install/callback": {
+      "get": {
+        "tags": [
+          "integrations"
+        ],
+        "operationId": "completeGithubInstallation",
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0
+            },
+            "required": true,
+            "name": "installation_id",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "install",
+                "update"
+              ]
+            },
+            "required": true,
+            "name": "setup_action",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "required": true,
+            "name": "state",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "GitHub installation flow completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "organizationSlug": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "organizationSlug"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "422": {
+            "description": "Invalid/expired installation state"
+          },
+          "500": {
+            "description": "Internal error"
+          }
+        }
+      }
+    },
+    "/api/v1/webhooks/github": {
+      "post": {
+        "tags": [
+          "webhooks"
+        ],
+        "operationId": "handleGithubWebhook",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "x-hub-signature-256",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "x-github-event",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "x-github-delivery",
+            "in": "header"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": false,
+            "name": "x-request-id",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Webhook event processed or ignored"
+          },
+          "400": {
+            "description": "Invalid webhook payload or headers"
+          },
+          "401": {
+            "description": "Invalid webhook signature"
+          }
+        }
+      }
+    }
+  },
+  "webhooks": {}
 }
