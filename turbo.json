@@ -38,6 +38,18 @@
 			"dependsOn": ["build"],
 			"inputs": ["$TURBO_DEFAULT$", "**/*.test.ts", "**/*.test.tsx"],
 			"outputs": ["coverage/**"]
+		},
+		"openapi:generate": {
+			"dependsOn": ["^openapi:generate"],
+			"outputs": ["openapi/openapi.json", "src/generated/**"]
+		},
+		"@synk-ai/api#openapi:generate": {
+			"dependsOn": ["@synk-ai/shared#build"],
+			"outputs": ["openapi/openapi.json"]
+		},
+		"@synk-ai/api-client#openapi:generate": {
+			"dependsOn": ["@synk-ai/api#openapi:generate"],
+			"outputs": ["src/generated/**"]
 		}
 	}
 }
