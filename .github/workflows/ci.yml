@@ -145,6 +145,10 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    needs:
+      - lint
+      - typecheck
+      - test
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -155,9 +159,6 @@ jobs:
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
-
-      - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v3
 
       - name: Cache Bun install cache
         uses: actions/cache@v4
@@ -202,24 +203,38 @@ jobs:
               - 'turbo.json'
               - '.github/workflows/ci.yml'
 
-      - name: Build API image (cache validation)
-        if: steps.docker_changes.outputs.api == 'true'
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: apps/api/Dockerfile
-          push: false
-          tags: synk-ai/api:ci
-          cache-from: type=gha,scope=synk-ai-api
-          cache-to: type=gha,mode=max,scope=synk-ai-api
+  docker-build:
+    name: Docker Build (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    needs:
+      - lint
+      - typecheck
+      - test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: api
+            file: apps/api/Dockerfile
+            tag: synk-ai/api:ci
+            scope: synk-ai-api
+          - name: worker
+            file: apps/worker/Dockerfile
+            tag: synk-ai/worker:ci
+            scope: synk-ai-worker
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Build Worker image (cache validation)
-        if: steps.docker_changes.outputs.worker == 'true'
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build ${{ matrix.name }} image (cache validation)
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: apps/worker/Dockerfile
+          file: ${{ matrix.file }}
           push: false
-          tags: synk-ai/worker:ci
-          cache-from: type=gha,scope=synk-ai-worker
-          cache-to: type=gha,mode=max,scope=synk-ai-worker
+          tags: ${{ matrix.tag }}
+          cache-from: type=gha,scope=${{ matrix.scope }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.scope }}

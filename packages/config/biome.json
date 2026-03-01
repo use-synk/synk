@@ -37,7 +37,8 @@
 			"**/coverage/**",
 			"**/.turbo/**",
 			"**/.next/**",
-			"**/generated/**"
+			"**/generated/**",
+			"openapi.json"
 		]
 	}
 }

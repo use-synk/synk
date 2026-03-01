@@ -16,6 +16,7 @@ const createDependencies = (): DashboardServiceDependencies => {
 		assertInstallationAccess: mock(async () => undefined),
 		assertRepositoryAccess: mock(async () => undefined),
 		assertRunAccess: mock(async () => undefined),
+		assertOrganizationMembership: mock(async () => undefined),
 	};
 
 	const dashboardRepository: DashboardServiceDependencies["dashboardRepository"] = {
@@ -50,27 +51,25 @@ const createDependencies = (): DashboardServiceDependencies => {
 		findRunDetail: mock(async () => null),
 	};
 
-	const unitOfWork: DashboardServiceDependencies["unitOfWork"] = {
-		withTransaction: mock(async (operation) =>
-			operation({
-				authorizationRepository,
-				dashboardRepository,
-				runRepository,
-			}),
-		),
+	const organizationRepository: DashboardServiceDependencies["organizationRepository"] = {
+		getHasInstallations: mock(async () => true),
+		getHasRepositories: mock(async () => true),
+		getHasProjects: mock(async () => true),
+		findOrganizationBySlug: mock(async () => null),
+		findOrganizationSlug: mock(async () => "acme"),
 	};
 
 	return {
 		authorizationRepository,
 		dashboardRepository,
 		runRepository,
-		unitOfWork,
 		enqueueAnalyzeChanges: mock(async () => undefined),
+		organizationRepository,
 	};
 };
 
 describe("DashboardService", () => {
-	it("patchRepository uses transaction boundary with access assertion", async () => {
+	it("patchRepository asserts access before update", async () => {
 		const deps = createDependencies();
 		const service = new DashboardService(deps);
 
@@ -80,7 +79,6 @@ describe("DashboardService", () => {
 			isActive: false,
 		});
 
-		expect(deps.unitOfWork.withTransaction).toHaveBeenCalledOnce();
 		expect(deps.authorizationRepository.assertRepositoryAccess).toHaveBeenCalledWith({
 			repositoryId: REPOSITORY_ID,
 			userId: USER_ID,

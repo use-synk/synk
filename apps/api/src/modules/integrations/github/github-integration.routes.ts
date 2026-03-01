@@ -116,11 +116,17 @@ export function createGitHubIntegrationRoutes(
 	router.openapi(
 		installInitRoute,
 		async (ctx) => {
-			const authedCtx = ctx as typeof ctx & { var: AuthenticatedAppEnv["Variables"] };
-			const userId = authedCtx.get("user").id;
-			const { organizationId } = ctx.req.valid("json");
+			const userId = (ctx as unknown as { var: AuthenticatedAppEnv["Variables"] }).var.user.id;
+			const { organizationId } = (
+				ctx.req as {
+					valid: (target: "json") => z.infer<typeof initiateInstallationBodySchema>;
+				}
+			).valid("json");
 
-			const result = await integrationService.initiateInstallation({ userId, organizationId });
+			const result = await integrationService.initiateInstallation({
+				userId,
+				organizationId,
+			});
 
 			return ctx.json({ data: { redirectUrl: result.redirectUrl } }, 200);
 		},
@@ -143,7 +149,11 @@ export function createGitHubIntegrationRoutes(
 	router.openapi(
 		installCallbackRoute,
 		async (ctx) => {
-			const { installation_id: installationId, state } = ctx.req.valid("query");
+			const { installation_id: installationId, state } = (
+				ctx.req as {
+					valid: (target: "query") => z.infer<typeof installationCallbackQuerySchema>;
+				}
+			).valid("query");
 
 			try {
 				const result = await integrationService.completeInstallation({
