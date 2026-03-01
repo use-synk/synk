@@ -8,6 +8,8 @@ import type { Logger } from "pino";
 // ---------------------------------------------------------------------------
 
 const mockFindUniqueRepository = mock();
+const mockFindFirstProject = mock();
+const mockUpdateProject = mock();
 const mockUpdateProviderRepository = mock().mockResolvedValue({});
 const mockUpsertAnalysisRun = mock();
 const mockUpdateAnalysisRun = mock();
@@ -28,6 +30,10 @@ mock.module("@synk-ai/db", () => ({
 		providerRepository: {
 			findUnique: mockFindUniqueRepository,
 			update: mockUpdateProviderRepository,
+		},
+		project: {
+			findFirst: mockFindFirstProject,
+			update: mockUpdateProject,
 		},
 		analysisRun: {
 			upsert: mockUpsertAnalysisRun,
@@ -433,6 +439,8 @@ describe("processAnalyzeChangesJob", () => {
 	beforeEach(() => {
 		mock.restore();
 		mockFindUniqueRepository.mockClear();
+		mockFindFirstProject.mockClear();
+		mockUpdateProject.mockClear();
 		mockUpdateProviderRepository.mockClear();
 		mockUpsertAnalysisRun.mockClear();
 		mockUpdateAnalysisRun.mockClear();
@@ -457,6 +465,11 @@ describe("processAnalyzeChangesJob", () => {
 		mockFetchMultipleFiles.mockResolvedValue([]);
 
 		mockFindUniqueRepository.mockResolvedValue(makeRepository());
+		mockFindFirstProject.mockResolvedValue({
+			id: "project-1",
+			config: {},
+		});
+		mockUpdateProject.mockResolvedValue({});
 		mockUpsertAnalysisRun.mockResolvedValue({ id: "run-1" });
 		mockUpdateAnalysisRun.mockResolvedValue({});
 
@@ -571,7 +584,7 @@ describe("processAnalyzeChangesJob", () => {
 		expect(mockServices.createPullRequest).not.toHaveBeenCalled();
 	});
 
-	it("stores resolved docs_config to repository for caching", async () => {
+	it("stores resolved docs config to project config for caching", async () => {
 		mockFilterDiff
 			.mockReturnValueOnce([{ filename: "src/index.ts" }])
 			.mockReturnValueOnce([{ filename: "src/index.ts" }])
@@ -608,11 +621,11 @@ describe("processAnalyzeChangesJob", () => {
 
 		await processAnalyzeChangesJob(makeJob(), makeLogger(), mockServices);
 
-		expect(mockUpdateProviderRepository).toHaveBeenCalledWith(
+		expect(mockUpdateProject).toHaveBeenCalledWith(
 			expect.objectContaining({
-				where: { id: "repo-1" },
+				where: { id: "project-1" },
 				data: expect.objectContaining({
-					docsConfig: expect.objectContaining({
+					config: expect.objectContaining({
 						docs: expect.objectContaining({ framework: "nextra" }),
 						triggers: expect.objectContaining({ ignore_paths: expect.any(Array) }),
 					}),
@@ -627,9 +640,9 @@ describe("processAnalyzeChangesJob", () => {
 			.mockReturnValueOnce([{ filename: "src/index.ts" }])
 			.mockReturnValue([]);
 
-		mockFindUniqueRepository.mockResolvedValueOnce({
-			...makeRepository(),
-			docsConfig: {
+		mockFindFirstProject.mockResolvedValueOnce({
+			id: "project-1",
+			config: {
 				docs: { framework: "nextra" },
 				triggers: { branches: ["main", "release"], ignore_paths: ["db-ignore/**"] },
 				pr: {
@@ -673,11 +686,11 @@ describe("processAnalyzeChangesJob", () => {
 
 		await processAnalyzeChangesJob(makeJob(), makeLogger(), mockServices);
 
-		expect(mockUpdateProviderRepository).toHaveBeenCalledWith(
+		expect(mockUpdateProject).toHaveBeenCalledWith(
 			expect.objectContaining({
-				where: { id: "repo-1" },
+				where: { id: "project-1" },
 				data: expect.objectContaining({
-					docsConfig: expect.objectContaining({
+					config: expect.objectContaining({
 						pr: expect.objectContaining({
 							labels: ["docs"],
 							assignees: ["alice"],
