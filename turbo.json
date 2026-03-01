@@ -31,20 +31,13 @@
 			"outputs": []
 		},
 		"typecheck": {
-			"dependsOn": ["^typecheck"],
+			"dependsOn": ["^build", "^typecheck"],
 			"outputs": []
 		},
 		"test": {
 			"dependsOn": ["build"],
 			"inputs": ["$TURBO_DEFAULT$", "**/*.test.ts"],
 			"outputs": ["coverage/**"]
-		},
-		"openapi:generate": {
-			"outputs": ["apps/api/openapi/openapi.json", "packages/api-client/src/generated/openapi.ts"]
-		},
-		"openapi:check": {
-			"dependsOn": ["openapi:generate"],
-			"outputs": []
 		}
 	}
 }

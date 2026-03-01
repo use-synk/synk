@@ -16,10 +16,12 @@
 	},
 	"scripts": {
 		"build": "tsc -p tsconfig.json",
-		"generate": "pnpm dlx @better-auth/cli generate --config src/cli.ts --output ../db/src/schemas/auth.prisma",
+		"generate": "bunx @better-auth/cli generate --config src/cli.ts --output ../db/src/schemas/auth.prisma",
 		"lint": "biome check .",
-		"typecheck": "bun run --filter @synk-ai/db build && bunx tsc --noEmit",
-		"test": "echo 'auth test placeholder'"
+		"lint:write": "biome check . --write",
+		"lint:unsafe": "biome check . --write --unsafe",
+		"typecheck": "bunx tsc --noEmit",
+		"test": "bun test src --coverage"
 	},
 	"dependencies": {
 		"@synk-ai/db": "workspace:*",

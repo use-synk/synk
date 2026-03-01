@@ -15,6 +15,12 @@ concurrency:
 env:
   BUN_VERSION: 1.3.9
   TURBO_CACHE_DIR: .turbo
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/synk_ai?schema=public
+  BETTER_AUTH_SECRET: ci-build-placeholder-secret
+  BETTER_AUTH_GITHUB_CLIENT_ID: ci-build-placeholder-client-id
+  BETTER_AUTH_GITHUB_CLIENT_SECRET: ci-build-placeholder-client-secret
+  NEXT_PUBLIC_API_URL: http://localhost:3001
+  BETTER_AUTH_BASE_URL: http://localhost:3000
 
 jobs:
   lint:
@@ -111,8 +117,6 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-    env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/synk_ai?schema=public
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -143,12 +147,9 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Run tests
-        # @synk-ai/web is excluded: it has no real tests and its static-generation
-        # phase has historically been brittle in CI test runs and is currently out
-        # of scope for this workflow.
         # @synk-ai/worker is temporarily excluded due unstable test fixtures;
         # worker coverage remains enforced by lint/typecheck/build jobs.
-        run: bun run test --filter=!@synk-ai/web --filter=!@synk-ai/worker
+        run: bun run test -- --filter=!@synk-ai/worker
 
   build:
     name: Build
@@ -186,12 +187,6 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Run build
-        env:
-          BETTER_AUTH_SECRET: ci-build-placeholder-secret
-          BETTER_AUTH_GITHUB_CLIENT_ID: ci-build-placeholder-client-id
-          BETTER_AUTH_GITHUB_CLIENT_SECRET: ci-build-placeholder-client-secret
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/synk_ai?schema=public
-          NEXT_PUBLIC_API_URL: http://localhost:3001
         run: bun run build
 
       - name: Build API image (cache validation)

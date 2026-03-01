@@ -6,8 +6,7 @@ Thank you for your interest in contributing to `synk`. We welcome all contributi
 
 ### Prerequisites
 - [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) for database and caching services
-- [pnpm](https://pnpm.io/installation) as the package manager for the project
-- [node](https://nodejs.org/en/download/) minimum version 22 (use [nvm](https://github.com/nvm-sh/nvm) to install and manage node versions)
+- [Bun](https://bun.sh/docs/installation) `1.3.9` or newer as the package manager and runtime
 - [ngrok](https://ngrok.com/download) for routing webhook events to the development server
 
 ### Steps
@@ -26,12 +25,12 @@ Thank you for your interest in contributing to `synk`. We welcome all contributi
     Install the dependencies using the following command:
 
     ```bash
-    pnpm install
+    bun install
     ```
 
 4. **Run the development server**
     Run the development server using the following command:
 
     ```bash
-    pnpm dev
+    bun dev
     ```

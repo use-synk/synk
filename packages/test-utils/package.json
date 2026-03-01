@@ -15,7 +15,8 @@
 		"lint": "biome check .",
 		"lint:write": "biome check . --write",
 		"lint:unsafe": "biome check . --write --unsafe",
-		"typecheck": "bunx tsc --noEmit"
+		"typecheck": "bunx tsc --noEmit",
+		"test": "bun test src --coverage"
 	},
 	"devDependencies": {
 		"@types/node": "^22.17.2",

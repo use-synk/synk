@@ -21,7 +21,7 @@
 		"lint:write": "biome check . --write",
 		"lint:unsafe": "biome check . --write --unsafe",
 		"typecheck": "prisma generate --config src/prisma.config.ts && bunx tsc --noEmit",
-		"test": "echo 'db test placeholder'",
+		"test": "bun test src --coverage",
 		"generate": "prisma generate --config src/prisma.config.ts",
 		"db:generate": "prisma generate --config src/prisma.config.ts",
 		"db:migrate": "prisma migrate dev --config src/prisma.config.ts",

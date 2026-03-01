@@ -11,10 +11,13 @@
 		}
 	},
 	"scripts": {
+		"build": "bun run generate && bunx tsc --noEmit",
 		"generate": "openapi-typescript ../../apps/api/openapi/openapi.json -o src/generated/openapi.ts",
 		"lint": "biome check .",
+		"lint:write": "biome check . --write",
+		"lint:unsafe": "biome check . --write --unsafe",
 		"typecheck": "bunx tsc --noEmit",
-		"test": "echo 'api-client test placeholder'"
+		"test": "bun run typecheck"
 	},
 	"devDependencies": {
 		"typescript": "5.9.2"
