@@ -17,7 +17,7 @@
 		"lint:write": "biome check . --write",
 		"lint:unsafe": "biome check . --write --unsafe",
 		"typecheck": "bunx tsc --noEmit",
-		"test": "bunx tsc --noEmit"
+		"test": "bun run typecheck"
 	},
 	"devDependencies": {
 		"typescript": "5.9.2"
