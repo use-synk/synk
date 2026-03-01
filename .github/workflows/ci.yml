@@ -148,6 +148,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -178,9 +180,30 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Run build
-        run: bun run build
+        run: bun run build -- --affected
+
+      - name: Detect Docker build changes
+        id: docker_changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            api:
+              - 'apps/api/**'
+              - 'packages/**'
+              - 'bun.lock'
+              - 'package.json'
+              - 'turbo.json'
+              - '.github/workflows/ci.yml'
+            worker:
+              - 'apps/worker/**'
+              - 'packages/**'
+              - 'bun.lock'
+              - 'package.json'
+              - 'turbo.json'
+              - '.github/workflows/ci.yml'
 
       - name: Build API image (cache validation)
+        if: steps.docker_changes.outputs.api == 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -191,6 +214,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=synk-ai-api
 
       - name: Build Worker image (cache validation)
+        if: steps.docker_changes.outputs.worker == 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
