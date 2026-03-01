@@ -11,7 +11,6 @@ import type {
 import type { OrganizationRepository } from "../ports";
 import type { AuthorizationRepository } from "../ports/authorization-repository";
 import type { DashboardRepository } from "../ports/dashboard-repository";
-import type { DashboardUnitOfWork } from "../ports/dashboard-unit-of-work";
 import type { RunRepository } from "../ports/run-repository";
 
 export type DashboardServiceDependencies = {
@@ -19,7 +18,6 @@ export type DashboardServiceDependencies = {
 	authorizationRepository: AuthorizationRepository;
 	dashboardRepository: DashboardRepository;
 	runRepository: RunRepository;
-	unitOfWork: DashboardUnitOfWork;
 	enqueueAnalyzeChanges: AnalyzeChangesEnqueuer;
 };
 

@@ -13,7 +13,6 @@ import type { ProjectServiceContract } from "../domain/services/project-service"
 import type { ApiEnvironment } from "../env";
 import { createPrismaAuthorizationRepository } from "../infrastructure/prisma/authorization.repository";
 import { createPrismaDashboardRepositories } from "../infrastructure/prisma/dashboard.repositories";
-import { createPrismaDashboardUnitOfWork } from "../infrastructure/prisma/dashboard.unit-of-work";
 import { createPrismaInstallationOAuthStateRepository } from "../infrastructure/prisma/installation-oauth-state.repository";
 import { createPrismaOrganizationRepository } from "../infrastructure/prisma/organization.repository";
 import { createPrismaProjectRepository } from "../infrastructure/prisma/project.repository";
@@ -44,7 +43,6 @@ export const buildAppDependencies = (options: BuildAppDependenciesOptions): AppD
 	const authorizationRepository = createPrismaAuthorizationRepository();
 	const organizationRepository = createPrismaOrganizationRepository(db);
 	const dashboardRepositories = createPrismaDashboardRepositories();
-	const unitOfWork = createPrismaDashboardUnitOfWork();
 	const { webhookRepository } = createPrismaWebhookRepositories();
 	const installationOAuthStateRepository = createPrismaInstallationOAuthStateRepository();
 	const projectRepository = createPrismaProjectRepository(db);
@@ -108,7 +106,6 @@ export const buildAppDependencies = (options: BuildAppDependenciesOptions): AppD
 		dashboardService: new DashboardService({
 			...dashboardRepositories,
 			authorizationRepository,
-			unitOfWork,
 			organizationRepository,
 			enqueueAnalyzeChanges: options.enqueueAnalyzeChanges,
 		}),

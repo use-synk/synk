@@ -12,7 +12,6 @@ export type {
 	UpdateRepositoryCommand,
 } from "./dashboard-repository";
 export type { RunRepository } from "./run-repository";
-export type { DashboardUnitOfWork, DashboardUnitOfWorkContext } from "./dashboard-unit-of-work";
 export type {
 	ActiveRepository,
 	InstallationLookup,
