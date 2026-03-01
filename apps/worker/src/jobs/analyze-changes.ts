@@ -776,9 +776,7 @@ const loadRepository = async (
 		},
 	});
 	if (project === null) {
-		throw new UnrecoverableError(
-			`No project is linked to repository '${payload.repositoryId}'.`,
-		);
+		throw new UnrecoverableError(`No project is linked to repository '${payload.repositoryId}'.`);
 	}
 	return {
 		...repository,

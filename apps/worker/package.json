@@ -7,7 +7,7 @@
 		"dev": "bun --env-file=.env --watch src/worker.ts",
 		"build": "bun build src/worker.ts --outdir dist --format esm --target bun --sourcemap",
 		"lint": "biome check .",
-		"typecheck": "bunx tsc --noEmit",
+		"typecheck": "bun run --filter @synk-ai/db build && bunx tsc --noEmit",
 		"test": "bun test src/__tests__ --coverage"
 	},
 	"dependencies": {
