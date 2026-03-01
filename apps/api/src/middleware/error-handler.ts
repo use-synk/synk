@@ -1,4 +1,4 @@
-import { ERROR_CODES, type ErrorResponse } from "@synk-ai/shared";
+import { ERROR_CODES, type ErrorCode, type ErrorResponse } from "@synk-ai/shared";
 import type { ErrorHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { AccessDeniedError } from "../domain/errors/access-denied-error";
@@ -7,7 +7,7 @@ import { OrganizationNotFoundError } from "../domain/errors/organization-not-fou
 import type { Logger } from "../logger";
 import type { AppEnv } from "../types";
 
-const HTTP_STATUS_TO_ERROR_CODE: Partial<Record<number, string>> = {
+const HTTP_STATUS_TO_ERROR_CODE: Record<number, ErrorCode> = {
 	400: ERROR_CODES.BAD_REQUEST,
 	401: ERROR_CODES.UNAUTHORIZED,
 	403: ERROR_CODES.FORBIDDEN,
@@ -17,8 +17,13 @@ const HTTP_STATUS_TO_ERROR_CODE: Partial<Record<number, string>> = {
 	429: ERROR_CODES.TOO_MANY_REQUESTS,
 };
 
-const toErrorCode = (status: number): string =>
-	HTTP_STATUS_TO_ERROR_CODE[status] ?? `HTTP_${status}`;
+const toErrorCode = (status: number): ErrorCode => {
+	const errorCode = HTTP_STATUS_TO_ERROR_CODE[status];
+	if (!errorCode) {
+		return ERROR_CODES.INTERNAL_ERROR;
+	}
+	return errorCode;
+};
 
 export const createErrorHandler =
 	(logger: Logger): ErrorHandler<AppEnv> =>
