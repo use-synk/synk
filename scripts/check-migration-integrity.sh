@@ -75,6 +75,12 @@ check_docs_for_legacy_package_manager() {
 
 	local doc_file
 	for doc_file in "${docs_to_check[@]}"; do
+		if [[ ! -f "$doc_file" ]]; then
+			echo "Expected documentation file is missing: $doc_file"
+			failure=1
+			continue
+		fi
+
 		if rg -n "\\bpnpm\\b" "$doc_file" >/dev/null 2>&1; then
 			echo "Stale pnpm reference(s) in $doc_file"
 			rg -n "\\bpnpm\\b" "$doc_file"
