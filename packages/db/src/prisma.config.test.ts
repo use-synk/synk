@@ -13,7 +13,7 @@ afterEach(() => {
 		return;
 	}
 
-	delete process.env.DATABASE_URL;
+	process.env.DATABASE_URL = undefined;
 });
 
 describe("prisma config", () => {
@@ -25,7 +25,7 @@ describe("prisma config", () => {
 	});
 
 	it("falls back to placeholder url when DATABASE_URL is missing", async () => {
-		delete process.env.DATABASE_URL;
+		process.env.DATABASE_URL = undefined;
 
 		const module = await importConfig();
 		expect(module.default.datasource.url).toBe("postgresql://localhost/placeholder");
