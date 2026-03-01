@@ -1,7 +1,6 @@
 import { OpenAPIHono, createRoute, z as openApiZ } from "@hono/zod-openapi";
 import type { Hook } from "@hono/zod-openapi";
 import { ERROR_CODES } from "@synk-ai/shared";
-import { HTTPException } from "hono/http-exception";
 import z from "zod";
 import { AccessDeniedError } from "../../../domain/errors/access-denied-error";
 import { InstallationStateError } from "../../../domain/errors/installation-state-error";
@@ -118,9 +117,11 @@ export function createGitHubIntegrationRoutes(
 		installInitRoute,
 		async (ctx) => {
 			const userId = (ctx as unknown as { var: AuthenticatedAppEnv["Variables"] }).var.user.id;
-			const { organizationId } = (ctx.req as {
-				valid: (target: "json") => z.infer<typeof initiateInstallationBodySchema>;
-			}).valid("json");
+			const { organizationId } = (
+				ctx.req as {
+					valid: (target: "json") => z.infer<typeof initiateInstallationBodySchema>;
+				}
+			).valid("json");
 
 			const result = await integrationService.initiateInstallation({
 				userId,
@@ -148,9 +149,11 @@ export function createGitHubIntegrationRoutes(
 	router.openapi(
 		installCallbackRoute,
 		async (ctx) => {
-			const { installation_id: installationId, state } = (ctx.req as {
-				valid: (target: "query") => z.infer<typeof installationCallbackQuerySchema>;
-			}).valid("query");
+			const { installation_id: installationId, state } = (
+				ctx.req as {
+					valid: (target: "query") => z.infer<typeof installationCallbackQuerySchema>;
+				}
+			).valid("query");
 
 			try {
 				const result = await integrationService.completeInstallation({
