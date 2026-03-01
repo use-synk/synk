@@ -41,7 +41,8 @@ type RepositoryWithInstallation = {
 	provider: "github" | "gitlab" | "bitbucket";
 	fullName: string;
 	defaultBranch: string;
-	docsConfig: unknown;
+	projectId: string;
+	projectConfig: unknown;
 	installation: {
 		id: string;
 		provider: "github" | "gitlab" | "bitbucket";
@@ -428,7 +429,7 @@ const resolveDocsConfig = (
 	const fromFile =
 		synkAiFileConfig === null ? null : resolveDocsConfigFromParsedFile(synkAiFileConfig);
 
-	const fromDatabase = parseDocsConfigFromObject(repository.docsConfig);
+	const fromDatabase = parseDocsConfigFromObject(repository.projectConfig);
 
 	// Config merging: file config > database config > auto-detected defaults
 	return mergeResolvedConfig(
@@ -451,7 +452,7 @@ const resolvePrConfig = (
 					draft: synkAiFileConfig.pr.draft,
 				};
 
-	const fromDatabase = parsePrConfigFromObject(repository.docsConfig);
+	const fromDatabase = parsePrConfigFromObject(repository.projectConfig);
 	return mergePrConfig(fromFile, fromDatabase);
 };
 
@@ -598,7 +599,7 @@ const collectDocFiles = async (
 };
 
 const storeResolvedDocsConfig = async (
-	repositoryId: string,
+	projectId: string,
 	docsConfig: DocsConfig,
 	ignorePaths: string[],
 	previousConfig: unknown,
@@ -624,9 +625,9 @@ const storeResolvedDocsConfig = async (
 			ignore_paths: ignorePaths,
 		},
 	};
-	await db.providerRepository.update({
-		where: { id: repositoryId },
-		data: { docsConfig: configJson as unknown as Prisma.InputJsonValue },
+	await db.project.update({
+		where: { id: projectId },
+		data: { config: configJson as unknown as Prisma.InputJsonValue },
 	});
 };
 
@@ -730,7 +731,6 @@ const loadRepository = async (
 			provider: true,
 			fullName: true,
 			defaultBranch: true,
-			docsConfig: true,
 			installation: {
 				select: {
 					id: true,
@@ -763,13 +763,34 @@ const loadRepository = async (
 			`Repository installation is not active (status: ${repository.installation.status}).`,
 		);
 	}
-	return repository;
+	const project = await db.project.findFirst({
+		where: {
+			OR: [
+				{ sourceRepositoryId: payload.repositoryId },
+				{ docsRepositoryId: payload.repositoryId },
+			],
+		},
+		select: {
+			id: true,
+			config: true,
+		},
+	});
+	if (project === null) {
+		throw new UnrecoverableError(
+			`No project is linked to repository '${payload.repositoryId}'.`,
+		);
+	}
+	return {
+		...repository,
+		projectId: project.id,
+		projectConfig: project.config,
+	};
 };
 
 /**
  * Creates the analysis run record on the first attempt, or updates the existing
  * record on subsequent retry attempts. The unique constraint on
- * (repositoryId, triggerCommitSha, triggerType) guarantees exactly one run
+ * (projectId, repositoryId, triggerCommitSha, triggerType) guarantees exactly one run
  * per commit event, updated in-place across retries.
  */
 const upsertInitialRun = async (
@@ -784,13 +805,15 @@ const upsertInitialRun = async (
 	};
 	const run = await db.analysisRun.upsert({
 		where: {
-			repositoryId_triggerCommitSha_triggerType: {
+			projectId_repositoryId_triggerCommitSha_triggerType: {
+				projectId: repository.projectId,
 				repositoryId: repository.id,
 				triggerCommitSha: job.data.trigger.commitSha,
 				triggerType: job.data.trigger.type,
 			},
 		},
 		create: {
+			projectId: repository.projectId,
 			repositoryId: repository.id,
 			provider: repository.provider,
 			triggerType: job.data.trigger.type,
@@ -959,10 +982,10 @@ export const processAnalyzeChangesJob = async (
 		});
 
 		await storeResolvedDocsConfig(
-			repository.id,
+			repository.projectId,
 			docsConfig,
 			resolvedConfig.ignorePaths,
-			repository.docsConfig,
+			repository.projectConfig,
 		);
 
 		// Re-use the tree fetched during auto-detection when the docs repository
