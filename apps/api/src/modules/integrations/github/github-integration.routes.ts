@@ -8,7 +8,7 @@ import { InstallationStateError } from "../../../domain/errors/installation-stat
 import type { GitHubIntegrationServiceContract } from "../../../domain/services/github-integration-service";
 import type { Logger } from "../../../logger";
 import { createRequireAuthMiddleware } from "../../../middleware/auth";
-import type { AppEnv, RouteContext } from "../../../types";
+import type { AppEnv, AuthenticatedAppEnv, RouteContext } from "../../../types";
 import {
 	initiateInstallationBodySchema,
 	installationCallbackQuerySchema,
@@ -117,25 +117,13 @@ export function createGitHubIntegrationRoutes(
 	router.openapi(
 		installInitRoute,
 		async (ctx) => {
-			const session = await auth.auth.api.getSession({ headers: ctx.req.raw.headers });
-			if (!session) {
-				throw new HTTPException(401, { message: "Unauthorized" });
-			}
-
-			let body: unknown;
-			try {
-				body = await ctx.req.json();
-			} catch {
-				throw new HTTPException(400, { message: "Invalid JSON payload" });
-			}
-			const bodyResult = initiateInstallationBodySchema.safeParse(body);
-			if (!bodyResult.success) {
-				throw new HTTPException(400, { message: z.prettifyError(bodyResult.error) });
-			}
-			const { organizationId } = bodyResult.data;
+			const userId = (ctx as unknown as { var: AuthenticatedAppEnv["Variables"] }).var.user.id;
+			const { organizationId } = (ctx.req as {
+				valid: (target: "json") => z.infer<typeof initiateInstallationBodySchema>;
+			}).valid("json");
 
 			const result = await integrationService.initiateInstallation({
-				userId: session.user.id,
+				userId,
 				organizationId,
 			});
 
@@ -160,11 +148,9 @@ export function createGitHubIntegrationRoutes(
 	router.openapi(
 		installCallbackRoute,
 		async (ctx) => {
-			const queryResult = installationCallbackQuerySchema.safeParse(ctx.req.query());
-			if (!queryResult.success) {
-				throw new HTTPException(400, { message: z.prettifyError(queryResult.error) });
-			}
-			const { installation_id: installationId, state } = queryResult.data;
+			const { installation_id: installationId, state } = (ctx.req as {
+				valid: (target: "query") => z.infer<typeof installationCallbackQuerySchema>;
+			}).valid("query");
 
 			try {
 				const result = await integrationService.completeInstallation({
