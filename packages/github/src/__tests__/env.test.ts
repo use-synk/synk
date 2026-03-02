@@ -101,7 +101,8 @@ describe("parseGitHubCredentialsEnvironment", () => {
 	});
 
 	it("throws when required credential env vars are missing", () => {
-		process.env = { ...originalEnv };
+		const { GITHUB_APP_ID: _id, GITHUB_PRIVATE_KEY: _key, ...envWithout } = process.env;
+		process.env = envWithout;
 
 		expect(() => parseGitHubCredentialsEnvironment()).toThrow();
 	});
@@ -127,7 +128,8 @@ describe("parseGitHubEnvironment", () => {
 	});
 
 	it("throws when GITHUB_WEBHOOK_SECRET is missing", () => {
-		process.env = { ...originalEnv, ...VALID_CREDENTIALS_ENV };
+		const { GITHUB_WEBHOOK_SECRET: _, ...envWithout } = process.env;
+		process.env = { ...envWithout, ...VALID_CREDENTIALS_ENV };
 
 		expect(() => parseGitHubEnvironment()).toThrow();
 	});
