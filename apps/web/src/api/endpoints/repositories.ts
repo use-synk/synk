@@ -45,7 +45,7 @@ const listInstallationRepositoriesPropsSchema = z.object({
 });
 
 export function listInstallationRepositories(
-	props: z.infer<typeof listInstallationRepositoriesPropsSchema>,
+	props: z.input<typeof listInstallationRepositoriesPropsSchema>,
 ) {
 	const parsed = listInstallationRepositoriesPropsSchema.safeParse(props);
 	if (!parsed.success) {
