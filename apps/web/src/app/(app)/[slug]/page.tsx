@@ -1,5 +1,6 @@
 import { PageDescription, PageTitle } from "@/components/typography";
 import { api } from "@/server/api";
+import { getApiRequestHeaders } from "@/server/api/request-headers";
 import { getQueryClient } from "@/server/api/tanstack-query/make-query-client";
 import { auth } from "@/server/better-auth";
 import { headers } from "next/headers";
@@ -15,9 +16,10 @@ export default async function Page(props: PageProps<"/[slug]">): Promise<React.R
 
 	const { options } = api("/organizations/:slugOrId/setup", "GET");
 	const client = getQueryClient();
+	const requestHeaders = await getApiRequestHeaders();
 
 	const { data: setupStatus } = await client.fetchQuery(
-		options({ params: { slugOrId: slug }, headers: await headers() }),
+		options({ params: { slugOrId: slug }, headers: requestHeaders }),
 	);
 
 	if (!setupStatus.hasInstallations || !setupStatus.hasRepositories || !setupStatus.hasProjects) {

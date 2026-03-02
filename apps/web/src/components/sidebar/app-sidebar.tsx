@@ -1,4 +1,5 @@
 import { api } from "@/server/api";
+import { getApiRequestHeaders } from "@/server/api/request-headers";
 import { getQueryClient } from "@/server/api/tanstack-query/make-query-client";
 import { HydrationBoundary, dehydrate } from "@tanstack/react-query";
 import { HomeIcon } from "lucide-react";
@@ -25,8 +26,13 @@ export async function AppSidebar({
 }) {
 	const { options } = api("/organizations/:slugOrId/projects", "GET");
 	const client = getQueryClient();
+	const requestHeaders = await getApiRequestHeaders();
 	void (await client.prefetchQuery(
-		options({ params: { slugOrId: activeOrganizationSlug }, query: { page: 1, pageSize: 10 } }),
+		options({
+			params: { slugOrId: activeOrganizationSlug },
+			query: { page: 1, pageSize: 10 },
+			headers: requestHeaders,
+		}),
 	));
 
 	return (
