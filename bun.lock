@@ -18,7 +18,6 @@
       "version": "0.0.0",
       "dependencies": {
         "@hono/zod-openapi": "^1.2.2",
-        "@prisma/client": "^7.4.0",
         "@synk-ai/auth": "workspace:*",
         "@synk-ai/db": "workspace:*",
         "@synk-ai/github": "workspace:*",
@@ -84,7 +83,6 @@
       "name": "@synk-ai/worker",
       "version": "0.0.0",
       "dependencies": {
-        "@prisma/client": "^7.4.0",
         "@synk-ai/db": "workspace:*",
         "@synk-ai/doc-adapters": "workspace:*",
         "@synk-ai/github": "workspace:*",
@@ -125,7 +123,6 @@
       "version": "0.0.0",
       "dependencies": {
         "@better-auth/prisma-adapter": "^1.5.1",
-        "@prisma/client": "^7.4.0",
         "@synk-ai/db": "workspace:*",
         "better-auth": "^1.5.1",
       },
