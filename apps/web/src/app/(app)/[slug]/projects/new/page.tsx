@@ -1,5 +1,4 @@
 import { listOrganizationRepositories } from "@/api/endpoints";
-import { getQueryClient } from "@/api/make-query-client";
 import { prefetchQuery } from "@/api/server";
 import { PageDescription, PageTitle } from "@/components/typography";
 import { Separator } from "@/components/ui/separator";
@@ -12,8 +11,9 @@ import { CreateProjectForm } from "./_components/create-project-form";
 export default async function ServerPage(props: PageProps<"/[slug]/projects/new">) {
 	const { slug } = await props.params;
 
-	await prefetchQuery(listOrganizationRepositories({ slugOrId: slug, page: 1, pageSize: 100 }));
-	const client = getQueryClient();
+	const { client } = await prefetchQuery(
+		listOrganizationRepositories({ slugOrId: slug, page: 1, pageSize: 100 }),
+	);
 
 	return (
 		<main>
