@@ -1,7 +1,7 @@
-import { type BetterAuthOptions, betterAuth } from "better-auth";
+import { type BetterAuthOptions, betterAuth } from "better-auth/minimal";
 
+import { prismaAdapter } from "@better-auth/prisma-adapter";
 import { db } from "@synk-ai/db";
-import { prismaAdapter } from "better-auth/adapters/prisma";
 import { toNextJsHandler } from "better-auth/next-js";
 import { organization } from "better-auth/plugins";
 import { roles } from "./ac/org";

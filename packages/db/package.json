@@ -4,23 +4,23 @@
 	"private": true,
 	"type": "module",
 	"files": ["dist", "src/generated/prisma"],
-	"types": "./dist/index.d.ts",
+	"types": "./src/index.ts",
 	"exports": {
 		".": {
-			"types": "./dist/index.d.ts",
+			"types": "./src/index.ts",
 			"default": "./dist/index.js"
 		},
 		"./client": {
-			"types": "./dist/generated/prisma/client.d.ts",
+			"types": "./src/generated/prisma/client.ts",
 			"default": "./dist/generated/prisma/client.js"
 		}
 	},
 	"scripts": {
-		"build": "prisma generate --config src/prisma.config.ts && tsc -p tsconfig.json",
+		"build": "tsc -p tsconfig.json",
 		"lint": "biome check .",
 		"lint:write": "biome check . --write",
 		"lint:unsafe": "biome check . --write --unsafe",
-		"typecheck": "prisma generate --config src/prisma.config.ts && bunx tsc --noEmit",
+		"typecheck": "bunx tsc --noEmit",
 		"test": "bun test src --coverage",
 		"generate": "prisma generate --config src/prisma.config.ts",
 		"db:generate": "prisma generate --config src/prisma.config.ts",

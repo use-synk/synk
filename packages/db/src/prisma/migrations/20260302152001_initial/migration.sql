@@ -19,10 +19,13 @@ CREATE TYPE "attempt_status" AS ENUM ('running', 'failed', 'completed');
 -- CreateEnum
 CREATE TYPE "webhook_status" AS ENUM ('received', 'processed', 'ignored', 'failed');
 
+-- CreateEnum
+CREATE TYPE "installation_oauth_state_status" AS ENUM ('pending', 'consumed', 'expired');
+
 -- CreateTable
 CREATE TABLE "provider_installations" (
     "id" TEXT NOT NULL,
-    "organizationId" TEXT NOT NULL,
+    "organizationId" UUID NOT NULL,
     "provider" "vcs_provider" NOT NULL,
     "providerInstallationId" TEXT NOT NULL,
     "providerAccountId" TEXT NOT NULL,
@@ -49,7 +52,6 @@ CREATE TABLE "provider_repositories" (
     "defaultBranch" TEXT NOT NULL,
     "status" "repository_status" NOT NULL DEFAULT 'active',
     "isActive" BOOLEAN NOT NULL DEFAULT true,
-    "docsConfig" JSONB NOT NULL DEFAULT '{}',
     "lastSyncedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -60,6 +62,7 @@ CREATE TABLE "provider_repositories" (
 -- CreateTable
 CREATE TABLE "analysis_runs" (
     "id" TEXT NOT NULL,
+    "projectId" TEXT NOT NULL,
     "repositoryId" TEXT NOT NULL,
     "provider" "vcs_provider" NOT NULL,
     "triggerType" "run_trigger_type" NOT NULL,
@@ -99,6 +102,20 @@ CREATE TABLE "analysis_run_attempts" (
 );
 
 -- CreateTable
+CREATE TABLE "installation_oauth_states" (
+    "id" TEXT NOT NULL,
+    "token" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "organizationId" TEXT NOT NULL,
+    "status" "installation_oauth_state_status" NOT NULL DEFAULT 'pending',
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "consumedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "installation_oauth_states_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "webhook_deliveries" (
     "id" TEXT NOT NULL,
     "provider" "vcs_provider" NOT NULL,
@@ -117,8 +134,22 @@ CREATE TABLE "webhook_deliveries" (
 );
 
 -- CreateTable
-CREATE TABLE "user" (
+CREATE TABLE "projects" (
     "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "organizationId" UUID NOT NULL,
+    "sourceRepositoryId" TEXT NOT NULL,
+    "docsRepositoryId" TEXT,
+    "config" JSONB NOT NULL DEFAULT '{}',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "projects_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "user" (
+    "id" UUID NOT NULL DEFAULT pg_catalog.gen_random_uuid(),
     "name" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "emailVerified" BOOLEAN NOT NULL DEFAULT false,
@@ -131,14 +162,14 @@ CREATE TABLE "user" (
 
 -- CreateTable
 CREATE TABLE "session" (
-    "id" TEXT NOT NULL,
+    "id" UUID NOT NULL DEFAULT pg_catalog.gen_random_uuid(),
     "expiresAt" TIMESTAMP(3) NOT NULL,
     "token" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "ipAddress" TEXT,
     "userAgent" TEXT,
-    "userId" TEXT NOT NULL,
+    "userId" UUID NOT NULL,
     "activeOrganizationId" TEXT,
 
     CONSTRAINT "session_pkey" PRIMARY KEY ("id")
@@ -146,10 +177,10 @@ CREATE TABLE "session" (
 
 -- CreateTable
 CREATE TABLE "account" (
-    "id" TEXT NOT NULL,
+    "id" UUID NOT NULL DEFAULT pg_catalog.gen_random_uuid(),
     "accountId" TEXT NOT NULL,
     "providerId" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
+    "userId" UUID NOT NULL,
     "accessToken" TEXT,
     "refreshToken" TEXT,
     "idToken" TEXT,
@@ -165,7 +196,7 @@ CREATE TABLE "account" (
 
 -- CreateTable
 CREATE TABLE "verification" (
-    "id" TEXT NOT NULL,
+    "id" UUID NOT NULL DEFAULT pg_catalog.gen_random_uuid(),
     "identifier" TEXT NOT NULL,
     "value" TEXT NOT NULL,
     "expiresAt" TIMESTAMP(3) NOT NULL,
@@ -177,7 +208,7 @@ CREATE TABLE "verification" (
 
 -- CreateTable
 CREATE TABLE "organization" (
-    "id" TEXT NOT NULL,
+    "id" UUID NOT NULL DEFAULT pg_catalog.gen_random_uuid(),
     "name" TEXT NOT NULL,
     "slug" TEXT NOT NULL,
     "logo" TEXT,
@@ -189,9 +220,9 @@ CREATE TABLE "organization" (
 
 -- CreateTable
 CREATE TABLE "member" (
-    "id" TEXT NOT NULL,
-    "organizationId" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
+    "id" UUID NOT NULL DEFAULT pg_catalog.gen_random_uuid(),
+    "organizationId" UUID NOT NULL,
+    "userId" UUID NOT NULL,
     "role" TEXT NOT NULL DEFAULT 'member',
     "createdAt" TIMESTAMP(3) NOT NULL,
 
@@ -200,14 +231,14 @@ CREATE TABLE "member" (
 
 -- CreateTable
 CREATE TABLE "invitation" (
-    "id" TEXT NOT NULL,
-    "organizationId" TEXT NOT NULL,
+    "id" UUID NOT NULL DEFAULT pg_catalog.gen_random_uuid(),
+    "organizationId" UUID NOT NULL,
     "email" TEXT NOT NULL,
     "role" TEXT,
     "status" TEXT NOT NULL DEFAULT 'pending',
     "expiresAt" TIMESTAMP(3) NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "inviterId" TEXT NOT NULL,
+    "inviterId" UUID NOT NULL,
 
     CONSTRAINT "invitation_pkey" PRIMARY KEY ("id")
 );
@@ -246,22 +277,22 @@ CREATE UNIQUE INDEX "provider_repositories_installationId_fullName_key" ON "prov
 CREATE UNIQUE INDEX "provider_repositories_id_provider_key" ON "provider_repositories"("id", "provider");
 
 -- CreateIndex
-CREATE INDEX "analysis_runs_repositoryId_idx" ON "analysis_runs"("repositoryId");
+CREATE INDEX "analysis_runs_projectId_idx" ON "analysis_runs"("projectId");
 
 -- CreateIndex
 CREATE INDEX "analysis_runs_status_idx" ON "analysis_runs"("status");
 
 -- CreateIndex
-CREATE INDEX "analysis_runs_repositoryId_createdAt_idx" ON "analysis_runs"("repositoryId", "createdAt" DESC);
+CREATE INDEX "analysis_runs_projectId_createdAt_idx" ON "analysis_runs"("projectId", "createdAt" DESC);
 
 -- CreateIndex
-CREATE INDEX "analysis_runs_repositoryId_status_createdAt_idx" ON "analysis_runs"("repositoryId", "status", "createdAt" DESC);
+CREATE INDEX "analysis_runs_projectId_status_createdAt_idx" ON "analysis_runs"("projectId", "status", "createdAt" DESC);
 
 -- CreateIndex
 CREATE INDEX "analysis_runs_provider_triggerCommitSha_idx" ON "analysis_runs"("provider", "triggerCommitSha");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "analysis_runs_repositoryId_triggerCommitSha_triggerType_key" ON "analysis_runs"("repositoryId", "triggerCommitSha", "triggerType");
+CREATE UNIQUE INDEX "analysis_runs_projectId_repositoryId_triggerCommitSha_trigg_key" ON "analysis_runs"("projectId", "repositoryId", "triggerCommitSha", "triggerType");
 
 -- CreateIndex
 CREATE INDEX "analysis_run_attempts_runId_idx" ON "analysis_run_attempts"("runId");
@@ -271,6 +302,12 @@ CREATE INDEX "analysis_run_attempts_status_idx" ON "analysis_run_attempts"("stat
 
 -- CreateIndex
 CREATE UNIQUE INDEX "analysis_run_attempts_runId_attemptNumber_key" ON "analysis_run_attempts"("runId", "attemptNumber");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "installation_oauth_states_token_key" ON "installation_oauth_states"("token");
+
+-- CreateIndex
+CREATE INDEX "installation_oauth_states_expiresAt_idx" ON "installation_oauth_states"("expiresAt");
 
 -- CreateIndex
 CREATE INDEX "webhook_deliveries_provider_eventType_receivedAt_idx" ON "webhook_deliveries"("provider", "eventType", "receivedAt" DESC);
@@ -285,6 +322,12 @@ CREATE INDEX "webhook_deliveries_provider_providerRepositoryId_receivedAt_idx" O
 CREATE UNIQUE INDEX "webhook_deliveries_provider_deliveryId_key" ON "webhook_deliveries"("provider", "deliveryId");
 
 -- CreateIndex
+CREATE INDEX "projects_sourceRepositoryId_idx" ON "projects"("sourceRepositoryId");
+
+-- CreateIndex
+CREATE INDEX "projects_docsRepositoryId_idx" ON "projects"("docsRepositoryId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "user_email_key" ON "user"("email");
 
 -- CreateIndex
@@ -297,7 +340,7 @@ CREATE UNIQUE INDEX "session_token_key" ON "session"("token");
 CREATE INDEX "account_userId_idx" ON "account"("userId");
 
 -- CreateIndex
-CREATE INDEX "verification_identifier_idx" ON "verification"("identifier");
+CREATE UNIQUE INDEX "verification_identifier_key" ON "verification"("identifier");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "organization_slug_key" ON "organization"("slug");
@@ -321,10 +364,22 @@ ALTER TABLE "provider_installations" ADD CONSTRAINT "provider_installations_orga
 ALTER TABLE "provider_repositories" ADD CONSTRAINT "provider_repositories_installationId_fkey" FOREIGN KEY ("installationId") REFERENCES "provider_installations"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "analysis_runs" ADD CONSTRAINT "analysis_runs_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "projects"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "analysis_runs" ADD CONSTRAINT "analysis_runs_repositoryId_fkey" FOREIGN KEY ("repositoryId") REFERENCES "provider_repositories"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "analysis_run_attempts" ADD CONSTRAINT "analysis_run_attempts_runId_fkey" FOREIGN KEY ("runId") REFERENCES "analysis_runs"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "projects" ADD CONSTRAINT "projects_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "organization"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "projects" ADD CONSTRAINT "projects_sourceRepositoryId_fkey" FOREIGN KEY ("sourceRepositoryId") REFERENCES "provider_repositories"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "projects" ADD CONSTRAINT "projects_docsRepositoryId_fkey" FOREIGN KEY ("docsRepositoryId") REFERENCES "provider_repositories"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "session" ADD CONSTRAINT "session_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE CASCADE ON UPDATE CASCADE;

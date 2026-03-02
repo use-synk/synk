@@ -1,5 +1,5 @@
 model User {
-  id            String       @id
+  id            String       @id @default(dbgenerated("pg_catalog.gen_random_uuid()")) @db.Uuid
   name          String
   email         String
   emailVerified Boolean      @default(false)
@@ -16,14 +16,14 @@ model User {
 }
 
 model Session {
-  id                   String   @id
+  id                   String   @id @default(dbgenerated("pg_catalog.gen_random_uuid()")) @db.Uuid
   expiresAt            DateTime
   token                String
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
   ipAddress            String?
   userAgent            String?
-  userId               String
+  userId               String   @db.Uuid
   user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   activeOrganizationId String?
 
@@ -33,10 +33,10 @@ model Session {
 }
 
 model Account {
-  id                    String    @id
+  id                    String    @id @default(dbgenerated("pg_catalog.gen_random_uuid()")) @db.Uuid
   accountId             String
   providerId            String
-  userId                String
+  userId                String    @db.Uuid
   user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   accessToken           String?
   refreshToken          String?
@@ -53,38 +53,39 @@ model Account {
 }
 
 model Verification {
-  id         String   @id
+  id         String   @id @default(dbgenerated("pg_catalog.gen_random_uuid()")) @db.Uuid
   identifier String
   value      String
   expiresAt  DateTime
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  @@index([identifier])
+  @@unique([identifier])
   @@map("verification")
+  @@index([identifier])
 }
 
 model Organization {
-  id            String                 @id
-  name          String
-  slug          String
-  logo          String?
-  createdAt     DateTime
-  metadata      String?
-  members       Member[]
-  invitations   Invitation[]
-  installations ProviderInstallation[]
-  projects      Project[]
+  id                    String                 @id @default(dbgenerated("pg_catalog.gen_random_uuid()")) @db.Uuid
+  name                  String
+  slug                  String
+  logo                  String?
+  createdAt             DateTime
+  metadata              String?
+  members               Member[]
+  invitations           Invitation[]
+  providerInstallations ProviderInstallation[]
+  projects              Project[]
 
   @@unique([slug])
   @@map("organization")
 }
 
 model Member {
-  id             String       @id
-  organizationId String
+  id             String       @id @default(dbgenerated("pg_catalog.gen_random_uuid()")) @db.Uuid
+  organizationId String       @db.Uuid
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  userId         String
+  userId         String       @db.Uuid
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   role           String       @default("member")
   createdAt      DateTime
@@ -95,15 +96,15 @@ model Member {
 }
 
 model Invitation {
-  id             String       @id
-  organizationId String
+  id             String       @id @default(dbgenerated("pg_catalog.gen_random_uuid()")) @db.Uuid
+  organizationId String       @db.Uuid
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   email          String
   role           String?
   status         String       @default("pending")
   expiresAt      DateTime
   createdAt      DateTime     @default(now())
-  inviterId      String
+  inviterId      String       @db.Uuid
   user           User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
 
   @@index([organizationId])
