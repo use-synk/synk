@@ -26,16 +26,16 @@ export function getOrganizationSetupStatus({ slugOrId }: { slugOrId: string }) {
 	} satisfies ApiQuery;
 }
 
-const listOrganizationProjectsPropsSchema = z.object({
+const paginatedOrganizationQueryPropsSchema = z.object({
 	slugOrId: z.string().min(1),
 	page: z.number().int().min(1).default(1),
 	pageSize: z.number().int().min(1).default(10),
 });
 
 export function listOrganizationProjects(
-	props: z.infer<typeof listOrganizationProjectsPropsSchema>,
+	props: z.infer<typeof paginatedOrganizationQueryPropsSchema>,
 ) {
-	const parsed = listOrganizationProjectsPropsSchema.safeParse(props);
+	const parsed = paginatedOrganizationQueryPropsSchema.safeParse(props);
 	if (!parsed.success) {
 		throw new ValidationError("params", parsed.error.issues);
 	}
@@ -75,16 +75,10 @@ export function listOrganizationProjects(
 	} satisfies ApiQuery;
 }
 
-const listOrganizationRepositoriesPropsSchema = z.object({
-	slugOrId: z.string().min(1),
-	page: z.number().int().min(1).default(1),
-	pageSize: z.number().int().min(1).default(10),
-});
-
 export function listOrganizationRepositories(
-	props: z.infer<typeof listOrganizationRepositoriesPropsSchema>,
+	props: z.infer<typeof paginatedOrganizationQueryPropsSchema>,
 ) {
-	const parsed = listOrganizationRepositoriesPropsSchema.safeParse(props);
+	const parsed = paginatedOrganizationQueryPropsSchema.safeParse(props);
 	if (!parsed.success) {
 		throw new ValidationError("params", parsed.error.issues);
 	}
