@@ -5,7 +5,16 @@ export function buildFetchUrl(url: string): URL | string {
 		return url;
 	}
 
-	return new URL(url, env.NEXT_PUBLIC_API_URL);
+	let normalizedUrl = url;
+	if (url.startsWith("/")) {
+		normalizedUrl = normalizedUrl.slice(1);
+	}
+
+	const apiBaseUrl = env.NEXT_PUBLIC_API_URL.endsWith("/")
+		? env.NEXT_PUBLIC_API_URL
+		: `${env.NEXT_PUBLIC_API_URL}/`;
+
+	return new URL(normalizedUrl, apiBaseUrl);
 }
 
 export const parseResponseBody = async (res: Response): Promise<unknown> => {

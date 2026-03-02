@@ -3,7 +3,7 @@
 import type { StandardSchemaV1 } from "@/lib/types/standard-schema";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { RequestError, ValidationError } from "./errors";
-import { buildFetchUrl, parseResponseBody } from "./utils";
+import { buildFetchUrl, parseResponseBody } from "./shared";
 
 export const clientFetch = async <R extends StandardSchemaV1>(
 	url: string,
