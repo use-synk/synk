@@ -1,6 +1,6 @@
-import { prefetchQuery } from "@/api/server";
-import { getQueryClient } from "@/api/make-query-client";
 import { listOrganizationProjects } from "@/api/endpoints";
+import { getQueryClient } from "@/api/make-query-client";
+import { prefetchQuery } from "@/api/server";
 import { HydrationBoundary, dehydrate } from "@tanstack/react-query";
 import { HomeIcon } from "lucide-react";
 import Link from "next/link";

@@ -2,8 +2,8 @@
 
 import { clientFetch } from "@/api/client";
 import { suspenseQuery } from "@/api/client";
-import { getQueryClient } from "@/api/make-query-client";
 import { createProject, listOrganizationRepositories } from "@/api/endpoints";
+import { getQueryClient } from "@/api/make-query-client";
 import { cn } from "@/lib/utils";
 import { useMutation } from "@tanstack/react-query";
 import { BookOpenIcon, GitBranchIcon } from "lucide-react";

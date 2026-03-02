@@ -1,10 +1,10 @@
+import type { OrganizationSetupStatus } from "@/api/endpoints";
 import { InstallGitHubButton } from "@/components/install-github";
 import { PageDescription, PageTitle } from "@/components/typography";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { GithubLight } from "@/components/ui/svgs/githubLight";
 import { cn } from "@/lib/utils";
-import type { OrganizationSetupStatus } from "@/api/endpoints";
 import { CircleCheckIcon, CircleDashedIcon, LoaderCircleIcon, PlusIcon } from "lucide-react";
 import Link from "next/link";
 

@@ -1,8 +1,8 @@
-import { FLASH_MESSAGE_PARAM } from "@/components/flash-error-toast";
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { completeGithubInstallation } from "@/api/endpoints";
 import { getErrorMessage } from "@/api/errors";
 import { fetchQuery } from "@/api/server";
-import { completeGithubInstallation } from "@/api/endpoints";
+import { FLASH_MESSAGE_PARAM } from "@/components/flash-error-toast";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { auth } from "@/server/better-auth";
 import { cookies, headers } from "next/headers";
 import Link from "next/link";

@@ -1,6 +1,6 @@
-import { PageDescription, PageTitle } from "@/components/typography";
-import { fetchQuery } from "@/api/server";
 import { getOrganizationSetupStatus } from "@/api/endpoints";
+import { fetchQuery } from "@/api/server";
+import { PageDescription, PageTitle } from "@/components/typography";
 import { auth } from "@/server/better-auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";

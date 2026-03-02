@@ -1,8 +1,8 @@
 "use client";
 
 import { clientFetch } from "@/api/client";
-import { getErrorMessage } from "@/api/errors";
 import { initiateGithubInstallation } from "@/api/endpoints";
+import { getErrorMessage } from "@/api/errors";
 import { authClient } from "@/server/better-auth/client";
 import { useRouter } from "next/navigation";
 import type React from "react";
