@@ -1,4 +1,5 @@
 import { env } from "@/env";
+import z from "zod";
 
 export function buildFetchUrl(url: string): URL | string {
 	if (url.startsWith("http://") || url.startsWith("https://")) {
@@ -29,3 +30,10 @@ export const parseResponseBody = async (res: Response): Promise<unknown> => {
 		);
 	}
 };
+
+export const paginationResultSchema = z.object({
+	page: z.number().int(),
+	pageSize: z.number().int(),
+	total: z.number().int(),
+	totalPages: z.number().int(),
+});

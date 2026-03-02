@@ -3,8 +3,8 @@ import type { StandardSchemaV1 } from "@/lib/types/standard-schema";
 import { headers } from "next/headers";
 import { ValidationError } from "./errors";
 import { getQueryClient } from "./make-query-client";
+import { buildFetchUrl, parseResponseBody } from "./shared";
 import type { ApiQuery } from "./types";
-import { buildFetchUrl, parseResponseBody } from "./utils";
 
 export const serverFetch = async <R extends StandardSchemaV1>(
 	url: string,
@@ -75,7 +75,6 @@ async function mergeServerAuthHeaders(initial?: HeadersInit): Promise<Headers> {
  */
 export async function prefetchQuery<R extends StandardSchemaV1>(query: ApiQuery<R>) {
 	const client = getQueryClient();
-
 	const headers = await mergeServerAuthHeaders(query.init.headers);
 
 	void (await client.prefetchQuery({
@@ -87,4 +86,17 @@ export async function prefetchQuery<R extends StandardSchemaV1>(query: ApiQuery<
 	}));
 
 	return { client };
+}
+
+export async function fetchQuery<R extends StandardSchemaV1>(query: ApiQuery<R>) {
+	const client = getQueryClient();
+	const headers = await mergeServerAuthHeaders(query.init.headers);
+
+	return client.fetchQuery({
+		queryKey: query.key,
+		queryFn: async () => {
+			const res = await serverFetch(query.url, { ...query.init, headers }, query.response);
+			return res.data;
+		},
+	});
 }
