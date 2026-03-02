@@ -17,7 +17,7 @@ export function CreateProjectForm({
 	organizationSlug: string;
 }) {
 	const client = getQueryClient();
-	const { data: result, isLoading } = useApiSuspenseQuery(
+	const { data: result } = useApiSuspenseQuery(
 		listOrganizationRepositories({ slugOrId: organizationSlug, page: 1, pageSize: 100 }),
 	);
 
@@ -39,8 +39,6 @@ export function CreateProjectForm({
 			});
 		},
 	});
-
-	if (isLoading) return <p>Loading...</p>;
 
 	if (!result?.data)
 		return (
