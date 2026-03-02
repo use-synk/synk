@@ -6,11 +6,11 @@
 	"files": ["dist"],
 	"exports": {
 		"./server": {
-			"types": "./dist/server.d.ts",
+			"types": "./src/server.ts",
 			"default": "./dist/server.js"
 		},
 		"./client": {
-			"types": "./dist/client.d.ts",
+			"types": "./src/client.ts",
 			"default": "./dist/client.js"
 		}
 	},
