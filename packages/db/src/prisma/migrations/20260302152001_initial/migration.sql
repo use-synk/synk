@@ -340,7 +340,7 @@ CREATE UNIQUE INDEX "session_token_key" ON "session"("token");
 CREATE INDEX "account_userId_idx" ON "account"("userId");
 
 -- CreateIndex
-CREATE INDEX "verification_identifier_idx" ON "verification"("identifier");
+CREATE UNIQUE INDEX "verification_identifier_key" ON "verification"("identifier");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "organization_slug_key" ON "organization"("slug");
