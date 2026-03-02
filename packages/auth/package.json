@@ -24,6 +24,7 @@
 		"test": "bun test src --coverage"
 	},
 	"dependencies": {
+		"@prisma/client": "^7.4.0",
 		"@synk-ai/db": "workspace:*",
 		"better-auth": "^1.4.18"
 	},
