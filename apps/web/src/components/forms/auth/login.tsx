@@ -17,6 +17,29 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"form">)
 	);
 }
 
+function extractAuthErrorMessage(result: unknown): string | null {
+	if (!result || typeof result !== "object") {
+		return null;
+	}
+
+	const response = result as Record<string, unknown>;
+	const error = response.error;
+	if (!error || typeof error !== "object") {
+		return null;
+	}
+
+	const authError = error as Record<string, unknown>;
+	if (typeof authError.message === "string" && authError.message.length > 0) {
+		return authError.message;
+	}
+
+	if (typeof authError.code === "string" && authError.code.length > 0) {
+		return `Sign in failed (${authError.code})`;
+	}
+
+	return "Failed to sign in";
+}
+
 function SocialProviderButton({
 	action,
 	children,
@@ -34,7 +57,11 @@ function SocialProviderButton({
 			onClick={async () => {
 				try {
 					setIsLoading(true);
-					await action();
+					const result = await action();
+					const errorMessage = extractAuthErrorMessage(result);
+					if (errorMessage) {
+						toast.error(errorMessage);
+					}
 				} catch (error) {
 					if (error instanceof Error) {
 						toast.error(error.message);
