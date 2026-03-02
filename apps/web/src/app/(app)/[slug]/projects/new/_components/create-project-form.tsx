@@ -1,9 +1,11 @@
 "use client";
 
+import { clientFetch } from "@/api/client";
+import { suspenseQuery } from "@/api/client";
+import { getQueryClient } from "@/api/make-query-client";
+import { createProject, listOrganizationRepositories } from "@/api/endpoints";
 import { cn } from "@/lib/utils";
-import { api } from "@/server/api";
-import { getQueryClient } from "@/server/api/tanstack-query/make-query-client";
-import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { BookOpenIcon, GitBranchIcon } from "lucide-react";
 import { toast } from "sonner";
 import { CreateProjectFormPrimitive } from "./create-project-form-primitive";
@@ -16,17 +18,16 @@ export function CreateProjectForm({
 	organizationSlug: string;
 }) {
 	const client = getQueryClient();
-	const { options } = api("/organizations/:slugOrId/repositories", "GET");
-	const { data: result, isLoading } = useSuspenseQuery(
-		options({
-			params: { slugOrId: organizationSlug },
-			query: { page: 1, pageSize: 100 },
-		}),
+	const { data: result, isLoading } = suspenseQuery(
+		listOrganizationRepositories({ slugOrId: organizationSlug, page: 1, pageSize: 100 }),
 	);
 
-	const { $fetch } = api("/projects", "POST");
 	const { mutate } = useMutation({
-		mutationFn: $fetch,
+		mutationFn: async (body: Parameters<typeof createProject>[0]) => {
+			const query = createProject(body);
+			const { data } = await clientFetch(query.url, query.init, query.response);
+			return data;
+		},
 		onError: (error) => {
 			toast.error("Failed to create project", {
 				description: error.message ?? "Unknown error occurred",
@@ -35,10 +36,7 @@ export function CreateProjectForm({
 		onSuccess: () => {
 			toast.success("Project created successfully");
 			client.invalidateQueries({
-				queryKey: api("/organizations/:slugOrId/projects", "GET").keyFn({
-					params: { slugOrId: organizationSlug },
-					query: { page: 1, pageSize: 10 },
-				}),
+				queryKey: ["organizations", organizationSlug, "projects"],
 			});
 		},
 	});
@@ -60,12 +58,10 @@ export function CreateProjectForm({
 				repositories={result.data}
 				onSubmit={({ name, sourceRepository, targetRepository }) => {
 					mutate({
-						body: {
-							name,
-							slugOrId: organizationSlug,
-							docsRepositoryId: targetRepository,
-							sourceRepositoryId: sourceRepository,
-						},
+						name,
+						slugOrId: organizationSlug,
+						docsRepositoryId: targetRepository,
+						sourceRepositoryId: sourceRepository,
 					});
 				}}
 				render={({ Form, Source, Target, Complete }) => (

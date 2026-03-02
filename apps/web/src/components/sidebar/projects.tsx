@@ -1,6 +1,6 @@
 "use client";
-import { api } from "@/server/api";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { suspenseQuery } from "@/api/client";
+import { listOrganizationProjects } from "@/api/endpoints";
 import { PlusIcon } from "lucide-react";
 import Link from "next/link";
 import {
@@ -14,17 +14,8 @@ import {
 } from "../ui/sidebar";
 
 export function SidebarProjects({ organizationSlug }: { organizationSlug: string }) {
-	const { options } = api("/organizations/:slugOrId/projects", "GET");
-	const { data } = useSuspenseQuery(
-		options({
-			params: {
-				slugOrId: organizationSlug,
-			},
-			query: {
-				page: 1,
-				pageSize: 10,
-			},
-		}),
+	const { data } = suspenseQuery(
+		listOrganizationProjects({ slugOrId: organizationSlug, page: 1, pageSize: 10 }),
 	);
 
 	return (

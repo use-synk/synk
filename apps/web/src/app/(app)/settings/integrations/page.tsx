@@ -1,7 +1,8 @@
 import { FLASH_MESSAGE_PARAM } from "@/components/flash-error-toast";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { getErrorMessage } from "@/lib/api/api";
-import { api } from "@/server/api";
+import { getErrorMessage } from "@/api/errors";
+import { fetchQuery } from "@/api/server";
+import { completeGithubInstallation } from "@/api/endpoints";
 import { auth } from "@/server/better-auth";
 import { cookies, headers } from "next/headers";
 import Link from "next/link";
@@ -47,16 +48,15 @@ export default async function Page(
 
 	let organizationSlug: string;
 	try {
-		const { $fetch } = api("/integrations/github/install/callback", "GET");
-		const response = await $fetch({
-			query: {
-				installation_id: callbackQuery.data.installation_id,
+		const result = await fetchQuery(
+			completeGithubInstallation({
+				installationId: callbackQuery.data.installation_id,
 				state: callbackQuery.data.state,
-				setup_action: callbackQuery.data.setup_action,
-			},
-		});
+				setupAction: callbackQuery.data.setup_action,
+			}),
+		);
 
-		organizationSlug = response.data.organizationSlug;
+		organizationSlug = result.data.organizationSlug;
 	} catch (error) {
 		if (pendingSlug && SLUG_RE.test(pendingSlug)) {
 			redirect(`/${pendingSlug}?${FLASH_MESSAGE_PARAM}=github_install_error`);

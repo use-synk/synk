@@ -1,8 +1,8 @@
 import { PageDescription, PageTitle } from "@/components/typography";
 import { Separator } from "@/components/ui/separator";
-import { api } from "@/server/api";
-import { getApiRequestHeaders } from "@/server/api/request-headers";
-import { getQueryClient } from "@/server/api/tanstack-query/make-query-client";
+import { prefetchQuery } from "@/api/server";
+import { getQueryClient } from "@/api/make-query-client";
+import { listOrganizationRepositories } from "@/api/endpoints";
 import { HydrationBoundary, dehydrate } from "@tanstack/react-query";
 import { ArrowLeftIcon, BookOpenIcon, Building2Icon, UserIcon } from "lucide-react";
 import Link from "next/link";
@@ -11,17 +11,11 @@ import { CreateProjectForm } from "./_components/create-project-form";
 
 export default async function ServerPage(props: PageProps<"/[slug]/projects/new">) {
 	const { slug } = await props.params;
-	const { options } = api("/organizations/:slugOrId/repositories", "GET");
-	const client = getQueryClient();
-	const requestHeaders = await getApiRequestHeaders();
 
-	void (await client.prefetchQuery(
-		options({
-			params: { slugOrId: slug },
-			query: { page: 1, pageSize: 100 },
-			headers: requestHeaders,
-		}),
-	));
+	await prefetchQuery(
+		listOrganizationRepositories({ slugOrId: slug, page: 1, pageSize: 100 }),
+	);
+	const client = getQueryClient();
 
 	return (
 		<main>

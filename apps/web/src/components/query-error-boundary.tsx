@@ -1,7 +1,7 @@
 "use client";
 
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { getErrorMessage } from "@/lib/api/api";
+import { getErrorMessage } from "@/api/errors";
 import Link from "next/link";
 import { Component, type ReactNode } from "react";
 

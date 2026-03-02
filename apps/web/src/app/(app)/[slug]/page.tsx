@@ -1,7 +1,6 @@
 import { PageDescription, PageTitle } from "@/components/typography";
-import { api } from "@/server/api";
-import { getApiRequestHeaders } from "@/server/api/request-headers";
-import { getQueryClient } from "@/server/api/tanstack-query/make-query-client";
+import { fetchQuery } from "@/api/server";
+import { getOrganizationSetupStatus } from "@/api/endpoints";
 import { auth } from "@/server/better-auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -14,13 +13,7 @@ export default async function Page(props: PageProps<"/[slug]">): Promise<React.R
 		redirect("/auth");
 	}
 
-	const { options } = api("/organizations/:slugOrId/setup", "GET");
-	const client = getQueryClient();
-	const requestHeaders = await getApiRequestHeaders();
-
-	const { data: setupStatus } = await client.fetchQuery(
-		options({ params: { slugOrId: slug }, headers: requestHeaders }),
-	);
+	const { data: setupStatus } = await fetchQuery(getOrganizationSetupStatus({ slugOrId: slug }));
 
 	if (!setupStatus.hasInstallations || !setupStatus.hasRepositories || !setupStatus.hasProjects) {
 		return <OrganizationSetup setupStatus={setupStatus} organizationSlug={slug} />;

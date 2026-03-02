@@ -3,6 +3,12 @@ import { ValidationError } from "../errors";
 import { paginationResultSchema } from "../shared";
 import type { ApiQuery } from "../types";
 
+export type OrganizationSetupStatus = {
+	hasInstallations: boolean;
+	hasRepositories: boolean;
+	hasProjects: boolean;
+};
+
 export function getOrganizationSetupStatus({ slugOrId }: { slugOrId: string }) {
 	return {
 		url: `/organizations/${slugOrId}/setup`,

@@ -47,3 +47,15 @@ export class RequestError extends Error {
 		this.apiError = apiError;
 	}
 }
+
+export const getErrorMessage = (
+	error: unknown,
+	fallback = "An unexpected error occurred",
+): string => {
+	if (error instanceof RequestError && error.apiError !== null) {
+		const msg = error.apiError.message;
+		return msg.trim() || fallback;
+	}
+	if (error instanceof Error) return error.message;
+	return fallback;
+};

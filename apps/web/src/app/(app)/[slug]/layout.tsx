@@ -3,7 +3,7 @@ import { AppSidebar } from "@/components/sidebar/app-sidebar";
 import { SiteNav } from "@/components/site-nav";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { SidebarProvider } from "@/components/ui/sidebar";
-import { getErrorMessage } from "@/lib/api/api";
+import { getErrorMessage } from "@/api/errors";
 import { auth } from "@/server/better-auth";
 import { headers } from "next/headers";
 import Link from "next/link";
