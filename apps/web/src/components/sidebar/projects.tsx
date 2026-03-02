@@ -1,5 +1,5 @@
 "use client";
-import { suspenseQuery } from "@/api/client";
+import { useApiSuspenseQuery } from "@/api/client";
 import { listOrganizationProjects } from "@/api/endpoints";
 import { PlusIcon } from "lucide-react";
 import Link from "next/link";
@@ -14,7 +14,7 @@ import {
 } from "../ui/sidebar";
 
 export function SidebarProjects({ organizationSlug }: { organizationSlug: string }) {
-	const { data } = suspenseQuery(
+	const { data } = useApiSuspenseQuery(
 		listOrganizationProjects({ slugOrId: organizationSlug, page: 1, pageSize: 10 }),
 	);
 

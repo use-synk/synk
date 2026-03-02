@@ -1,7 +1,6 @@
 "use client";
 
-import { clientFetch } from "@/api/client";
-import { suspenseQuery } from "@/api/client";
+import { clientFetch, useApiSuspenseQuery } from "@/api/client";
 import { createProject, listOrganizationRepositories } from "@/api/endpoints";
 import { getQueryClient } from "@/api/make-query-client";
 import { cn } from "@/lib/utils";
@@ -18,7 +17,7 @@ export function CreateProjectForm({
 	organizationSlug: string;
 }) {
 	const client = getQueryClient();
-	const { data: result, isLoading } = suspenseQuery(
+	const { data: result, isLoading } = useApiSuspenseQuery(
 		listOrganizationRepositories({ slugOrId: organizationSlug, page: 1, pageSize: 100 }),
 	);
 
