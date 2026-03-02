@@ -15,7 +15,6 @@
 	},
 	"dependencies": {
 		"@hono/zod-openapi": "^1.2.2",
-		"@prisma/client": "^7.4.0",
 		"@synk-ai/auth": "workspace:*",
 		"@synk-ai/db": "workspace:*",
 		"@synk-ai/github": "workspace:*",
