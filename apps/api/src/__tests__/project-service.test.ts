@@ -59,6 +59,7 @@ const createDependencies = (): ProjectServiceDependencies => {
 		getHasInstallations: mock(async () => true),
 		getHasRepositories: mock(async () => true),
 		getHasProjects: mock(async () => true),
+		listOrganizationsForUser: mock(async () => []),
 	};
 
 	const projectRepository: ProjectServiceDependencies["projectRepository"] = {

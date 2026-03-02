@@ -1,4 +1,4 @@
-import { listOrganizationProjects } from "@/api/endpoints";
+import { listOrganizationProjects, listUserOrganizations } from "@/api/endpoints";
 import { getQueryClient } from "@/api/make-query-client";
 import { prefetchQuery } from "@/api/server";
 import { HydrationBoundary, dehydrate } from "@tanstack/react-query";
@@ -24,37 +24,40 @@ export async function AppSidebar({
 }: React.ComponentProps<typeof Sidebar> & {
 	activeOrganizationSlug: string;
 }) {
+	await prefetchQuery(listUserOrganizations());
 	await prefetchQuery(
 		listOrganizationProjects({ slugOrId: activeOrganizationSlug, page: 1, pageSize: 10 }),
 	);
 	const client = getQueryClient();
 
 	return (
-		<Sidebar {...props}>
-			<SidebarHeader>
-				<OrganizationSwitcher activeOrganizationSlug={activeOrganizationSlug} />
-			</SidebarHeader>
-			<SidebarContent>
-				<SidebarGroup>
-					<SidebarMenu>
-						<SidebarMenuItem>
-							<SidebarMenuButton
-								render={
-									<Link href={`/${activeOrganizationSlug}`}>
-										<HomeIcon className="text-muted-foreground" />
-										Dashboard
-									</Link>
-								}
-							/>
-						</SidebarMenuItem>
-					</SidebarMenu>
-				</SidebarGroup>
-				<HydrationBoundary state={dehydrate(client)}>
+		<HydrationBoundary state={dehydrate(client)}>
+			<Sidebar {...props}>
+				<SidebarHeader>
+					<Suspense fallback={<div>Loading organizations...</div>}>
+						<OrganizationSwitcher activeOrganizationSlug={activeOrganizationSlug} />
+					</Suspense>
+				</SidebarHeader>
+				<SidebarContent>
+					<SidebarGroup>
+						<SidebarMenu>
+							<SidebarMenuItem>
+								<SidebarMenuButton
+									render={
+										<Link href={`/${activeOrganizationSlug}`}>
+											<HomeIcon className="text-muted-foreground" />
+											Dashboard
+										</Link>
+									}
+								/>
+							</SidebarMenuItem>
+						</SidebarMenu>
+					</SidebarGroup>
 					<Suspense fallback={<SidebarMenuSkeleton />}>
 						<SidebarProjects organizationSlug={activeOrganizationSlug} />
 					</Suspense>
-				</HydrationBoundary>
-			</SidebarContent>
-		</Sidebar>
+				</SidebarContent>
+			</Sidebar>
+		</HydrationBoundary>
 	);
 }

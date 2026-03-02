@@ -128,6 +128,19 @@ const createDashboardServiceMock = () => {
 		createdAt: NOW,
 		updatedAt: NOW,
 	}));
+	const getOrganizationSetupStatus = mock(async () => ({
+		hasInstallations: true,
+		hasRepositories: true,
+		hasProjects: true,
+	}));
+	const listUserOrganizations = mock(async () => [
+		{
+			id: "org-1",
+			name: "Acme",
+			slug: "acme",
+			logo: null,
+		},
+	]);
 
 	return {
 		patchRepository,
@@ -135,6 +148,8 @@ const createDashboardServiceMock = () => {
 		listRepositoryRuns,
 		triggerManualRun,
 		getRunDetail,
+		getOrganizationSetupStatus,
+		listUserOrganizations,
 	};
 };
 
@@ -218,6 +233,29 @@ describe("dashboard routes", () => {
 			userId: USER_ID,
 			pagination: { page: 1, pageSize: 10 },
 		});
+	});
+
+	it("lists organizations for the authenticated user", async () => {
+		const dashboardService = createDashboardServiceMock();
+		const app = createTestApp(dashboardService);
+
+		const response = await app.request("/api/v1/organizations", {
+			headers: authHeaders(),
+		});
+
+		expect(response.status).toBe(200);
+		const body = (await response.json()) as {
+			data: Array<{ id: string; name: string; slug: string; logo: string | null }>;
+		};
+		expect(body.data).toEqual([
+			{
+				id: "org-1",
+				name: "Acme",
+				slug: "acme",
+				logo: null,
+			},
+		]);
+		expect(dashboardService.listUserOrganizations).toHaveBeenCalledWith(USER_ID);
 	});
 
 	it("coerces installation repository pagination query params from strings", async () => {

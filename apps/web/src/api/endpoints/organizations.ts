@@ -9,6 +9,33 @@ export type OrganizationSetupStatus = {
 	hasProjects: boolean;
 };
 
+export type UserOrganization = {
+	id: string;
+	name: string;
+	slug: string;
+	logo: string | null;
+};
+
+export function listUserOrganizations() {
+	return {
+		url: "/organizations",
+		init: {
+			method: "GET",
+		},
+		response: z.object({
+			data: z.array(
+				z.object({
+					id: z.string(),
+					name: z.string(),
+					slug: z.string(),
+					logo: z.string().nullable(),
+				}),
+			),
+		}),
+		key: ["organizations", "me"],
+	} satisfies ApiQuery;
+}
+
 export function getOrganizationSetupStatus({ slugOrId }: { slugOrId: string }) {
 	return {
 		url: `/organizations/${slugOrId}/setup`,

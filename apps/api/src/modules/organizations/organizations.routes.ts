@@ -23,6 +23,33 @@ export function createOrganizationsRoutes({
 		total: openApiZ.number().int().min(0),
 		totalPages: openApiZ.number().int().min(0),
 	});
+	const listOrganizationsRoute = createRoute({
+		method: "get",
+		path: "/",
+		tags: ["organizations"],
+		operationId: "listUserOrganizations",
+		security: [{ cookieAuth: [] }],
+		responses: {
+			200: {
+				description: "Organizations for the authenticated user",
+				content: {
+					"application/json": {
+						schema: openApiZ.object({
+							data: openApiZ.array(
+								openApiZ.object({
+									id: openApiZ.string(),
+									name: openApiZ.string(),
+									slug: openApiZ.string(),
+									logo: openApiZ.string().nullable(),
+								}),
+							),
+						}),
+					},
+				},
+			},
+			401: { description: "Unauthorized" },
+		},
+	});
 	const setupRoute = createRoute({
 		method: "get",
 		path: "/{slugOrId}/setup",
@@ -133,6 +160,13 @@ export function createOrganizationsRoutes({
 	});
 
 	router.use("*", createRequireAuthMiddleware(auth));
+
+	router.openapi(listOrganizationsRoute, async (ctx) => {
+		const userId = ctx.get("user").id;
+		const result = await dashboardService.listUserOrganizations(userId);
+
+		return ctx.json({ data: result });
+	});
 
 	router.openapi(setupRoute, async (ctx) => {
 		const userId = ctx.get("user").id;

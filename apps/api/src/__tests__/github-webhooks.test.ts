@@ -58,6 +58,16 @@ const createNoopDependencies = (): AppDependencies => ({
 		getRunDetail: mock(async () => {
 			throw new Error("dashboardService.getRunDetail should not be called in webhook tests");
 		}),
+		getOrganizationSetupStatus: mock(async () => {
+			throw new Error(
+				"dashboardService.getOrganizationSetupStatus should not be called in webhook tests",
+			);
+		}),
+		listUserOrganizations: mock(async () => {
+			throw new Error(
+				"dashboardService.listUserOrganizations should not be called in webhook tests",
+			);
+		}),
 	},
 	integrationService: {
 		initiateInstallation: mock(async () => {

@@ -1,6 +1,7 @@
 "use client";
 
-import { authClient } from "@/server/better-auth/client";
+import { useApiSuspenseQuery } from "@/api/client";
+import { listUserOrganizations } from "@/api/endpoints";
 import { ChevronDownIcon, PlusIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -28,15 +29,12 @@ export function OrganizationSwitcher({
 }) {
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const router = useRouter();
-	const { data, isPending } = authClient.useListOrganizations();
+	const { data: organizationsResponse } = useApiSuspenseQuery(listUserOrganizations());
+	const organizations = organizationsResponse.data;
 
 	const activeOrganization = useMemo(() => {
-		return data?.find((org) => org.slug === activeOrganizationSlug);
-	}, [data, activeOrganizationSlug]);
-
-	if (isPending) {
-		return <div>Loading organizations...</div>;
-	}
+		return organizations.find((org) => org.slug === activeOrganizationSlug);
+	}, [organizations, activeOrganizationSlug]);
 
 	return (
 		<Fragment>
@@ -62,7 +60,7 @@ export function OrganizationSwitcher({
 					<DropdownMenuGroup>
 						<DropdownMenuLabel>Organizations</DropdownMenuLabel>
 
-						{data?.map((org) => (
+						{organizations.map((org) => (
 							<DropdownMenuItem
 								key={org.id}
 								render={

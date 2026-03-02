@@ -60,6 +60,13 @@ export type OrganizationSetupStatus = {
 	hasProjects: boolean;
 };
 
+export type UserOrganization = {
+	id: string;
+	name: string;
+	slug: string;
+	logo: string | null;
+};
+
 export interface DashboardServiceContract {
 	patchRepository(input: PatchRepositoryInput): Promise<RepositoryDetail>;
 	listInstallationRepositories(
@@ -69,4 +76,5 @@ export interface DashboardServiceContract {
 	triggerManualRun(input: TriggerManualRunInput): Promise<TriggerManualRunResult>;
 	getRunDetail(runId: string, userId: string): Promise<RunDetail>;
 	getOrganizationSetupStatus(slugOrId: string, userId: string): Promise<OrganizationSetupStatus>;
+	listUserOrganizations(userId: string): Promise<UserOrganization[]>;
 }
