@@ -31,5 +31,5 @@ coverage
 # Misc
 *.pem
 
-docs/
-ai/
+/docs/
+/ai/
