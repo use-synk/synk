@@ -71,7 +71,7 @@ enum InstallationOAuthStateStatus {
 
 model ProviderInstallation {
   id                     String               @id @default(uuid())
-  organizationId         String
+  organizationId         String               @db.Uuid
   organization           Organization         @relation(fields: [organizationId], references: [id])
   provider               VcsProvider
   providerInstallationId String
@@ -219,7 +219,7 @@ model WebhookDelivery {
 model Project {
   id                 String              @id @default(uuid())
   name               String
-  organizationId     String
+  organizationId     String              @db.Uuid
   organization       Organization        @relation(fields: [organizationId], references: [id])
   sourceRepository   ProviderRepository  @relation("SourceRepository", fields: [sourceRepositoryId], references: [id])
   sourceRepositoryId String

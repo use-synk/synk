@@ -124,6 +124,7 @@
       "name": "@synk-ai/auth",
       "version": "0.0.0",
       "dependencies": {
+        "@better-auth/prisma-adapter": "^1.5.1",
         "@prisma/client": "^7.4.0",
         "@synk-ai/db": "workspace:*",
         "better-auth": "^1.5.1",
