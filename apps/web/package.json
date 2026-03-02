@@ -15,7 +15,7 @@
 		"preview": "bunx --bun next build && bunx --bun next start",
 		"start": "bunx --bun next start",
 		"test": "bun test src --coverage",
-		"typecheck": "bunx tsc --noEmit"
+		"typecheck": "bunx --bun next typegen && bunx tsc --noEmit"
 	},
 	"dependencies": {
 		"@base-ui/react": "^1.2.0",
