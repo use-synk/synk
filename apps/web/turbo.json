@@ -5,7 +5,7 @@
 			"outputs": [".next/**", "!.next/cache/**"]
 		},
 		"typecheck": {
-			"dependsOn": ["build", "^build", "^typecheck"],
+			"dependsOn": ["^typecheck"],
 			"outputs": ["tsconfig.tsbuildinfo", ".next/cache/.tsbuildinfo"]
 		}
 	}

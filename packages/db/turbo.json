@@ -1,8 +1,16 @@
 {
 	"extends": ["//"],
 	"tasks": {
+		"generate": {
+			"outputs": ["src/generated/**"]
+		},
 		"build": {
-			"outputs": ["dist/**", "src/generated/**"]
+			"dependsOn": ["generate", "^build"],
+			"outputs": ["dist/**"]
+		},
+		"typecheck": {
+			"dependsOn": ["generate", "^typecheck"],
+			"outputs": []
 		}
 	}
 }
