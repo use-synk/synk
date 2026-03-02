@@ -1,3 +1,6 @@
+import { listOrganizationProjects } from "@/api/endpoints";
+import { prefetchQuery } from "@/api/server";
+import { HydrationBoundary, dehydrate } from "@tanstack/react-query";
 import { HomeIcon } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -19,6 +22,10 @@ export async function AppSidebar({
 }: React.ComponentProps<typeof Sidebar> & {
 	activeOrganizationSlug: string;
 }) {
+	const { client } = await prefetchQuery(
+		listOrganizationProjects({ slugOrId: activeOrganizationSlug, page: 1, pageSize: 10 }),
+	);
+
 	return (
 		<Sidebar {...props}>
 			<SidebarHeader>
@@ -41,7 +48,9 @@ export async function AppSidebar({
 						</SidebarMenuItem>
 					</SidebarMenu>
 				</SidebarGroup>
-				<SidebarProjects organizationSlug={activeOrganizationSlug} />
+				<HydrationBoundary state={dehydrate(client)}>
+					<SidebarProjects organizationSlug={activeOrganizationSlug} />
+				</HydrationBoundary>
 			</SidebarContent>
 		</Sidebar>
 	);

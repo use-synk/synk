@@ -33,15 +33,21 @@ export function SidebarProjects({ organizationSlug }: { organizationSlug: string
 				}
 			/>
 			<SidebarGroupContent>
-				<SidebarMenu>
-					{isError && (
-						<div className="text-destructive px-2 py-1.5 rounded-md bg-destructive/10">
-							<span className="whitespace-nowrap text-sm text-destructive truncate">
-								{getErrorMessage(error)}
-							</span>
-						</div>
+					<SidebarMenu>
+						{isError && (
+							<SidebarMenuItem aria-disabled>
+								<div className="text-destructive px-2 py-1.5 rounded-md bg-destructive/10">
+									<span className="whitespace-nowrap text-sm text-destructive truncate">
+										{getErrorMessage(error)}
+									</span>
+								</div>
+							</SidebarMenuItem>
+						)}
+					{isLoading && (
+						<SidebarMenuItem aria-disabled>
+							<SidebarMenuSkeleton />
+						</SidebarMenuItem>
 					)}
-					{isLoading && <SidebarMenuSkeleton />}
 					{!isLoading &&
 						data &&
 						data.data.map((project) => (

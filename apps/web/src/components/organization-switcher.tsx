@@ -39,10 +39,6 @@ export function OrganizationSwitcher({
 		return data.data.find((org) => org.slug === activeOrganizationSlug);
 	}, [data, activeOrganizationSlug]);
 
-	if (isPending || !data) {
-		return <Skeleton className="w-full h-8 rounded-md" />;
-	}
-
 	if (isError) {
 		return (
 			<div className="text-destructive px-2 py-1.5 rounded-md bg-destructive/10">
@@ -51,6 +47,14 @@ export function OrganizationSwitcher({
 				</span>
 			</div>
 		);
+	}
+
+	if (isPending) {
+		return <Skeleton className="w-full h-8 rounded-md" />;
+	}
+
+	if (!data) {
+		return <Skeleton className="w-full h-8 rounded-md" />;
 	}
 
 	return (
