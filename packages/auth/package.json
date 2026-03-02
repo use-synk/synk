@@ -26,7 +26,7 @@
 	"dependencies": {
 		"@prisma/client": "^7.4.0",
 		"@synk-ai/db": "workspace:*",
-		"better-auth": "^1.4.18"
+		"better-auth": "^1.5.1"
 	},
 	"devDependencies": {
 		"typescript": "5.9.2"
