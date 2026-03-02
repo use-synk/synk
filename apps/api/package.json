@@ -4,13 +4,13 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"dev": "bun run --hot src/server.ts",
+		"dev": "bun --env-file=../../.env --env-file=.env run --hot src/server.ts",
 		"build": "bun build src/server.ts --outdir dist --format esm --target bun --sourcemap",
 		"lint": "biome check .",
 		"lint:write": "biome check . --write",
 		"lint:unsafe": "biome check . --write --unsafe",
 		"typecheck": "bunx tsc --noEmit",
-		"test": "bun test src/__tests__ --coverage",
+		"test": "bun --env-file=../../.env --env-file=.env test src/__tests__ --coverage",
 		"openapi:generate": "bun run src/openapi/generate-openapi.ts"
 	},
 	"dependencies": {
