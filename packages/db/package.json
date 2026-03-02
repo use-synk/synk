@@ -34,6 +34,9 @@
 		"dotenv": "^17.3.1",
 		"pg": "^8.16.3"
 	},
+	"peerDependencies": {
+		"@prisma/client": "^7.4.0"
+	},
 	"devDependencies": {
 		"@types/node": "^22.17.2",
 		"@types/pg": "^8.15.5",
