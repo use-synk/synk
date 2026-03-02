@@ -16,7 +16,7 @@
 		"lint:write": "biome check . --write",
 		"lint:unsafe": "biome check . --write --unsafe",
 		"typecheck": "bunx tsc --noEmit",
-		"test": "bun test --coverage"
+		"test": "bun --env-file=../../.env --env-file=.env test --coverage"
 	},
 	"dependencies": {
 		"@octokit/auth-app": "^7.1.1",

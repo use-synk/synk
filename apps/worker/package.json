@@ -4,13 +4,13 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"dev": "bun --env-file=.env --watch src/worker.ts",
+		"dev": "bun --env-file=../../.env --env-file=.env --watch src/worker.ts",
 		"build": "bun build src/worker.ts --outdir dist --format esm --target bun --sourcemap",
 		"lint": "biome check .",
 		"lint:write": "biome check . --write",
 		"lint:unsafe": "biome check . --write --unsafe",
 		"typecheck": "bunx tsc --noEmit",
-		"test": "bun test src/__tests__ --coverage"
+		"test": "bun --env-file=../../.env --env-file=.env test src/__tests__ --coverage"
 	},
 	"dependencies": {
 		"@prisma/client": "^7.4.0",
