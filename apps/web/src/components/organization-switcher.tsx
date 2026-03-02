@@ -1,7 +1,8 @@
 "use client";
 
-import { useApiSuspenseQuery } from "@/api/client";
+import { useApiQuery } from "@/api/client";
 import { listUserOrganizations } from "@/api/endpoints";
+import { getErrorMessage } from "@/api/errors";
 import { ChevronDownIcon, PlusIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -20,6 +21,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
+import { Skeleton } from "./ui/skeleton";
 
 export function OrganizationSwitcher({
 	activeOrganizationSlug,
@@ -29,12 +31,27 @@ export function OrganizationSwitcher({
 }) {
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const router = useRouter();
-	const { data: organizationsResponse } = useApiSuspenseQuery(listUserOrganizations());
-	const organizations = organizationsResponse.data;
+	const { data, isPending, isError, error } = useApiQuery(listUserOrganizations());
 
 	const activeOrganization = useMemo(() => {
-		return organizations.find((org) => org.slug === activeOrganizationSlug);
-	}, [organizations, activeOrganizationSlug]);
+		if (!data) return null;
+
+		return data.data.find((org) => org.slug === activeOrganizationSlug);
+	}, [data, activeOrganizationSlug]);
+
+	if (isPending || !data) {
+		return <Skeleton className="w-full h-8 rounded-md" />;
+	}
+
+	if (isError) {
+		return (
+			<div className="text-destructive px-2 py-1.5 rounded-md bg-destructive/10">
+				<span className="whitespace-nowrap text-sm text-destructive truncate">
+					{getErrorMessage(error)}
+				</span>
+			</div>
+		);
+	}
 
 	return (
 		<Fragment>
@@ -60,7 +77,7 @@ export function OrganizationSwitcher({
 					<DropdownMenuGroup>
 						<DropdownMenuLabel>Organizations</DropdownMenuLabel>
 
-						{organizations.map((org) => (
+						{data.data.map((org) => (
 							<DropdownMenuItem
 								key={org.id}
 								render={
