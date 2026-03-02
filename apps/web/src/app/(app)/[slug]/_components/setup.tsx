@@ -1,19 +1,18 @@
+import type { OrganizationSetupStatus } from "@/api/endpoints";
 import { InstallGitHubButton } from "@/components/install-github";
 import { PageDescription, PageTitle } from "@/components/typography";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { GithubLight } from "@/components/ui/svgs/githubLight";
 import { cn } from "@/lib/utils";
-import type { organizationSetupStatusResponseSchema } from "@/server/api/organizations";
 import { CircleCheckIcon, CircleDashedIcon, LoaderCircleIcon, PlusIcon } from "lucide-react";
 import Link from "next/link";
-import type z from "zod";
 
 export async function OrganizationSetup({
 	organizationSlug,
 	setupStatus,
 }: {
-	setupStatus: z.infer<typeof organizationSetupStatusResponseSchema>;
+	setupStatus: OrganizationSetupStatus;
 	organizationSlug: string;
 }) {
 	return (

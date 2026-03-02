@@ -1,7 +1,8 @@
 "use client";
 
-import { getErrorMessage } from "@/lib/api/api";
-import { api } from "@/server/api";
+import { clientFetch } from "@/api/client";
+import { initiateGithubInstallation } from "@/api/endpoints";
+import { getErrorMessage } from "@/api/errors";
 import { authClient } from "@/server/better-auth/client";
 import { useRouter } from "next/navigation";
 import type React from "react";
@@ -18,8 +19,6 @@ export function InstallGitHubButton({
 	const [isLoading, setIsLoading] = useState(false);
 	const router = useRouter();
 
-	const { $fetch } = api("/integrations/github/install/init", "POST");
-
 	const onClick = useCallback(async () => {
 		setIsLoading(true);
 		try {
@@ -27,17 +26,14 @@ export function InstallGitHubButton({
 				throw new Error("Organization not found");
 			}
 
-			const response = await $fetch({
-				body: {
-					organizationId: organization.id,
-				},
-			});
+			const query = initiateGithubInstallation({ organizationId: organization.id });
+			const { data } = await clientFetch(query.url, query.init, query.response);
 
 			// Persist the org slug in a short-lived cookie so the server-side
 			// callback page can redirect back here if an error occurs.
 			document.cookie = `pending_install_slug=${encodeURIComponent(organization.slug)}; path=/; max-age=900; SameSite=Lax`;
 
-			router.push(response.data.redirectUrl);
+			router.push(data.data.redirectUrl);
 		} catch (error) {
 			toast.error("Failed to initiate GitHub installation", {
 				description: getErrorMessage(error),
@@ -45,7 +41,7 @@ export function InstallGitHubButton({
 		} finally {
 			setIsLoading(false);
 		}
-	}, [organization, $fetch, router]);
+	}, [organization, router]);
 
 	return (
 		<Button

@@ -1,6 +1,6 @@
-import { api } from "@/server/api";
-import { getApiRequestHeaders } from "@/server/api/request-headers";
-import { getQueryClient } from "@/server/api/tanstack-query/make-query-client";
+import { listOrganizationProjects } from "@/api/endpoints";
+import { getQueryClient } from "@/api/make-query-client";
+import { prefetchQuery } from "@/api/server";
 import { HydrationBoundary, dehydrate } from "@tanstack/react-query";
 import { HomeIcon } from "lucide-react";
 import Link from "next/link";
@@ -24,16 +24,10 @@ export async function AppSidebar({
 }: React.ComponentProps<typeof Sidebar> & {
 	activeOrganizationSlug: string;
 }) {
-	const { options } = api("/organizations/:slugOrId/projects", "GET");
+	await prefetchQuery(
+		listOrganizationProjects({ slugOrId: activeOrganizationSlug, page: 1, pageSize: 10 }),
+	);
 	const client = getQueryClient();
-	const requestHeaders = await getApiRequestHeaders();
-	void (await client.prefetchQuery(
-		options({
-			params: { slugOrId: activeOrganizationSlug },
-			query: { page: 1, pageSize: 10 },
-			headers: requestHeaders,
-		}),
-	));
 
 	return (
 		<Sidebar {...props}>
