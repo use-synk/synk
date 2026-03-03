@@ -4,7 +4,7 @@ import type { AuthorizationRepository } from "../../domain/ports";
 
 type PrismaAuthorizationClient = Pick<
 	typeof db,
-	"providerInstallation" | "providerRepository" | "analysisRun" | "member"
+	"providerInstallation" | "providerRepository" | "analysisRun" | "member" | "project"
 >;
 
 export const createPrismaAuthorizationRepository = (
@@ -52,6 +52,16 @@ export const createPrismaAuthorizationRepository = (
 			});
 			return run !== null;
 		},
+		hasProjectAccess: async ({ projectId, userId }) => {
+			const project = await client.project.findFirst({
+				where: {
+					id: projectId,
+					organization: { members: { some: { userId } } },
+				},
+				select: { id: true },
+			});
+			return project !== null;
+		},
 		assertInstallationAccess: async (query) => {
 			const hasAccess = await authorizationRepository.hasInstallationAccess(query);
 			assertAccess(hasAccess, "You do not have access to this installation");
@@ -63,6 +73,10 @@ export const createPrismaAuthorizationRepository = (
 		assertRunAccess: async (query) => {
 			const hasAccess = await authorizationRepository.hasRunAccess(query);
 			assertAccess(hasAccess, "You do not have access to this run");
+		},
+		assertProjectAccess: async (query) => {
+			const hasAccess = await authorizationRepository.hasProjectAccess(query);
+			assertAccess(hasAccess, "You do not have access to this project");
 		},
 		assertOrganizationMembership: async ({ userId, organizationId }) => {
 			const membership = await client.member.findFirst({

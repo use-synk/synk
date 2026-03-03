@@ -1,10 +1,13 @@
 import { OpenAPIHono, createRoute, z as openApiZ } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
 import z from "zod";
-import type { ProjectServiceContract } from "../../domain/services/project-service";
+import type {
+	ListProjectRunsInput,
+	ProjectServiceContract,
+} from "../../domain/services/project-service";
 import { createRequireAuthMiddleware } from "../../middleware/auth";
 import type { AuthenticatedAppEnv, RouteContext } from "../../types";
-import { createProjectBodySchema } from "./projects.schemas";
+import { createProjectBodySchema, listProjectRunsQuerySchema } from "./projects.schemas";
 
 export function createProjectsRoutes({
 	auth,
@@ -13,6 +16,101 @@ export function createProjectsRoutes({
 	projectService: ProjectServiceContract;
 }) {
 	const router = new OpenAPIHono<AuthenticatedAppEnv>();
+
+	const paginationSchema = openApiZ.object({
+		page: openApiZ.number().int().min(1),
+		pageSize: openApiZ.number().int().min(1),
+		total: openApiZ.number().int().min(0),
+		totalPages: openApiZ.number().int().min(0),
+	});
+
+	const repositorySummarySchema = openApiZ.object({
+		id: openApiZ.string(),
+		fullName: openApiZ.string(),
+		defaultBranch: openApiZ.string(),
+		isActive: openApiZ.boolean(),
+	});
+
+	const runSummarySchema = openApiZ.object({
+		id: openApiZ.string(),
+		status: openApiZ.string(),
+		triggerType: openApiZ.string(),
+		triggerRef: openApiZ.string(),
+		triggerCommitSha: openApiZ.string(),
+		docsAffected: openApiZ.boolean().nullable(),
+		docPrUrl: openApiZ.string().nullable(),
+		error: openApiZ.string().nullable(),
+		createdAt: openApiZ.string(),
+		startedAt: openApiZ.string().nullable(),
+		completedAt: openApiZ.string().nullable(),
+	});
+
+	const getProjectRoute = createRoute({
+		method: "get",
+		path: "/{projectId}",
+		tags: ["projects"],
+		operationId: "getProjectDetail",
+		security: [{ cookieAuth: [] }],
+		request: { params: openApiZ.object({ projectId: openApiZ.string() }) },
+		responses: {
+			200: {
+				description: "Project detail",
+				content: {
+					"application/json": {
+						schema: openApiZ.object({
+							data: openApiZ.object({
+								id: openApiZ.string(),
+								name: openApiZ.string(),
+								organizationId: openApiZ.string(),
+								config: openApiZ.record(openApiZ.string(), openApiZ.unknown()),
+								sourceRepository: repositorySummarySchema,
+								docsRepository: repositorySummarySchema.nullable(),
+								createdAt: openApiZ.string(),
+								updatedAt: openApiZ.string(),
+							}),
+						}),
+					},
+				},
+			},
+			401: { description: "Unauthorized" },
+			403: { description: "Forbidden" },
+			404: { description: "Project not found" },
+		},
+	});
+
+	const listProjectRunsRoute = createRoute({
+		method: "get",
+		path: "/{projectId}/runs",
+		tags: ["projects", "runs"],
+		operationId: "listProjectRuns",
+		security: [{ cookieAuth: [] }],
+		request: {
+			params: openApiZ.object({ projectId: openApiZ.string() }),
+			query: openApiZ.object({
+				page: openApiZ.coerce.number().int().min(1).optional(),
+				pageSize: openApiZ.coerce.number().int().min(1).max(100).optional(),
+				status: openApiZ.array(openApiZ.string()).optional(),
+			}),
+		},
+		responses: {
+			200: {
+				description: "Project runs",
+				content: {
+					"application/json": {
+						schema: openApiZ.object({
+							data: openApiZ.array(runSummarySchema),
+							pagination: paginationSchema,
+						}),
+					},
+				},
+			},
+			400: { description: "Bad request" },
+			401: { description: "Unauthorized" },
+			403: { description: "Forbidden" },
+			404: { description: "Project not found" },
+		},
+	});
+
 	const createProjectRoute = createRoute({
 		method: "post",
 		path: "/",
@@ -62,6 +160,67 @@ export function createProjectsRoutes({
 	});
 
 	router.use("*", createRequireAuthMiddleware(auth));
+
+	router.openapi(getProjectRoute, async (ctx) => {
+		const userId = ctx.get("user").id;
+		const projectId = ctx.req.param("projectId");
+
+		const result = await projectService.getProjectDetail({ userId, projectId });
+
+		return ctx.json({
+			data: {
+				...result,
+				createdAt: result.createdAt.toISOString(),
+				updatedAt: result.updatedAt.toISOString(),
+			},
+		});
+	});
+
+	router.openapi(listProjectRunsRoute, async (ctx) => {
+		const userId = ctx.get("user").id;
+		const projectId = ctx.req.param("projectId");
+
+		const query = ctx.req.query();
+		const statusValues = ctx.req.queries("status") ?? [];
+		const queryInput = {
+			...query,
+			...(statusValues.length > 0 ? { status: statusValues } : {}),
+		};
+
+		const queryResult = listProjectRunsQuerySchema.safeParse(queryInput);
+		if (!queryResult.success) {
+			throw new HTTPException(400, { message: z.prettifyError(queryResult.error) });
+		}
+
+		const { page = 1, pageSize = 10, status } = queryResult.data;
+
+		const listInput: ListProjectRunsInput = {
+			userId,
+			projectId,
+			filter: {
+				page,
+				pageSize,
+				...(status === undefined ? {} : { status }),
+			},
+		};
+
+		const result = await projectService.listProjectRuns(listInput);
+
+		return ctx.json({
+			data: result.items.map((run) => ({
+				...run,
+				createdAt: run.createdAt.toISOString(),
+				startedAt: run.startedAt?.toISOString() ?? null,
+				completedAt: run.completedAt?.toISOString() ?? null,
+			})),
+			pagination: {
+				page,
+				pageSize,
+				total: result.total,
+				totalPages: Math.ceil(result.total / pageSize),
+			},
+		});
+	});
 
 	router.openapi(createProjectRoute, async (ctx) => {
 		const userId = ctx.get("user").id;

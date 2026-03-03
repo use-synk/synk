@@ -1,10 +1,13 @@
+import { HTTPException } from "hono/http-exception";
 import type { PaginatedResult } from "../../domain";
-import type { Project } from "../../domain/models/project";
+import type { Project, ProjectDetail } from "../../domain/models/project";
 import type {
 	CreateProjectInput,
 	DeleteProjectInput,
 	FindProjectInput,
+	GetProjectDetailInput,
 	ListOrganizationRepositoriesInput,
+	ListProjectRunsInput,
 	ListProjectsInput,
 	ProjectServiceContract,
 	ProjectServiceDependencies,
@@ -50,6 +53,39 @@ export class ProjectService implements ProjectServiceContract {
 		});
 
 		return this.deps.projectRepository.findProject(input.projectId);
+	}
+
+	async getProjectDetail(input: GetProjectDetailInput): Promise<ProjectDetail> {
+		await this.deps.authorizationRepository.assertProjectAccess({
+			projectId: input.projectId,
+			userId: input.userId,
+		});
+
+		const project = await this.deps.projectRepository.findProjectWithRepositories(input.projectId);
+
+		if (!project) {
+			throw new HTTPException(404, { message: "Project not found" });
+		}
+
+		return project;
+	}
+
+	async listProjectRuns(input: ListProjectRunsInput) {
+		await this.deps.authorizationRepository.assertProjectAccess({
+			projectId: input.projectId,
+			userId: input.userId,
+		});
+
+		const project = await this.deps.projectRepository.findProject(input.projectId);
+
+		if (!project) {
+			throw new HTTPException(404, { message: "Project not found" });
+		}
+
+		return this.deps.dashboardRepository.listRepositoryRuns({
+			repositoryId: project.sourceRepositoryId,
+			filter: input.filter,
+		});
 	}
 
 	async listProjects(input: ListProjectsInput): Promise<PaginatedResult<Project>> {

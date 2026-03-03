@@ -1,3 +1,4 @@
+import { runStatusSchema } from "@synk-ai/shared";
 import z from "zod";
 
 export const createProjectBodySchema = z.object({
@@ -10,4 +11,10 @@ export const createProjectBodySchema = z.object({
 export const listProjectsQuerySchema = z.object({
 	page: z.coerce.number().min(1).optional(),
 	pageSize: z.coerce.number().min(1).max(100).optional(),
+});
+
+export const listProjectRunsQuerySchema = z.object({
+	page: z.coerce.number().int().min(1).optional(),
+	pageSize: z.coerce.number().int().min(1).max(100).optional(),
+	status: z.array(runStatusSchema).optional(),
 });

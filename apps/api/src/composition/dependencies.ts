@@ -122,6 +122,7 @@ export const buildAppDependencies = (options: BuildAppDependenciesOptions): AppD
 			authorizationRepository,
 			organizationRepository,
 			projectRepository,
+			dashboardRepository: dashboardRepositories.dashboardRepository,
 		}),
 		listInstallationRepositories,
 	};
