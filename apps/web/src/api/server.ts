@@ -1,5 +1,5 @@
-import { RequestError } from "@/lib/api";
 import type { StandardSchemaV1 } from "@/lib/types/standard-schema";
+import { RequestError } from "./errors";
 import { headers } from "next/headers";
 import { ValidationError } from "./errors";
 import { getQueryClient } from "./make-query-client";
