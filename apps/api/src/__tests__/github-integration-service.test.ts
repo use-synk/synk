@@ -62,6 +62,11 @@ const createDependencies = (): {
 			getInstallationDetails,
 			organizationRepository: {
 				findOrganizationSlug,
+				findOrganizationBySlug: mock(async () => null),
+				listOrganizationsForUser: mock(async () => []),
+				getHasInstallations: mock(async () => true),
+				getHasRepositories: mock(async () => true),
+				getHasProjects: mock(async () => true),
 			},
 			githubAppSlug: "synk-ai",
 		},

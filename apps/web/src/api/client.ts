@@ -1,7 +1,10 @@
 "use client";
 
 import type { StandardSchemaV1 } from "@/lib/types/standard-schema";
-import { useSuspenseQuery as useTanStackSuspenseQuery } from "@tanstack/react-query";
+import {
+	useQuery as useTanStackQuery,
+	useSuspenseQuery as useTanStackSuspenseQuery,
+} from "@tanstack/react-query";
 import { RequestError, ValidationError } from "./errors";
 import { buildFetchUrl, parseResponseBody } from "./shared";
 
@@ -60,6 +63,26 @@ export function useApiSuspenseQuery<R extends StandardSchemaV1>({
 	response: R;
 }) {
 	return useTanStackSuspenseQuery({
+		queryKey: key,
+		queryFn: async () => {
+			const res = await clientFetch(url, init, response);
+			return res.data;
+		},
+	});
+}
+
+export function useApiQuery<R extends StandardSchemaV1>({
+	url,
+	init,
+	key,
+	response,
+}: {
+	url: string;
+	init: RequestInit;
+	key: string[];
+	response: R;
+}) {
+	return useTanStackQuery({
 		queryKey: key,
 		queryFn: async () => {
 			const res = await clientFetch(url, init, response);

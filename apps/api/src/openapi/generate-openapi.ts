@@ -29,6 +29,7 @@ const createPlaceholderDependencies = (): AppDependencies => ({
 		triggerManualRun: unreachable,
 		getRunDetail: unreachable,
 		getOrganizationSetupStatus: unreachable,
+		listUserOrganizations: unreachable,
 	},
 	projectService: {
 		findProject: unreachable,

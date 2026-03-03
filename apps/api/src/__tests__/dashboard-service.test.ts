@@ -57,6 +57,7 @@ const createDependencies = (): DashboardServiceDependencies => {
 		getHasProjects: mock(async () => true),
 		findOrganizationBySlug: mock(async () => null),
 		findOrganizationSlug: mock(async () => "acme"),
+		listOrganizationsForUser: mock(async () => []),
 	};
 
 	return {
@@ -136,5 +137,20 @@ describe("DashboardService", () => {
 		).rejects.toMatchObject({
 			status: 409,
 		} satisfies Pick<HTTPException, "status">);
+	});
+
+	it("listUserOrganizations delegates to organization repository", async () => {
+		const deps = createDependencies();
+		const service = new DashboardService(deps);
+		const organizations = [
+			{ id: "org-1", name: "Acme", slug: "acme", logo: null },
+			{ id: "org-2", name: "Beta", slug: "beta", logo: "https://example.com/logo.png" },
+		];
+		deps.organizationRepository.listOrganizationsForUser = mock(async () => organizations);
+
+		const result = await service.listUserOrganizations(USER_ID);
+
+		expect(deps.organizationRepository.listOrganizationsForUser).toHaveBeenCalledWith(USER_ID);
+		expect(result).toEqual(organizations);
 	});
 });

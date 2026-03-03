@@ -8,6 +8,22 @@ export const organizationSetupStatusResponseSchema = z.object({
 });
 
 export const organizationRoutes = {
+	"/organizations": {
+		GET: defineEndpoint({
+			method: "GET",
+			response: z.object({
+				data: z.array(
+					z.object({
+						id: z.string(),
+						name: z.string(),
+						slug: z.string(),
+						logo: z.string().nullable(),
+					}),
+				),
+			}),
+			key: () => ["organizations", "me"],
+		}),
+	},
 	"/organizations/:slugOrId/setup": {
 		GET: defineEndpoint({
 			method: "GET",

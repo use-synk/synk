@@ -1,5 +1,4 @@
 import { listOrganizationProjects } from "@/api/endpoints";
-import { getQueryClient } from "@/api/make-query-client";
 import { prefetchQuery } from "@/api/server";
 import { HydrationBoundary, dehydrate } from "@tanstack/react-query";
 import { HomeIcon } from "lucide-react";
@@ -14,7 +13,6 @@ import {
 	SidebarMenu,
 	SidebarMenuButton,
 	SidebarMenuItem,
-	SidebarMenuSkeleton,
 } from "../ui/sidebar";
 import { SidebarProjects } from "./projects";
 
@@ -24,15 +22,16 @@ export async function AppSidebar({
 }: React.ComponentProps<typeof Sidebar> & {
 	activeOrganizationSlug: string;
 }) {
-	await prefetchQuery(
+	const { client } = await prefetchQuery(
 		listOrganizationProjects({ slugOrId: activeOrganizationSlug, page: 1, pageSize: 10 }),
 	);
-	const client = getQueryClient();
 
 	return (
 		<Sidebar {...props}>
 			<SidebarHeader>
-				<OrganizationSwitcher activeOrganizationSlug={activeOrganizationSlug} />
+				<Suspense fallback={<div>Loading organizations...</div>}>
+					<OrganizationSwitcher activeOrganizationSlug={activeOrganizationSlug} />
+				</Suspense>
 			</SidebarHeader>
 			<SidebarContent>
 				<SidebarGroup>
@@ -50,9 +49,7 @@ export async function AppSidebar({
 					</SidebarMenu>
 				</SidebarGroup>
 				<HydrationBoundary state={dehydrate(client)}>
-					<Suspense fallback={<SidebarMenuSkeleton />}>
-						<SidebarProjects organizationSlug={activeOrganizationSlug} />
-					</Suspense>
+					<SidebarProjects organizationSlug={activeOrganizationSlug} />
 				</HydrationBoundary>
 			</SidebarContent>
 		</Sidebar>

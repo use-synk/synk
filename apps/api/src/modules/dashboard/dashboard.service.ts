@@ -131,4 +131,8 @@ export class DashboardService implements DashboardServiceContract {
 			hasProjects,
 		};
 	}
+
+	async listUserOrganizations(userId: string) {
+		return this.deps.organizationRepository.listOrganizationsForUser(userId);
+	}
 }
