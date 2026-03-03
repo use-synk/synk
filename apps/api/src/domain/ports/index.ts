@@ -2,6 +2,7 @@ export type {
 	InstallationAccessQuery,
 	RepositoryAccessQuery,
 	RunAccessQuery,
+	ProjectAccessQuery,
 	AuthorizationRepository,
 	OrganizationMembershipQuery,
 } from "./authorization-repository";

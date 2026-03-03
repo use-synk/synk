@@ -9,6 +9,33 @@ export const createPrismaProjectRepository = (client: PrismaProjectClient): Proj
 			where: { id: projectId },
 		});
 	},
+	findProjectWithRepositories: async (projectId) => {
+		const project = await client.project.findUnique({
+			where: { id: projectId },
+			select: {
+				id: true,
+				name: true,
+				organizationId: true,
+				config: true,
+				createdAt: true,
+				updatedAt: true,
+				sourceRepository: {
+					select: { id: true, fullName: true, defaultBranch: true, isActive: true },
+				},
+				docsRepository: {
+					select: { id: true, fullName: true, defaultBranch: true, isActive: true },
+				},
+			},
+		});
+
+		if (!project) return null;
+
+		return {
+			...project,
+			// Prisma.JsonValue is always a plain object here; the DB default is `{}`
+			config: project.config as Record<string, unknown>,
+		};
+	},
 	createProject: async (project) => {
 		return await client.project.create({
 			data: {

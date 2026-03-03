@@ -1,5 +1,5 @@
 import type { PaginatedResult, RepositoryListItem } from "../models";
-import type { Project } from "../models/project";
+import type { Project, ProjectDetail } from "../models/project";
 
 export type CreateProjectInput = {
 	name: string;
@@ -35,6 +35,7 @@ export type UpdateProjectCommand = {
 
 export interface ProjectRepository {
 	findProject(projectId: string): Promise<Project | null>;
+	findProjectWithRepositories(projectId: string): Promise<ProjectDetail | null>;
 	listProjects(query: ListProjectsQuery): Promise<PaginatedResult<Project>>;
 	listOrganizationRepositories(
 		query: ListOrganizationRepositoriesQuery,
