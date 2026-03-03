@@ -38,6 +38,8 @@ const createPlaceholderDependencies = (): AppDependencies => ({
 		createProject: unreachable,
 		updateProject: unreachable,
 		deleteProject: unreachable,
+		getProjectDetail: unreachable,
+		listProjectRuns: unreachable,
 	},
 	integrationService: {
 		initiateInstallation: unreachable,

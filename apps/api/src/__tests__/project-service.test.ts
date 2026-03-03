@@ -114,7 +114,12 @@ const createDependencies = (): ProjectServiceDependencies => {
 		findRepositoryForManualRun: mock(async () => null),
 	};
 
-	return { authorizationRepository, organizationRepository, projectRepository, dashboardRepository };
+	return {
+		authorizationRepository,
+		organizationRepository,
+		projectRepository,
+		dashboardRepository,
+	};
 };
 
 describe("ProjectService.listProjects", () => {

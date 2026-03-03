@@ -1,4 +1,10 @@
-import type { PaginatedResult, Pagination, RepositoryListItem, RunListFilter, RunListItem } from "../models";
+import type {
+	PaginatedResult,
+	Pagination,
+	RepositoryListItem,
+	RunListFilter,
+	RunListItem,
+} from "../models";
 import type { Project, ProjectDetail } from "../models/project";
 import type { AuthorizationRepository, OrganizationRepository, ProjectRepository } from "../ports";
 import type { DashboardRepository } from "../ports/dashboard-repository";
