@@ -59,7 +59,7 @@ const listProjectRunsPropsSchema = z.object({
 	status: z.array(runStatusSchema).optional(),
 });
 
-export function listProjectRuns(props: z.infer<typeof listProjectRunsPropsSchema>) {
+export function listProjectRuns(props: z.input<typeof listProjectRunsPropsSchema>) {
 	const parsed = listProjectRunsPropsSchema.safeParse(props);
 	if (!parsed.success) {
 		throw new ValidationError("params", parsed.error.issues);

@@ -210,6 +210,8 @@ export function createProjectsRoutes({
 			data: result.items.map((run) => ({
 				...run,
 				createdAt: run.createdAt.toISOString(),
+				startedAt: run.startedAt?.toISOString() ?? null,
+				completedAt: run.completedAt?.toISOString() ?? null,
 			})),
 			pagination: {
 				page,

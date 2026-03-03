@@ -68,7 +68,7 @@ function PageTab({
 		};
 		window.addEventListener("keydown", down);
 		return () => window.removeEventListener("keydown", down);
-	});
+	}, [item.shortcutKey, item.shortcutWithoutCommand, item.value, setValue]);
 
 	return (
 		<TabsPrimitive.Tab

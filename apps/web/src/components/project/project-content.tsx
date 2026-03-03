@@ -57,7 +57,7 @@ function OverviewTab({
 							<PageTitle>{project.name}</PageTitle>
 							<PageDescription className="mt-1">
 								Created {format(project.createdAt, "dd.MM.yyyy")} at{" "}
-								{format(project.createdAt, "HH:MM")}
+								{format(project.createdAt, "HH:mm")}
 							</PageDescription>
 						</div>
 					</div>
