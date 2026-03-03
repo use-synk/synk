@@ -1,6 +1,7 @@
 import { describe, expect, it, mock } from "bun:test";
 import { HTTPException } from "hono/http-exception";
 import { OrganizationNotFoundError } from "../domain/errors";
+import { AccessDeniedError } from "../domain/errors/access-denied-error";
 import type { ProjectServiceDependencies } from "../domain/services/project-service";
 import { ProjectService } from "../modules/project/project.service";
 
@@ -14,6 +15,27 @@ const DOCS_REPOSITORY_ID = "66666666-6666-4666-8666-666666666666";
 const PROJECT_NAME = "my-project";
 const USER_ID = "user-1";
 const NOW = new Date("2026-02-19T20:00:00.000Z");
+
+const PROJECT_DETAIL = {
+	id: PROJECT_ID,
+	name: PROJECT_NAME,
+	organizationId: ORGANIZATION_ID,
+	config: {} as Record<string, unknown>,
+	sourceRepository: {
+		id: SOURCE_REPOSITORY_ID,
+		fullName: "acme/source",
+		defaultBranch: "main",
+		isActive: true,
+	},
+	docsRepository: {
+		id: DOCS_REPOSITORY_ID,
+		fullName: "acme/docs",
+		defaultBranch: "main",
+		isActive: true,
+	},
+	createdAt: NOW,
+	updatedAt: NOW,
+};
 
 const CREATED_PROJECT = {
 	id: PROJECT_ID,
@@ -41,9 +63,11 @@ const createDependencies = (): ProjectServiceDependencies => {
 		hasInstallationAccess: mock(async () => true),
 		hasRepositoryAccess: mock(async () => true),
 		hasRunAccess: mock(async () => true),
+		hasProjectAccess: mock(async () => true),
 		assertInstallationAccess: mock(async () => undefined),
 		assertRepositoryAccess: mock(async () => undefined),
 		assertRunAccess: mock(async () => undefined),
+		assertProjectAccess: mock(async () => undefined),
 		assertOrganizationMembership: mock(async () => undefined),
 	};
 
@@ -64,6 +88,7 @@ const createDependencies = (): ProjectServiceDependencies => {
 
 	const projectRepository: ProjectServiceDependencies["projectRepository"] = {
 		findProject: mock(async () => null),
+		findProjectWithRepositories: mock(async () => null),
 		listProjects: mock(async () => ({ items: [], total: 0 })),
 		listOrganizationRepositories: mock(async () => ({
 			items: [REPO_LIST_ITEM],
@@ -80,7 +105,16 @@ const createDependencies = (): ProjectServiceDependencies => {
 		}),
 	};
 
-	return { authorizationRepository, organizationRepository, projectRepository };
+	const dashboardRepository: ProjectServiceDependencies["dashboardRepository"] = {
+		updateRepository: mock(async () => {
+			throw new Error("updateRepository should not be called");
+		}),
+		listInstallationRepositories: mock(async () => ({ items: [], total: 0 })),
+		listRepositoryRuns: mock(async () => ({ items: [], total: 0 })),
+		findRepositoryForManualRun: mock(async () => null),
+	};
+
+	return { authorizationRepository, organizationRepository, projectRepository, dashboardRepository };
 };
 
 describe("ProjectService.listProjects", () => {
@@ -448,5 +482,115 @@ describe("ProjectService.createProject", () => {
 				docsRepositoryId: DOCS_REPOSITORY_ID,
 			}),
 		).rejects.toMatchObject({ status: 403 } satisfies Pick<HTTPException, "status">);
+	});
+});
+
+describe("ProjectService.getProjectDetail", () => {
+	it("asserts project access before fetching", async () => {
+		const deps = createDependencies();
+		deps.projectRepository.findProjectWithRepositories = mock(async () => PROJECT_DETAIL);
+		const service = new ProjectService(deps);
+
+		await service.getProjectDetail({ userId: USER_ID, projectId: PROJECT_ID });
+
+		expect(deps.authorizationRepository.assertProjectAccess).toHaveBeenCalledWith({
+			projectId: PROJECT_ID,
+			userId: USER_ID,
+		});
+	});
+
+	it("returns the project detail from the repository", async () => {
+		const deps = createDependencies();
+		deps.projectRepository.findProjectWithRepositories = mock(async () => PROJECT_DETAIL);
+		const service = new ProjectService(deps);
+
+		const result = await service.getProjectDetail({ userId: USER_ID, projectId: PROJECT_ID });
+
+		expect(result).toEqual(PROJECT_DETAIL);
+	});
+
+	it("throws 404 when the project does not exist", async () => {
+		const deps = createDependencies();
+		deps.projectRepository.findProjectWithRepositories = mock(async () => null);
+		const service = new ProjectService(deps);
+
+		await expect(
+			service.getProjectDetail({ userId: USER_ID, projectId: PROJECT_ID }),
+		).rejects.toMatchObject({ status: 404 } satisfies Pick<HTTPException, "status">);
+	});
+
+	it("propagates access denied errors thrown by assertProjectAccess", async () => {
+		const deps = createDependencies();
+		deps.authorizationRepository.assertProjectAccess = mock(async () => {
+			throw new AccessDeniedError("You do not have access to this project");
+		});
+		const service = new ProjectService(deps);
+
+		await expect(
+			service.getProjectDetail({ userId: USER_ID, projectId: PROJECT_ID }),
+		).rejects.toBeInstanceOf(AccessDeniedError);
+
+		expect(deps.projectRepository.findProjectWithRepositories).not.toHaveBeenCalled();
+	});
+});
+
+describe("ProjectService.listProjectRuns", () => {
+	const filter = { page: 1, pageSize: 10 };
+
+	it("asserts project access before fetching runs", async () => {
+		const deps = createDependencies();
+		deps.projectRepository.findProject = mock(async () => ({
+			...CREATED_PROJECT,
+			sourceRepositoryId: SOURCE_REPOSITORY_ID,
+		}));
+		const service = new ProjectService(deps);
+
+		await service.listProjectRuns({ userId: USER_ID, projectId: PROJECT_ID, filter });
+
+		expect(deps.authorizationRepository.assertProjectAccess).toHaveBeenCalledWith({
+			projectId: PROJECT_ID,
+			userId: USER_ID,
+		});
+	});
+
+	it("lists runs using the project's sourceRepositoryId", async () => {
+		const deps = createDependencies();
+		deps.projectRepository.findProject = mock(async () => ({
+			...CREATED_PROJECT,
+			sourceRepositoryId: SOURCE_REPOSITORY_ID,
+		}));
+		const service = new ProjectService(deps);
+
+		await service.listProjectRuns({ userId: USER_ID, projectId: PROJECT_ID, filter });
+
+		expect(deps.dashboardRepository.listRepositoryRuns).toHaveBeenCalledWith({
+			repositoryId: SOURCE_REPOSITORY_ID,
+			filter,
+		});
+	});
+
+	it("throws 404 when the project does not exist", async () => {
+		const deps = createDependencies();
+		deps.projectRepository.findProject = mock(async () => null);
+		const service = new ProjectService(deps);
+
+		await expect(
+			service.listProjectRuns({ userId: USER_ID, projectId: PROJECT_ID, filter }),
+		).rejects.toMatchObject({ status: 404 } satisfies Pick<HTTPException, "status">);
+	});
+
+	it("propagates access denied errors thrown by assertProjectAccess", async () => {
+		const deps = createDependencies();
+		deps.authorizationRepository.assertProjectAccess = mock(async () => {
+			throw new AccessDeniedError("You do not have access to this project");
+		});
+		const service = new ProjectService(deps);
+
+		await expect(
+			service.listProjectRuns({ userId: USER_ID, projectId: PROJECT_ID, filter }),
+		).rejects.toBeInstanceOf(AccessDeniedError);
+
+		expect(deps.projectRepository.findProject).not.toHaveBeenCalled();
+		expect(deps.dashboardRepository.listRepositoryRuns).not.toHaveBeenCalled();
 	});
 });

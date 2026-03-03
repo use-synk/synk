@@ -60,6 +60,36 @@ mock.module("../modules/auth/auth.service.js", () => ({
 
 const { createApp } = await import("../app");
 
+const PROJECT_DETAIL = {
+	id: PROJECT_ID,
+	name: PROJECT_NAME,
+	organizationId: ORGANIZATION_ID,
+	config: {} as Record<string, unknown>,
+	sourceRepository: {
+		id: SOURCE_REPOSITORY_ID,
+		fullName: "acme/source",
+		defaultBranch: "main",
+		isActive: true,
+	},
+	docsRepository: null,
+	createdAt: NOW,
+	updatedAt: NOW,
+};
+
+const RUN_LIST_ITEM = {
+	id: "run-1",
+	status: "completed" as const,
+	triggerType: "push" as const,
+	triggerRef: "refs/heads/main",
+	triggerCommitSha: "abc123",
+	docsAffected: true,
+	docPrUrl: null,
+	error: null,
+	createdAt: NOW,
+	startedAt: NOW,
+	completedAt: NOW,
+};
+
 const createProjectServiceMock = () => {
 	const listOrganizationRepositories = mock(async () => ({
 		items: [
@@ -81,6 +111,8 @@ const createProjectServiceMock = () => {
 		throw new Error("createProject should not be called in repository listing tests");
 	});
 	const findProject = mock(async () => null);
+	const getProjectDetail = mock(async () => PROJECT_DETAIL);
+	const listProjectRuns = mock(async () => ({ items: [], total: 0 }));
 	const updateProject = mock(async () => {
 		throw new Error("updateProject should not be called in repository listing tests");
 	});
@@ -91,6 +123,8 @@ const createProjectServiceMock = () => {
 		listProjects,
 		createProject,
 		findProject,
+		getProjectDetail,
+		listProjectRuns,
 		updateProject,
 		deleteProject,
 	};
@@ -574,5 +608,217 @@ describe("project routes — POST /project", () => {
 		});
 
 		expect(response.status).toBe(403);
+	});
+});
+
+describe("project routes — GET /projects/:projectId", () => {
+	beforeEach(() => {
+		mock.restore();
+		getSessionMock.mockResolvedValue({
+			user: { id: USER_ID },
+			session: {
+				token: SESSION_TOKEN,
+				userId: USER_ID,
+				expiresAt: new Date("2099-01-01T00:00:00.000Z"),
+			},
+		});
+	});
+
+	it("returns 200 with project detail wrapped in a data envelope", async () => {
+		const projectService = createProjectServiceMock();
+		const app = createTestApp(projectService);
+
+		const response = await app.request(`/api/v1/projects/${PROJECT_ID}`, {
+			headers: authHeaders(),
+		});
+
+		expect(response.status).toBe(200);
+		const body = (await response.json()) as {
+			data: {
+				id: string;
+				name: string;
+				organizationId: string;
+				sourceRepository: { id: string; fullName: string };
+				docsRepository: null;
+				createdAt: string;
+				updatedAt: string;
+			};
+		};
+		expect(body.data.id).toBe(PROJECT_ID);
+		expect(body.data.name).toBe(PROJECT_NAME);
+		expect(body.data.organizationId).toBe(ORGANIZATION_ID);
+		expect(body.data.sourceRepository.id).toBe(SOURCE_REPOSITORY_ID);
+		expect(body.data.sourceRepository.fullName).toBe("acme/source");
+		expect(body.data.docsRepository).toBeNull();
+		expect(body.data.createdAt).toBe(NOW_ISO);
+		expect(body.data.updatedAt).toBe(NOW_ISO);
+	});
+
+	it("calls the service with userId from the authenticated session", async () => {
+		const projectService = createProjectServiceMock();
+		const app = createTestApp(projectService);
+
+		await app.request(`/api/v1/projects/${PROJECT_ID}`, { headers: authHeaders() });
+
+		expect(projectService.getProjectDetail).toHaveBeenCalledWith({
+			userId: USER_ID,
+			projectId: PROJECT_ID,
+		});
+	});
+
+	it("returns 401 when the request has no authentication", async () => {
+		getSessionMock.mockResolvedValue(null);
+		const projectService = createProjectServiceMock();
+		const app = createTestApp(projectService);
+
+		const response = await app.request(`/api/v1/projects/${PROJECT_ID}`);
+
+		expect(response.status).toBe(401);
+		expect(projectService.getProjectDetail).not.toHaveBeenCalled();
+	});
+
+	it("returns 404 when the service reports the project was not found", async () => {
+		const projectService = createProjectServiceMock();
+		projectService.getProjectDetail.mockRejectedValueOnce(
+			new HTTPException(404, { message: "Project not found" }),
+		);
+		const app = createTestApp(projectService);
+
+		const response = await app.request(`/api/v1/projects/${PROJECT_ID}`, {
+			headers: authHeaders(),
+		});
+
+		expect(response.status).toBe(404);
+	});
+
+	it("returns 403 when the service throws an AccessDeniedError", async () => {
+		const projectService = createProjectServiceMock();
+		projectService.getProjectDetail.mockRejectedValueOnce(
+			new AccessDeniedError("You do not have access to this project"),
+		);
+		const app = createTestApp(projectService);
+
+		const response = await app.request(`/api/v1/projects/${PROJECT_ID}`, {
+			headers: authHeaders(),
+		});
+
+		expect(response.status).toBe(403);
+	});
+});
+
+describe("project routes — GET /projects/:projectId/runs", () => {
+	beforeEach(() => {
+		mock.restore();
+		getSessionMock.mockResolvedValue({
+			user: { id: USER_ID },
+			session: {
+				token: SESSION_TOKEN,
+				userId: USER_ID,
+				expiresAt: new Date("2099-01-01T00:00:00.000Z"),
+			},
+		});
+	});
+
+	it("returns 200 with run list and pagination envelope", async () => {
+		const projectService = createProjectServiceMock();
+		projectService.listProjectRuns.mockResolvedValueOnce({
+			items: [RUN_LIST_ITEM],
+			total: 1,
+		});
+		const app = createTestApp(projectService);
+
+		const response = await app.request(`/api/v1/projects/${PROJECT_ID}/runs`, {
+			headers: authHeaders(),
+		});
+
+		expect(response.status).toBe(200);
+		const body = (await response.json()) as {
+			data: Array<{ id: string; status: string; createdAt: string }>;
+			pagination: { page: number; pageSize: number; total: number; totalPages: number };
+		};
+		expect(body.data).toHaveLength(1);
+		expect(body.data[0]?.id).toBe(RUN_LIST_ITEM.id);
+		expect(body.data[0]?.status).toBe("completed");
+		expect(body.data[0]?.createdAt).toBe(NOW_ISO);
+		expect(body.pagination).toEqual({ page: 1, pageSize: 10, total: 1, totalPages: 1 });
+	});
+
+	it("calls the service with userId, projectId and default pagination", async () => {
+		const projectService = createProjectServiceMock();
+		const app = createTestApp(projectService);
+
+		await app.request(`/api/v1/projects/${PROJECT_ID}/runs`, { headers: authHeaders() });
+
+		expect(projectService.listProjectRuns).toHaveBeenCalledWith({
+			userId: USER_ID,
+			projectId: PROJECT_ID,
+			filter: { page: 1, pageSize: 10 },
+		});
+	});
+
+	it("forwards status filter values to the service", async () => {
+		const projectService = createProjectServiceMock();
+		const app = createTestApp(projectService);
+
+		await app.request(`/api/v1/projects/${PROJECT_ID}/runs?status=completed&status=failed`, {
+			headers: authHeaders(),
+		});
+
+		expect(projectService.listProjectRuns).toHaveBeenCalledWith({
+			userId: USER_ID,
+			projectId: PROJECT_ID,
+			filter: { page: 1, pageSize: 10, status: ["completed", "failed"] },
+		});
+	});
+
+	it("returns 401 when the request has no authentication", async () => {
+		getSessionMock.mockResolvedValue(null);
+		const projectService = createProjectServiceMock();
+		const app = createTestApp(projectService);
+
+		const response = await app.request(`/api/v1/projects/${PROJECT_ID}/runs`);
+
+		expect(response.status).toBe(401);
+		expect(projectService.listProjectRuns).not.toHaveBeenCalled();
+	});
+
+	it("returns 404 when the service reports the project was not found", async () => {
+		const projectService = createProjectServiceMock();
+		projectService.listProjectRuns.mockRejectedValueOnce(
+			new HTTPException(404, { message: "Project not found" }),
+		);
+		const app = createTestApp(projectService);
+
+		const response = await app.request(`/api/v1/projects/${PROJECT_ID}/runs`, {
+			headers: authHeaders(),
+		});
+
+		expect(response.status).toBe(404);
+	});
+
+	it("returns 403 when the service throws an AccessDeniedError", async () => {
+		const projectService = createProjectServiceMock();
+		projectService.listProjectRuns.mockRejectedValueOnce(
+			new AccessDeniedError("You do not have access to this project"),
+		);
+		const app = createTestApp(projectService);
+
+		const response = await app.request(`/api/v1/projects/${PROJECT_ID}/runs`, {
+			headers: authHeaders(),
+		});
+
+		expect(response.status).toBe(403);
+	});
+
+	it("returns 400 when page is below the minimum value", async () => {
+		const projectService = createProjectServiceMock();
+		const app = createTestApp(projectService);
+
+		const response = await app.request(`/api/v1/projects/${PROJECT_ID}/runs?page=0`, {
+			headers: authHeaders(),
+		});
+
+		expect(response.status).toBe(400);
+		expect(projectService.listProjectRuns).not.toHaveBeenCalled();
 	});
 });
