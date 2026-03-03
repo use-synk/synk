@@ -90,3 +90,7 @@ function PageTab({
 		</TabsPrimitive.Tab>
 	);
 }
+
+export function PageTabPanel({ ...props }: React.ComponentProps<typeof TabsPrimitive.Panel>) {
+	return <TabsPrimitive.Panel {...props} />;
+}
