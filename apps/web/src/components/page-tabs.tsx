@@ -74,7 +74,7 @@ function PageTab({
 		<TabsPrimitive.Tab
 			className={cn(
 				"h-10 text-sm font-medium translate-y-px border-b-2 border-transparent text-stone-800 flex justify-center items-center gap-2 py cursor-pointer",
-				"data-active:border-lime-500 data-active:text-lime-800",
+				"data-active:border-lime-500 data-active:text-lime-900",
 				className,
 			)}
 			value={item.value}

@@ -18,7 +18,7 @@ const repositorySummarySchema = z.object({
 	isActive: z.boolean(),
 });
 
-const projectDetailSchema = z.object({
+export const projectDetailSchema = z.object({
 	id: z.string(),
 	name: z.string(),
 	organizationId: z.string(),
@@ -29,7 +29,7 @@ const projectDetailSchema = z.object({
 	updatedAt: z.string(),
 });
 
-const runSummarySchema = z.object({
+export const runSummarySchema = z.object({
 	id: z.string(),
 	status: runStatusSchema,
 	triggerType: z.enum(["push", "merge", "manual"]),
