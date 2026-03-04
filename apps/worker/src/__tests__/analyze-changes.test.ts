@@ -114,7 +114,7 @@ const makeJob = (
 			repositoryId: overrides.repositoryId ?? "repo-1",
 			installationId: overrides.installationId ?? "install-1",
 			trigger: overrides.trigger ?? {
-				type: "push" as const,
+				type: "manual" as const,
 				ref: "refs/heads/main",
 				commitSha: "abc123",
 			},
@@ -492,6 +492,22 @@ describe("processAnalyzeChangesJob", () => {
 		);
 	});
 
+	it("skips push-triggered jobs without creating a run", async () => {
+		await processAnalyzeChangesJob(
+			makeJob({
+				trigger: {
+					type: "push",
+					ref: "refs/heads/main",
+					commitSha: "abc123",
+				},
+			}),
+			makeLogger(),
+		);
+
+		expect(mockUpsertAnalysisRun).not.toHaveBeenCalled();
+		expect(mockUpdateAnalysisRun).not.toHaveBeenCalled();
+	});
+
 	it("marks run as skipped when project-ignore-filtered diff is empty", async () => {
 		// First filterDiff call (default patterns) keeps the file.
 		// Second filterDiff call (project ignore paths) removes it.
@@ -811,6 +827,7 @@ describe("processAnalyzeChangesJob", () => {
 				data: expect.objectContaining({
 					status: "completed",
 					docsAffected: true,
+					suggestionsCount: 1,
 					docPrNumber: 42,
 					docPrUrl: "https://github.com/pr/42",
 				}),
@@ -839,6 +856,8 @@ describe("processAnalyzeChangesJob", () => {
 			expect.objectContaining({
 				data: expect.objectContaining({
 					status: "failed",
+					errorCode: "retryable",
+					errorMessage: "GitHub API failure",
 					error: "GitHub API failure",
 				}),
 			}),

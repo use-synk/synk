@@ -35,6 +35,9 @@ const RUN_STATUS_RUNNING = "running";
 const RUN_STATUS_SKIPPED = "skipped";
 const RUN_STATUS_COMPLETED = "completed";
 const RUN_STATUS_FAILED = "failed";
+const RUN_ERROR_CODE_UNKNOWN = "unknown";
+const RUN_ERROR_CODE_NON_RETRYABLE = "non_retryable";
+const RUN_ERROR_CODE_RETRYABLE = "retryable";
 
 type RepositoryWithInstallation = {
 	id: string;
@@ -215,6 +218,25 @@ const isHttpNotFoundError = (error: unknown): boolean => {
 		return false;
 	}
 	return error.status === 404;
+};
+
+const resolveErrorCode = (
+	error: unknown,
+	classification: "retryable" | "non-retryable",
+): string => {
+	if (typeof error === "object" && error !== null && "status" in error) {
+		const statusCandidate = (error as Record<string, unknown>).status;
+		if (typeof statusCandidate === "number" && Number.isInteger(statusCandidate)) {
+			return `http_${statusCandidate}`;
+		}
+	}
+	if (classification === "non-retryable") {
+		return RUN_ERROR_CODE_NON_RETRYABLE;
+	}
+	if (classification === "retryable") {
+		return RUN_ERROR_CODE_RETRYABLE;
+	}
+	return RUN_ERROR_CODE_UNKNOWN;
 };
 
 const parseStringValue = (value: unknown): string | undefined =>
@@ -635,10 +657,12 @@ const updateRunStatus = async (
 	runId: string,
 	status: "running" | "completed" | "skipped" | "failed",
 	data: {
-		error?: string;
+		errorCode?: string;
+		errorMessage?: string;
 		docsAffected?: boolean;
 		docPrUrl?: string;
 		docPrNumber?: number;
+		suggestionsCount?: number;
 		tokenUsage?: AggregatedTokenUsage;
 		result?: Record<string, unknown>;
 	},
@@ -647,10 +671,13 @@ const updateRunStatus = async (
 		where: { id: runId },
 		data: {
 			status,
-			error: data.error ?? null,
+			errorCode: data.errorCode ?? null,
+			errorMessage: data.errorMessage ?? null,
+			error: data.errorMessage ?? null,
 			docsAffected: data.docsAffected ?? null,
 			docPrUrl: data.docPrUrl ?? null,
 			docPrNumber: data.docPrNumber ?? null,
+			suggestionsCount: data.suggestionsCount ?? 0,
 			tokenUsage: data.tokenUsage ?? {},
 			result: (data.result ?? {}) as unknown as Prisma.InputJsonValue,
 			completedAt: status === RUN_STATUS_RUNNING ? null : new Date(),
@@ -818,6 +845,12 @@ const upsertInitialRun = async (
 			triggerRef: job.data.trigger.ref,
 			triggerCommitSha: job.data.trigger.commitSha,
 			triggerMergeRequestNumber: job.data.trigger.prNumber ?? null,
+			triggerPrTitle: job.data.trigger.prTitle ?? null,
+			triggerSourceBranch: job.data.trigger.sourceBranch ?? null,
+			triggerTargetBranch: job.data.trigger.targetBranch ?? null,
+			triggerPrAuthorName: job.data.trigger.prAuthorName ?? null,
+			triggerPrAuthorUsername: job.data.trigger.prAuthorUsername ?? null,
+			triggerPrAuthorAvatarUrl: job.data.trigger.prAuthorAvatarUrl ?? null,
 			triggerMeta,
 			status: RUN_STATUS_RUNNING,
 			startedAt: new Date(),
@@ -835,6 +868,15 @@ const upsertInitialRun = async (
 			docPrNumber: null,
 			tokenUsage: {},
 			result: {},
+			errorCode: null,
+			errorMessage: null,
+			suggestionsCount: 0,
+			triggerPrTitle: job.data.trigger.prTitle ?? null,
+			triggerSourceBranch: job.data.trigger.sourceBranch ?? null,
+			triggerTargetBranch: job.data.trigger.targetBranch ?? null,
+			triggerPrAuthorName: job.data.trigger.prAuthorName ?? null,
+			triggerPrAuthorUsername: job.data.trigger.prAuthorUsername ?? null,
+			triggerPrAuthorAvatarUrl: job.data.trigger.prAuthorAvatarUrl ?? null,
 			attemptCount: job.attemptsMade + 1,
 			triggerMeta,
 		},
@@ -876,6 +918,13 @@ export const processAnalyzeChangesJob = async (
 		queue: job.queueName,
 	});
 	jobLogger.info({ payload: job.data }, "processing analyze changes job");
+	if (job.data.trigger.type === "push") {
+		jobLogger.info(
+			{ repositoryId: job.data.repositoryId, triggerType: job.data.trigger.type },
+			"skipping analyze-changes job for push trigger",
+		);
+		return;
+	}
 
 	const repository = await loadRepository(job.data);
 	// Credential parsing must succeed before we create the run record. A failure
@@ -916,6 +965,7 @@ export const processAnalyzeChangesJob = async (
 		if (filteredDiff.length === 0) {
 			await updateRunStatus(runId, RUN_STATUS_SKIPPED, {
 				docsAffected: false,
+				suggestionsCount: 0,
 				result: {
 					timingsMs: timings,
 					reason: "No relevant code changes after default ignore-path filtering.",
@@ -947,6 +997,7 @@ export const processAnalyzeChangesJob = async (
 		if (filteredDiffWithProjectIgnores.length === 0) {
 			await updateRunStatus(runId, RUN_STATUS_SKIPPED, {
 				docsAffected: false,
+				suggestionsCount: 0,
 				result: {
 					timingsMs: timings,
 					reason: "No relevant code changes after repository-specific ignore-path filtering.",
@@ -1022,6 +1073,7 @@ export const processAnalyzeChangesJob = async (
 		if (!triageResult.needsUpdate) {
 			await updateRunStatus(runId, RUN_STATUS_COMPLETED, {
 				docsAffected: false,
+				suggestionsCount: 0,
 				tokenUsage: aggregateTokenUsage(triageUsage, generationUsage),
 				result: {
 					timingsMs: timings,
@@ -1069,6 +1121,7 @@ export const processAnalyzeChangesJob = async (
 		if (meaningfulChanges.length === 0) {
 			await updateRunStatus(runId, RUN_STATUS_COMPLETED, {
 				docsAffected: false,
+				suggestionsCount: 0,
 				tokenUsage: aggregateTokenUsage(triageUsage, generationUsage),
 				result: {
 					timingsMs: timings,
@@ -1107,6 +1160,7 @@ export const processAnalyzeChangesJob = async (
 			docsAffected: true,
 			docPrNumber: prResult.prNumber,
 			docPrUrl: prResult.prUrl,
+			suggestionsCount: meaningfulChanges.length,
 			tokenUsage: aggregateTokenUsage(triageUsage, generationUsage),
 			result: {
 				timingsMs: timings,
@@ -1120,6 +1174,7 @@ export const processAnalyzeChangesJob = async (
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : "Unknown analyze-changes failure";
 		const classification = classifyError(error);
+		const errorCode = resolveErrorCode(error, classification);
 		const maxAttempts = job.opts.attempts ?? 1;
 		const isFinalAttempt = job.attemptsMade + 1 >= maxAttempts;
 
@@ -1144,7 +1199,9 @@ export const processAnalyzeChangesJob = async (
 
 		try {
 			await updateRunStatus(runId, RUN_STATUS_FAILED, {
-				error: errorMessage,
+				errorCode,
+				errorMessage,
+				suggestionsCount: 0,
 				tokenUsage: aggregateTokenUsage(triageUsage, generationUsage),
 				result: {
 					timingsMs: timings,
