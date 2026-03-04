@@ -30,3 +30,12 @@ export {
 	type RetryOptions,
 } from "./retry.js";
 export { estimateTokenCount } from "./token-count.js";
+export {
+	createDocTriage,
+	triageOutputSchema,
+	type DocTriage,
+	type DocTriageOptions,
+	type DocTriageRequest,
+	type DocTriageResult,
+	type TriageOutput,
+} from "./triage.js";
