@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { type Prisma, db } from "@synk-ai/db";
 import {
 	type DocAdapter,
@@ -45,6 +46,8 @@ type RepositoryWithInstallation = {
 	fullName: string;
 	defaultBranch: string;
 	projectId: string;
+	sourceRepositoryId: string;
+	docsRepositoryId: string | null;
 	projectConfig: unknown;
 	installation: {
 		id: string;
@@ -104,6 +107,24 @@ type PipelineContext = {
 	defaultBranch: string;
 	commitSha: string;
 	ref: string;
+};
+
+type SuggestionDraft = {
+	docPath: string;
+	baseDocSha: string;
+	beforeContent: string;
+	proposedContent: string;
+	reasoning?: string;
+};
+
+type PersistedSuggestion = {
+	id: string;
+	docPath: string;
+	fingerprint: string;
+};
+
+type AnalyzeChangesOptions = {
+	autoPrEnabled: boolean;
 };
 
 type RepoLocation = {
@@ -590,7 +611,11 @@ const collectDocFiles = async (
 	octokit: ReturnType<typeof createInstallationOctokit>,
 	adapter: DocAdapter,
 	options: CollectDocFilesOptions,
-): Promise<{ tree: readonly RepoTreeFile[]; docFiles: readonly DocFile[] }> => {
+): Promise<{
+	tree: readonly RepoTreeFile[];
+	docFiles: readonly DocFile[];
+	docShaByPath: ReadonlyMap<string, string>;
+}> => {
 	const { docsConfig, location } = options;
 	const tree =
 		options.prefetchedTree ??
@@ -605,7 +630,7 @@ const collectDocFiles = async (
 		.filter((path) => pathMatchesAnyGlob(path, globs))
 		.slice(0, 500);
 	if (docPaths.length === 0) {
-		return { tree, docFiles: [] };
+		return { tree, docFiles: [], docShaByPath: new Map<string, string>() };
 	}
 
 	const files = await fetchMultipleFiles(octokit, {
@@ -614,9 +639,11 @@ const collectDocFiles = async (
 		paths: docPaths,
 		ref: location.ref,
 	});
+	const docShaByPath = new Map(files.map((file) => [file.path, file.sha]));
 	return {
 		tree,
 		docFiles: files.map((file) => ({ path: file.path, content: file.content })),
+		docShaByPath,
 	};
 };
 
@@ -683,6 +710,79 @@ const updateRunStatus = async (
 			completedAt: status === RUN_STATUS_RUNNING ? null : new Date(),
 		},
 	});
+};
+
+const buildSuggestionFingerprint = (input: {
+	projectId: string;
+	repositoryId: string;
+	docPath: string;
+	baseDocSha: string;
+	proposedContent: string;
+}): string => {
+	const raw = [
+		input.projectId,
+		input.repositoryId,
+		input.docPath,
+		input.baseDocSha,
+		input.proposedContent,
+	].join(":");
+	return createHash("sha256").update(raw).digest("hex");
+};
+
+const persistSuggestions = async (input: {
+	projectId: string;
+	repositoryId: string;
+	runId: string;
+	suggestions: readonly SuggestionDraft[];
+}): Promise<readonly PersistedSuggestion[]> =>
+	db.$transaction(async (tx) => {
+		const persisted: PersistedSuggestion[] = [];
+		for (const suggestion of input.suggestions) {
+			const fingerprint = buildSuggestionFingerprint({
+				projectId: input.projectId,
+				repositoryId: input.repositoryId,
+				docPath: suggestion.docPath,
+				baseDocSha: suggestion.baseDocSha,
+				proposedContent: suggestion.proposedContent,
+			});
+			const created = await tx.suggestion.create({
+				data: {
+					projectId: input.projectId,
+					repositoryId: input.repositoryId,
+					runId: input.runId,
+					docPath: suggestion.docPath,
+					baseDocSha: suggestion.baseDocSha,
+					beforeContent: suggestion.beforeContent,
+					proposedContent: suggestion.proposedContent,
+					reasoning: suggestion.reasoning,
+					fingerprint,
+				},
+				select: {
+					id: true,
+					docPath: true,
+					fingerprint: true,
+				},
+			});
+			persisted.push(created);
+		}
+		return persisted;
+	});
+
+const resolveSuggestionRepositoryId = (input: {
+	sourceRepository: RepositoryWithInstallation;
+	docsLocation: RepoLocation;
+	pipelineContext: PipelineContext;
+}): string => {
+	const docsTargetsSourceRepository =
+		input.docsLocation.owner === input.pipelineContext.owner &&
+		input.docsLocation.repo === input.pipelineContext.repo;
+	if (docsTargetsSourceRepository) {
+		return input.sourceRepository.id;
+	}
+	if (input.sourceRepository.docsRepositoryId !== null) {
+		return input.sourceRepository.docsRepositoryId;
+	}
+	return input.sourceRepository.id;
 };
 
 const defaultRunTriage: AnalyzeChangesServices["runTriage"] = async (input) => {
@@ -800,6 +900,8 @@ const loadRepository = async (
 		select: {
 			id: true,
 			config: true,
+			sourceRepositoryId: true,
+			docsRepositoryId: true,
 		},
 	});
 	if (project === null) {
@@ -808,6 +910,8 @@ const loadRepository = async (
 	return {
 		...repository,
 		projectId: project.id,
+		sourceRepositoryId: project.sourceRepositoryId,
+		docsRepositoryId: project.docsRepositoryId,
 		projectConfig: project.config,
 	};
 };
@@ -907,10 +1011,15 @@ const defaultServices: AnalyzeChangesServices = {
 	createPullRequest: defaultCreatePullRequest,
 };
 
+const defaultOptions: AnalyzeChangesOptions = {
+	autoPrEnabled: true,
+};
+
 export const processAnalyzeChangesJob = async (
 	job: Job<AnalyzeChangesJobPayload>,
 	logger: Logger,
 	services: AnalyzeChangesServices = defaultServices,
+	options: AnalyzeChangesOptions = defaultOptions,
 ): Promise<void> => {
 	const jobLogger = logger.child({
 		jobId: job.id ?? "unknown",
@@ -1103,7 +1212,7 @@ export const processAnalyzeChangesJob = async (
 		}
 		timings.runAiGeneration = Date.now() - generationStartedAt;
 
-		const meaningfulChanges: { path: string; content: string; reasoning?: string }[] = [];
+		const meaningfulChanges: SuggestionDraft[] = [];
 		for (const output of generationOutputs) {
 			const currentFile = docFileByPath.get(output.path);
 			if (currentFile === undefined) {
@@ -1112,9 +1221,19 @@ export const processAnalyzeChangesJob = async (
 			if (currentFile.content === output.content) {
 				continue;
 			}
+			const baseDocSha = docData.docShaByPath.get(output.path);
+			if (baseDocSha === undefined) {
+				jobLogger.warn(
+					{ runId, docPath: output.path },
+					"skipping suggestion because base document SHA is unavailable",
+				);
+				continue;
+			}
 			meaningfulChanges.push({
-				path: output.path,
-				content: output.content,
+				docPath: output.path,
+				baseDocSha,
+				beforeContent: currentFile.content,
+				proposedContent: output.content,
 				reasoning: output.reasoning,
 			});
 		}
@@ -1135,6 +1254,48 @@ export const processAnalyzeChangesJob = async (
 			return;
 		}
 
+		const runResultBase = {
+			timingsMs: timings,
+			triage: triageResult,
+			generation: generationOutputs.map((output) => ({
+				path: output.path,
+				reasoning: output.reasoning,
+			})),
+		};
+
+		if (!options.autoPrEnabled) {
+			const suggestionRepositoryId = resolveSuggestionRepositoryId({
+				sourceRepository: repository,
+				docsLocation,
+				pipelineContext: context,
+			});
+			const { value: persistedSuggestions, durationMs: persistSuggestionsDurationMs } =
+				await measureStep(jobLogger, runId, "persist-suggestions", async () =>
+					persistSuggestions({
+						projectId: repository.projectId,
+						repositoryId: suggestionRepositoryId,
+						runId,
+						suggestions: meaningfulChanges,
+					}),
+				);
+			timings.persistSuggestions = persistSuggestionsDurationMs;
+
+			await updateRunStatus(runId, RUN_STATUS_COMPLETED, {
+				docsAffected: true,
+				suggestionsCount: persistedSuggestions.length,
+				tokenUsage: aggregateTokenUsage(triageUsage, generationUsage),
+				result: {
+					...runResultBase,
+					suggestions: persistedSuggestions.map((suggestion) => ({
+						id: suggestion.id,
+						path: suggestion.docPath,
+						fingerprint: suggestion.fingerprint,
+					})),
+				},
+			});
+			return;
+		}
+
 		const { value: prResult, durationMs: createPrDurationMs } = await measureStep(
 			jobLogger,
 			runId,
@@ -1145,7 +1306,11 @@ export const processAnalyzeChangesJob = async (
 					owner: docsLocation.owner,
 					repo: docsLocation.repo,
 					baseBranch: docsLocation.ref,
-					files: meaningfulChanges,
+					files: meaningfulChanges.map((change) => ({
+						path: change.docPath,
+						content: change.proposedContent,
+						reasoning: change.reasoning,
+					})),
 					triggerInfo: {
 						...job.data.trigger,
 						sourceOwner: context.owner,
@@ -1162,14 +1327,7 @@ export const processAnalyzeChangesJob = async (
 			docPrUrl: prResult.prUrl,
 			suggestionsCount: meaningfulChanges.length,
 			tokenUsage: aggregateTokenUsage(triageUsage, generationUsage),
-			result: {
-				timingsMs: timings,
-				triage: triageResult,
-				generation: generationOutputs.map((output) => ({
-					path: output.path,
-					reasoning: output.reasoning,
-				})),
-			},
+			result: runResultBase,
 		});
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : "Unknown analyze-changes failure";
