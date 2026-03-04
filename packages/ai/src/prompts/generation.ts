@@ -1,6 +1,6 @@
-import { type PromptMessage } from "./types.js";
+import type { PromptMessage, PromptVersion } from "./types.js";
 
-export const VERSION = "1.0.0";
+export const VERSION: PromptVersion = "1.0.0";
 
 export type GenerationPromptParams = {
 	diff: string;
@@ -22,9 +22,11 @@ Guidelines:
 
 Respond with the complete updated document content and a brief description of what changed.`;
 
-const buildUserContent = (params: GenerationPromptParams): string => {
+const buildGenerationUserContent = (params: GenerationPromptParams): string => {
 	const sections: string[] = [
 		"Update the following documentation file to reflect the code change.",
+		"",
+		`File: ${params.docFilePath}`,
 		"",
 		"## Current Documentation Content",
 		"<document>",
@@ -55,7 +57,9 @@ const buildUserContent = (params: GenerationPromptParams): string => {
 	return sections.join("\n");
 };
 
-export const buildGenerationPrompt = (params: GenerationPromptParams): [PromptMessage, PromptMessage] => [
+export const buildGenerationPrompt = (
+	params: GenerationPromptParams,
+): [PromptMessage, PromptMessage] => [
 	{ role: "system", content: SYSTEM_CONTENT },
-	{ role: "user", content: buildUserContent(params) },
+	{ role: "user", content: buildGenerationUserContent(params) },
 ];

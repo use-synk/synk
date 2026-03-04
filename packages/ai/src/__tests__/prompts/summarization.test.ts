@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+	type SummarizationPromptParams,
 	VERSION,
 	buildSummarizationPrompt,
-	type SummarizationPromptParams,
 } from "../../prompts/summarization.js";
 
 const minimalParams: SummarizationPromptParams = {
@@ -79,11 +79,15 @@ describe("buildSummarizationPrompt", () => {
 		expect(user.content).toContain("docs/index.md");
 		expect(user.content).toContain("Updated introduction.");
 	});
+
+	it("throws TypeError when changes array is empty", () => {
+		expect(() => buildSummarizationPrompt({ changes: [] })).toThrow(TypeError);
+		expect(() => buildSummarizationPrompt({ changes: [] })).toThrow("changes must not be empty.");
+	});
 });
 
 describe("VERSION", () => {
-	it("is a non-empty string", () => {
-		expect(typeof VERSION).toBe("string");
-		expect(VERSION.trim().length).toBeGreaterThan(0);
+	it("is a semver-formatted string", () => {
+		expect(VERSION).toMatch(/^\d+\.\d+\.\d+$/);
 	});
 });

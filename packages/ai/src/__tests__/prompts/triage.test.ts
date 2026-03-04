@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { VERSION, buildTriagePrompt, type TriagePromptParams } from "../../prompts/triage.js";
+import { type TriagePromptParams, VERSION, buildTriagePrompt } from "../../prompts/triage.js";
 
 const minimalParams: TriagePromptParams = {
 	diff: "diff --git a/src/api.ts b/src/api.ts\n+export const newEndpoint = () => {};",
@@ -74,8 +74,7 @@ describe("buildTriagePrompt", () => {
 });
 
 describe("VERSION", () => {
-	it("is a non-empty string", () => {
-		expect(typeof VERSION).toBe("string");
-		expect(VERSION.trim().length).toBeGreaterThan(0);
+	it("is a semver-formatted string", () => {
+		expect(VERSION).toMatch(/^\d+\.\d+\.\d+$/);
 	});
 });

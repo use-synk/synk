@@ -61,6 +61,7 @@ export {
 	buildSummarizationPrompt,
 	type PromptMessage,
 	type PromptRole,
+	type PromptVersion,
 	type TriagePromptParams,
 	type GenerationPromptParams,
 	type DocumentChange,

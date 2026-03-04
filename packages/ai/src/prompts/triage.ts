@@ -1,6 +1,6 @@
-import { type PromptMessage } from "./types.js";
+import type { PromptMessage, PromptVersion } from "./types.js";
 
-export const VERSION = "1.0.0";
+export const VERSION: PromptVersion = "1.0.0";
 
 export type TriagePromptParams = {
 	diff: string;
@@ -23,7 +23,7 @@ Guidelines:
 
 Respond with a structured JSON object matching the required schema.`;
 
-const buildUserContent = (params: TriagePromptParams): string => {
+const buildTriageUserContent = (params: TriagePromptParams): string => {
 	const sections: string[] = [
 		"Analyze the following code change and determine whether the project documentation requires updates.",
 		"",
@@ -56,5 +56,5 @@ const buildUserContent = (params: TriagePromptParams): string => {
 
 export const buildTriagePrompt = (params: TriagePromptParams): [PromptMessage, PromptMessage] => [
 	{ role: "system", content: SYSTEM_CONTENT },
-	{ role: "user", content: buildUserContent(params) },
+	{ role: "user", content: buildTriageUserContent(params) },
 ];

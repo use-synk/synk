@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+	type GenerationPromptParams,
 	VERSION,
 	buildGenerationPrompt,
-	type GenerationPromptParams,
 } from "../../prompts/generation.js";
 
 const minimalParams: GenerationPromptParams = {
@@ -47,6 +47,11 @@ describe("buildGenerationPrompt", () => {
 		expect(user.content).toContain(minimalParams.docFileContent);
 	});
 
+	it("user message contains the file path", () => {
+		const [, user] = buildGenerationPrompt(minimalParams);
+		expect(user.content).toContain(minimalParams.docFilePath);
+	});
+
 	it("user message includes framework conventions when provided", () => {
 		const params: GenerationPromptParams = {
 			...minimalParams,
@@ -77,8 +82,7 @@ describe("buildGenerationPrompt", () => {
 });
 
 describe("VERSION", () => {
-	it("is a non-empty string", () => {
-		expect(typeof VERSION).toBe("string");
-		expect(VERSION.trim().length).toBeGreaterThan(0);
+	it("is a semver-formatted string", () => {
+		expect(VERSION).toMatch(/^\d+\.\d+\.\d+$/);
 	});
 });

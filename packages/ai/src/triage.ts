@@ -97,7 +97,7 @@ export const createDocTriage = (options: DocTriageOptions): DocTriage => {
 			const messages = buildTriagePrompt(request);
 			const [systemMessage, userMessage] = messages;
 			const contextTokenEstimate = estimateTokenCount(
-				systemMessage.content + userMessage.content,
+				`${systemMessage.content}\n\n${userMessage.content}`,
 			);
 
 			logger.info("ai.triage.request", {
@@ -135,6 +135,7 @@ export const createDocTriage = (options: DocTriageOptions): DocTriage => {
 			} catch (error) {
 				logger.error("ai.triage.error", {
 					modelId,
+					promptVersion: TRIAGE_PROMPT_VERSION,
 					statusCode: getErrorStatusCode(error),
 					errorType: toErrorType(error),
 				});

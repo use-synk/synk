@@ -143,7 +143,7 @@ export const createDocGeneration = (options: DocGenerationOptions): DocGeneratio
 			});
 			const [systemMessage, userMessage] = messages;
 			const contextTokenEstimate = estimateTokenCount(
-				systemMessage.content + userMessage.content,
+				`${systemMessage.content}\n\n${userMessage.content}`,
 			);
 
 			logger.info("ai.generate.request", {
@@ -195,6 +195,7 @@ export const createDocGeneration = (options: DocGenerationOptions): DocGeneratio
 			} catch (error) {
 				logger.error("ai.generate.error", {
 					modelId,
+					promptVersion: GENERATION_PROMPT_VERSION,
 					filePath: request.docFile.path,
 					statusCode: getErrorStatusCode(error),
 					errorType: toErrorType(error),

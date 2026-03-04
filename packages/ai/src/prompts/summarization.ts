@@ -1,6 +1,6 @@
-import { type PromptMessage } from "./types.js";
+import type { PromptMessage, PromptVersion } from "./types.js";
 
-export const VERSION = "1.0.0";
+export const VERSION: PromptVersion = "1.0.0";
 
 export type DocumentChange = {
 	filePath: string;
@@ -23,7 +23,7 @@ Guidelines:
 
 Respond with a single changelog summary string.`;
 
-const buildUserContent = (params: SummarizationPromptParams): string => {
+const buildSummarizationUserContent = (params: SummarizationPromptParams): string => {
 	const projectLine = params.projectName ? `Project: ${params.projectName}\n\n` : "";
 	const changeLines = params.changes
 		.map((c) => `- ${c.filePath}: ${c.changeDescription}`)
@@ -38,7 +38,15 @@ const buildUserContent = (params: SummarizationPromptParams): string => {
 	].join("\n");
 };
 
-export const buildSummarizationPrompt = (params: SummarizationPromptParams): [PromptMessage, PromptMessage] => [
-	{ role: "system", content: SYSTEM_CONTENT },
-	{ role: "user", content: buildUserContent(params) },
-];
+export const buildSummarizationPrompt = (
+	params: SummarizationPromptParams,
+): [PromptMessage, PromptMessage] => {
+	if (params.changes.length === 0) {
+		throw new TypeError("changes must not be empty.");
+	}
+
+	return [
+		{ role: "system", content: SYSTEM_CONTENT },
+		{ role: "user", content: buildSummarizationUserContent(params) },
+	];
+};

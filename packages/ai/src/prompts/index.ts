@@ -1,4 +1,4 @@
-export { type PromptMessage, type PromptRole } from "./types.js";
+export type { PromptMessage, PromptRole, PromptVersion } from "./types.js";
 export {
 	VERSION as TRIAGE_PROMPT_VERSION,
 	buildTriagePrompt,
