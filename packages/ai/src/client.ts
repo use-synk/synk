@@ -1,7 +1,7 @@
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { generateText as sdkGenerateText } from "ai";
-import { toErrorType } from "./error-type.js";
 import { parseOpenRouterEnvironment } from "./env.js";
+import { toErrorType } from "./error-type.js";
 import { type AiLogger, noopAiLogger } from "./logging.js";
 import {
 	type LogicalModelName,

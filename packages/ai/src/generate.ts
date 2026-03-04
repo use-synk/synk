@@ -49,9 +49,7 @@ export class DocGenerationValidationError extends Error {
 	public constructor(filePath: string, validationErrors?: string[]) {
 		const normalizedErrors = validationErrors?.filter((error) => error.trim().length > 0) ?? [];
 		const details =
-			normalizedErrors.length > 0
-				? ` Validation errors: ${normalizedErrors.join("; ")}`
-				: "";
+			normalizedErrors.length > 0 ? ` Validation errors: ${normalizedErrors.join("; ")}` : "";
 		super(`Generated documentation failed validation for ${filePath}.${details}`);
 		this.name = "DocGenerationValidationError";
 		this.filePath = filePath;

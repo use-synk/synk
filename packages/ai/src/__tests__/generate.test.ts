@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-	DocGenerationValidationError,
 	type DocGenerationRequest,
+	DocGenerationValidationError,
 	createDocGeneration,
 } from "../generate.js";
 import { createLoggerCollector } from "./helpers.js";
