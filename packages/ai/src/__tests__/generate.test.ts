@@ -118,12 +118,12 @@ describe("createDocGeneration", () => {
 			generateObjectFn: vi.fn(),
 		});
 
-		await expect(
-			generation.generate({ diff: "", docFile: sampleDocFile }),
-		).rejects.toThrow(TypeError);
-		await expect(
-			generation.generate({ diff: "   ", docFile: sampleDocFile }),
-		).rejects.toThrow(TypeError);
+		await expect(generation.generate({ diff: "", docFile: sampleDocFile })).rejects.toThrow(
+			TypeError,
+		);
+		await expect(generation.generate({ diff: "   ", docFile: sampleDocFile })).rejects.toThrow(
+			TypeError,
+		);
 	});
 
 	it("throws TypeError when docFile.content is empty", async () => {
@@ -375,9 +375,9 @@ describe("createDocGeneration", () => {
 			logger,
 		});
 
-		await expect(
-			generation.generate({ diff: sampleDiff, docFile: sampleDocFile }),
-		).rejects.toEqual({ statusCode: 503, message: "service unavailable" });
+		await expect(generation.generate({ diff: sampleDiff, docFile: sampleDocFile })).rejects.toEqual(
+			{ statusCode: 503, message: "service unavailable" },
+		);
 
 		expect(entries.some((e) => e.message === "ai.generate.error")).toBe(true);
 		// Sensitive error details must not appear in logs
