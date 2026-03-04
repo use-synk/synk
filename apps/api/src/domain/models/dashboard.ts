@@ -42,7 +42,7 @@ export type ManualRunRepositoryState = {
 	installationId: string;
 };
 
-export type RunRepository = {
+export type RunSourceRepository = {
 	fullName: string;
 	provider: VcsProvider;
 };
@@ -56,7 +56,7 @@ export type RunListItem = {
 	docsAffected: boolean | null;
 	docPrUrl: string | null;
 	error: string | null;
-	repository: RunRepository;
+	repository: RunSourceRepository;
 	createdAt: Date;
 	startedAt: Date | null;
 	completedAt: Date | null;
@@ -69,7 +69,7 @@ export type RunListFilter = Pagination & {
 export type RunDetail = {
 	id: string;
 	repositoryId: string;
-	repository: RunRepository;
+	repository: RunSourceRepository;
 	status: RunStatus;
 	triggerType: TriggerType;
 	triggerRef: string;

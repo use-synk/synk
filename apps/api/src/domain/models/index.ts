@@ -8,4 +8,5 @@ export type {
 	RunDetail,
 	RunListFilter,
 	RunListItem,
+	RunSourceRepository,
 } from "./dashboard";
