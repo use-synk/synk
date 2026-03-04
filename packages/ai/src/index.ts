@@ -5,8 +5,8 @@ export {
 	type AiClientOptions,
 	type AiTextGenerationRequest,
 	type AiTextGenerationResponse,
-	type AiTokenUsage,
 } from "./client.js";
+export type { AiTokenUsage } from "./usage.js";
 export {
 	openRouterEnvironmentSchema,
 	parseOpenRouterEnvironment,
@@ -30,3 +30,12 @@ export {
 	type RetryOptions,
 } from "./retry.js";
 export { estimateTokenCount } from "./token-count.js";
+export {
+	createDocTriage,
+	triageOutputSchema,
+	type DocTriage,
+	type DocTriageOptions,
+	type DocTriageRequest,
+	type DocTriageResult,
+	type TriageOutput,
+} from "./triage.js";

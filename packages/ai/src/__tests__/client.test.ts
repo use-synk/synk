@@ -1,11 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createAiClient, createAiClientFromEnvironment } from "../client.js";
-import type { AiLogFields, AiLogger } from "../logging.js";
-
-type LogEvent = {
-	message: string;
-	fields: AiLogFields;
-};
+import { createLoggerCollector } from "./helpers.js";
 
 const initialOpenRouterApiKey = process.env.OPENROUTER_API_KEY;
 const initialNodeEnv = process.env.NODE_ENV;
@@ -19,24 +14,6 @@ const restoreEnvironmentVariable = (
 		return;
 	}
 	process.env[key] = value;
-};
-
-const createLoggerCollector = (): { logger: AiLogger; entries: LogEvent[] } => {
-	const entries: LogEvent[] = [];
-	return {
-		entries,
-		logger: {
-			info: (message: string, fields: AiLogFields): void => {
-				entries.push({ message, fields });
-			},
-			warn: (message: string, fields: AiLogFields): void => {
-				entries.push({ message, fields });
-			},
-			error: (message: string, fields: AiLogFields): void => {
-				entries.push({ message, fields });
-			},
-		},
-	};
 };
 
 afterEach(() => {
