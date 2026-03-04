@@ -231,12 +231,6 @@ export class GitHubWebhookService {
 		if (repo === null) return { ok: true };
 		if (ref !== `refs/heads/${repo.defaultBranch}`) return { ok: true };
 
-		await this.options.enqueueAnalyzeChanges({
-			installationId: repo.installationId,
-			repositoryId: repo.id,
-			trigger: { type: "push", ref, commitSha },
-		});
-
 		return { ok: true };
 	}
 
@@ -252,14 +246,21 @@ export class GitHubWebhookService {
 		const providerInstallationId = this.getProviderInstallationId(installation);
 		const providerRepositoryId = this.getProviderRepositoryId(repository);
 		const baseRef = pull_request.base?.ref;
+		const headRef = pull_request.head?.ref;
 		const commitSha = pull_request.merge_commit_sha ?? pull_request.head?.sha;
+		const prAuthorName = pull_request.user?.name;
+		const prAuthorUsername = pull_request.user?.login;
+		const prAuthorAvatarUrl = pull_request.user?.avatar_url;
+		const prTitle = pull_request.title;
 
 		if (
 			providerInstallationId === null ||
 			providerRepositoryId === null ||
 			baseRef === undefined ||
+			headRef === undefined ||
 			prNumber === undefined ||
-			commitSha === undefined
+			commitSha === undefined ||
+			prAuthorUsername === undefined
 		) {
 			return { ok: true };
 		}
@@ -280,6 +281,12 @@ export class GitHubWebhookService {
 				ref: `refs/heads/${baseRef}`,
 				commitSha,
 				prNumber,
+				prTitle,
+				sourceBranch: headRef,
+				targetBranch: baseRef,
+				prAuthorName,
+				prAuthorUsername,
+				prAuthorAvatarUrl,
 			},
 		});
 

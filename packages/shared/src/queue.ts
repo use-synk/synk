@@ -22,6 +22,12 @@ export type AnalyzeChangesJobPayload = {
 		ref: string;
 		commitSha: string;
 		prNumber?: number;
+		prTitle?: string;
+		sourceBranch?: string;
+		targetBranch?: string;
+		prAuthorName?: string;
+		prAuthorUsername?: string;
+		prAuthorAvatarUrl?: string;
 	};
 };
 

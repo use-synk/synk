@@ -46,9 +46,17 @@ export const pullRequestEventSchema = z.object({
 	pull_request: z
 		.object({
 			merged: z.boolean().optional(),
+			title: z.string().optional(),
 			merge_commit_sha: z.string().nullable().optional(),
 			base: z.object({ ref: z.string().optional() }).optional(),
-			head: z.object({ sha: z.string().optional() }).optional(),
+			head: z.object({ sha: z.string().optional(), ref: z.string().optional() }).optional(),
+			user: z
+				.object({
+					login: z.string().optional(),
+					name: z.string().optional(),
+					avatar_url: z.string().url().optional(),
+				})
+				.optional(),
 		})
 		.optional(),
 });
