@@ -15,8 +15,11 @@ export {
 	runStatusValues,
 	triggerTypeSchema,
 	triggerTypeValues,
+	vcsProviderSchema,
+	vcsProviderValues,
 	type RunStatus,
 	type TriggerType,
+	type VcsProvider,
 } from "./schemas";
 export {
 	ANALYZE_CHANGES_COALESCE_WINDOW_MS,
