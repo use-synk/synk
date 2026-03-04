@@ -1,29 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import type { AiLogFields, AiLogger } from "../logging.js";
 import { type DocTriageRequest, createDocTriage } from "../triage.js";
-
-type LogEvent = {
-	message: string;
-	fields: AiLogFields;
-};
-
-const createLoggerCollector = (): { logger: AiLogger; entries: LogEvent[] } => {
-	const entries: LogEvent[] = [];
-	return {
-		entries,
-		logger: {
-			info: (message: string, fields: AiLogFields): void => {
-				entries.push({ message, fields });
-			},
-			warn: (message: string, fields: AiLogFields): void => {
-				entries.push({ message, fields });
-			},
-			error: (message: string, fields: AiLogFields): void => {
-				entries.push({ message, fields });
-			},
-		},
-	};
-};
+import { createLoggerCollector } from "./helpers.js";
 
 const sampleDiff = `
 diff --git a/src/api/users.ts b/src/api/users.ts
