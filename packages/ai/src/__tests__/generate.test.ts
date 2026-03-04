@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { type DocGenerationRequest, createDocGeneration } from "../generate.js";
+import {
+	DocGenerationValidationError,
+	type DocGenerationRequest,
+	createDocGeneration,
+} from "../generate.js";
 import { createLoggerCollector } from "./helpers.js";
 
 const sampleDiff = `
@@ -258,7 +262,7 @@ describe("createDocGeneration", () => {
 		expect(validateOutput).not.toHaveBeenCalled();
 	});
 
-	it("logs a warning when validateOutput reports invalid content", async () => {
+	it("throws when validateOutput reports invalid content", async () => {
 		const validateOutput = vi.fn(() => ({
 			valid: false,
 			errors: ["Missing required frontmatter: title"],
@@ -281,11 +285,23 @@ describe("createDocGeneration", () => {
 			logger,
 		});
 
-		const result = await generation.generate({ diff: sampleDiff, docFile: sampleDocFile });
+		let caughtError: unknown;
+		try {
+			await generation.generate({ diff: sampleDiff, docFile: sampleDocFile });
+		} catch (error) {
+			caughtError = error;
+		}
 
-		// Result is still returned despite validation warning
-		expect(result.skipped).toBe(false);
+		expect(caughtError).toBeInstanceOf(DocGenerationValidationError);
+		expect(caughtError).toEqual(
+			expect.objectContaining({
+				name: "DocGenerationValidationError",
+				filePath: sampleDocFile.path,
+				validationErrors: ["Missing required frontmatter: title"],
+			}),
+		);
 		expect(entries.some((e) => e.message === "ai.generate.validation_failed")).toBe(true);
+		expect(entries.some((e) => e.message === "ai.generate.error")).toBe(true);
 	});
 
 	it("includes framework conventions and custom instructions in the user prompt when provided", async () => {

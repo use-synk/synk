@@ -41,6 +41,7 @@ export {
 } from "./triage.js";
 export {
 	createDocGeneration,
+	DocGenerationValidationError,
 	generationOutputSchema,
 	type DocFile,
 	type DocGeneration,

@@ -41,6 +41,23 @@ export type DocGenerationResult = {
 	skipped: boolean;
 };
 
+export class DocGenerationValidationError extends Error {
+	public readonly filePath: string;
+	public readonly validationErrors: string[];
+
+	public constructor(filePath: string, validationErrors?: string[]) {
+		const normalizedErrors = validationErrors?.filter((error) => error.trim().length > 0) ?? [];
+		const details =
+			normalizedErrors.length > 0
+				? ` Validation errors: ${normalizedErrors.join("; ")}`
+				: "";
+		super(`Generated documentation failed validation for ${filePath}.${details}`);
+		this.name = "DocGenerationValidationError";
+		this.filePath = filePath;
+		this.validationErrors = normalizedErrors;
+	}
+}
+
 type GenerateObjectArguments = Parameters<typeof sdkGenerateObject>[0];
 type GenerateObjectModel = GenerateObjectArguments["model"];
 
@@ -192,6 +209,7 @@ export const createDocGeneration = (options: DocGenerationOptions): DocGeneratio
 							filePath: request.docFile.path,
 							errorCount: validation.errors?.length ?? 0,
 						});
+						throw new DocGenerationValidationError(request.docFile.path, validation.errors);
 					}
 				}
 
