@@ -1,6 +1,7 @@
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { generateObject as sdkGenerateObject } from "ai";
 import { z } from "zod";
+import { toErrorType } from "./error-type.js";
 import { type AiLogger, noopAiLogger } from "./logging.js";
 import { type ModelSelectionMap, modelIdFor, resolveModelSelection } from "./models.js";
 import { getErrorStatusCode } from "./retry.js";
@@ -120,9 +121,6 @@ const runGenerateObject: GenerateObjectFn = async (input) => {
 		usage: toUsageLike(result.usage),
 	};
 };
-
-const toErrorType = (error: unknown): string =>
-	error instanceof Error ? error.name : "UnknownError";
 
 export const createDocTriage = (options: DocTriageOptions): DocTriage => {
 	const confidenceThreshold = options.confidenceThreshold ?? DEFAULT_CONFIDENCE_THRESHOLD;
