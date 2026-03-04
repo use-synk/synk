@@ -188,6 +188,7 @@ const startWorker = async (): Promise<void> => {
 			await updatePayloadFromPending(analyzeChangesQueue, job);
 			await processAnalyzeChangesJob(job, logger, undefined, {
 				autoPrEnabled: suggestionInboxRollout.autoPrEnabled,
+				decisionMemoryEnabled: suggestionInboxRollout.decisionMemoryEnabled,
 			});
 		},
 	});

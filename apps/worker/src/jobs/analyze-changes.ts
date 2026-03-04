@@ -123,8 +123,25 @@ type PersistedSuggestion = {
 	fingerprint: string;
 };
 
+type SkippedSuggestion = {
+	docPath: string;
+	fingerprint: string;
+	reason: "duplicate-pending-or-accepted" | "declined-decision-memory";
+};
+
+type SuggestionPersistenceOutcome = {
+	persisted: readonly PersistedSuggestion[];
+	skipped: readonly SkippedSuggestion[];
+};
+
+type ExistingSuggestion = {
+	id: string;
+	status: "pending" | "accepted" | "declined" | "superseded" | "stale" | "applied";
+};
+
 type AnalyzeChangesOptions = {
 	autoPrEnabled: boolean;
+	decisionMemoryEnabled: boolean;
 };
 
 type RepoLocation = {
@@ -729,14 +746,32 @@ const buildSuggestionFingerprint = (input: {
 	return createHash("sha256").update(raw).digest("hex");
 };
 
+const shouldSkipEquivalentSuggestion = (
+	existing: ExistingSuggestion | null,
+	decisionMemoryEnabled: boolean,
+): SkippedSuggestion["reason"] | null => {
+	if (existing === null) {
+		return null;
+	}
+	if (existing.status === "pending" || existing.status === "accepted") {
+		return "duplicate-pending-or-accepted";
+	}
+	if (existing.status === "declined" && decisionMemoryEnabled) {
+		return "declined-decision-memory";
+	}
+	return null;
+};
+
 const persistSuggestions = async (input: {
 	projectId: string;
 	repositoryId: string;
 	runId: string;
 	suggestions: readonly SuggestionDraft[];
-}): Promise<readonly PersistedSuggestion[]> =>
+	decisionMemoryEnabled: boolean;
+}): Promise<SuggestionPersistenceOutcome> =>
 	db.$transaction(async (tx) => {
 		const persisted: PersistedSuggestion[] = [];
+		const skipped: SkippedSuggestion[] = [];
 		for (const suggestion of input.suggestions) {
 			const fingerprint = buildSuggestionFingerprint({
 				projectId: input.projectId,
@@ -745,6 +780,51 @@ const persistSuggestions = async (input: {
 				baseDocSha: suggestion.baseDocSha,
 				proposedContent: suggestion.proposedContent,
 			});
+			const existingEquivalent = (await tx.suggestion.findFirst({
+				where: {
+					projectId: input.projectId,
+					repositoryId: input.repositoryId,
+					docPath: suggestion.docPath,
+					fingerprint,
+				},
+				orderBy: {
+					createdAt: "desc",
+				},
+				select: {
+					id: true,
+					status: true,
+				},
+			})) as ExistingSuggestion | null;
+			const skipReason = shouldSkipEquivalentSuggestion(
+				existingEquivalent,
+				input.decisionMemoryEnabled,
+			);
+			if (skipReason !== null) {
+				skipped.push({
+					docPath: suggestion.docPath,
+					fingerprint,
+					reason: skipReason,
+				});
+				continue;
+			}
+
+			const priorActiveSuggestions = await tx.suggestion.findMany({
+				where: {
+					projectId: input.projectId,
+					repositoryId: input.repositoryId,
+					docPath: suggestion.docPath,
+					status: {
+						in: ["pending", "accepted"],
+					},
+				},
+				orderBy: {
+					createdAt: "desc",
+				},
+				select: {
+					id: true,
+				},
+			});
+			const supersedesSuggestionId = priorActiveSuggestions[0]?.id ?? null;
 			const created = await tx.suggestion.create({
 				data: {
 					projectId: input.projectId,
@@ -756,6 +836,7 @@ const persistSuggestions = async (input: {
 					proposedContent: suggestion.proposedContent,
 					reasoning: suggestion.reasoning,
 					fingerprint,
+					supersedesSuggestionId,
 				},
 				select: {
 					id: true,
@@ -763,9 +844,21 @@ const persistSuggestions = async (input: {
 					fingerprint: true,
 				},
 			});
+			if (priorActiveSuggestions.length > 0) {
+				await tx.suggestion.updateMany({
+					where: {
+						id: {
+							in: priorActiveSuggestions.map((candidate) => candidate.id),
+						},
+					},
+					data: {
+						status: "superseded",
+					},
+				});
+			}
 			persisted.push(created);
 		}
-		return persisted;
+		return { persisted, skipped };
 	});
 
 const resolveSuggestionRepositoryId = (input: {
@@ -1013,6 +1106,7 @@ const defaultServices: AnalyzeChangesServices = {
 
 const defaultOptions: AnalyzeChangesOptions = {
 	autoPrEnabled: true,
+	decisionMemoryEnabled: true,
 };
 
 export const processAnalyzeChangesJob = async (
@@ -1269,28 +1363,30 @@ export const processAnalyzeChangesJob = async (
 				docsLocation,
 				pipelineContext: context,
 			});
-			const { value: persistedSuggestions, durationMs: persistSuggestionsDurationMs } =
+			const { value: suggestionPersistence, durationMs: persistSuggestionsDurationMs } =
 				await measureStep(jobLogger, runId, "persist-suggestions", async () =>
 					persistSuggestions({
 						projectId: repository.projectId,
 						repositoryId: suggestionRepositoryId,
 						runId,
 						suggestions: meaningfulChanges,
+						decisionMemoryEnabled: options.decisionMemoryEnabled,
 					}),
 				);
 			timings.persistSuggestions = persistSuggestionsDurationMs;
 
 			await updateRunStatus(runId, RUN_STATUS_COMPLETED, {
 				docsAffected: true,
-				suggestionsCount: persistedSuggestions.length,
+				suggestionsCount: suggestionPersistence.persisted.length,
 				tokenUsage: aggregateTokenUsage(triageUsage, generationUsage),
 				result: {
 					...runResultBase,
-					suggestions: persistedSuggestions.map((suggestion) => ({
+					suggestions: suggestionPersistence.persisted.map((suggestion) => ({
 						id: suggestion.id,
 						path: suggestion.docPath,
 						fingerprint: suggestion.fingerprint,
 					})),
+					skippedSuggestions: suggestionPersistence.skipped,
 				},
 			});
 			return;
