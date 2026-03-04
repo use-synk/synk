@@ -39,3 +39,15 @@ export {
 	type DocTriageResult,
 	type TriageOutput,
 } from "./triage.js";
+export {
+	createDocGeneration,
+	generationOutputSchema,
+	type DocFile,
+	type DocGeneration,
+	type DocGenerationOptions,
+	type DocGenerationRequest,
+	type DocGenerationResult,
+	type GenerationOutput,
+	type ValidateOutputFn,
+	type ValidationResult,
+} from "./generate.js";
