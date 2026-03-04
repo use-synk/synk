@@ -377,6 +377,11 @@ export interface operations {
                             docsAffected: boolean | null;
                             docPrUrl: string | null;
                             error: string | null;
+                            repository: {
+                                fullName: string;
+                                /** @enum {string} */
+                                provider: "github" | "gitlab" | "bitbucket";
+                            };
                             createdAt: string;
                             startedAt: string | null;
                             completedAt: string | null;
@@ -844,6 +849,11 @@ export interface operations {
                         data: {
                             id: string;
                             repositoryId: string;
+                            repository: {
+                                fullName: string;
+                                /** @enum {string} */
+                                provider: "github" | "gitlab" | "bitbucket";
+                            };
                             status: string;
                             triggerType: string;
                             triggerRef: string;
@@ -922,6 +932,11 @@ export interface operations {
                             docsAffected: boolean | null;
                             docPrUrl: string | null;
                             error: string | null;
+                            repository: {
+                                fullName: string;
+                                /** @enum {string} */
+                                provider: "github" | "gitlab" | "bitbucket";
+                            };
                             createdAt: string;
                             startedAt: string | null;
                             completedAt: string | null;

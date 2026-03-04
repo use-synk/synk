@@ -282,6 +282,26 @@
                               "null"
                             ]
                           },
+                          "repository": {
+                            "type": "object",
+                            "properties": {
+                              "fullName": {
+                                "type": "string"
+                              },
+                              "provider": {
+                                "type": "string",
+                                "enum": [
+                                  "github",
+                                  "gitlab",
+                                  "bitbucket"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "fullName",
+                              "provider"
+                            ]
+                          },
                           "createdAt": {
                             "type": "string"
                           },
@@ -307,6 +327,7 @@
                           "docsAffected",
                           "docPrUrl",
                           "error",
+                          "repository",
                           "createdAt",
                           "startedAt",
                           "completedAt"
@@ -1164,6 +1185,26 @@
                         "repositoryId": {
                           "type": "string"
                         },
+                        "repository": {
+                          "type": "object",
+                          "properties": {
+                            "fullName": {
+                              "type": "string"
+                            },
+                            "provider": {
+                              "type": "string",
+                              "enum": [
+                                "github",
+                                "gitlab",
+                                "bitbucket"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "fullName",
+                            "provider"
+                          ]
+                        },
                         "status": {
                           "type": "string"
                         },
@@ -1244,6 +1285,7 @@
                       "required": [
                         "id",
                         "repositoryId",
+                        "repository",
                         "status",
                         "triggerType",
                         "triggerRef",
@@ -1379,6 +1421,26 @@
                               "null"
                             ]
                           },
+                          "repository": {
+                            "type": "object",
+                            "properties": {
+                              "fullName": {
+                                "type": "string"
+                              },
+                              "provider": {
+                                "type": "string",
+                                "enum": [
+                                  "github",
+                                  "gitlab",
+                                  "bitbucket"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "fullName",
+                              "provider"
+                            ]
+                          },
                           "createdAt": {
                             "type": "string"
                           },
@@ -1404,6 +1466,7 @@
                           "docsAffected",
                           "docPrUrl",
                           "error",
+                          "repository",
                           "createdAt",
                           "startedAt",
                           "completedAt"
