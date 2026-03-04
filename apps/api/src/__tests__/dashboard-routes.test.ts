@@ -86,6 +86,10 @@ const createDashboardServiceMock = () => {
 				docsAffected: true,
 				docPrUrl: "https://github.com/acme/docs/pull/12",
 				error: null,
+				repository: {
+					fullName: "acme/docs",
+					provider: "github",
+				},
 				createdAt: NOW,
 				startedAt: NOW,
 				completedAt: NOW,
@@ -107,6 +111,10 @@ const createDashboardServiceMock = () => {
 	const getRunDetail = mock(async () => ({
 		id: RUN_ID,
 		repositoryId: REPOSITORY_ID,
+		repository: {
+			fullName: "acme/docs",
+			provider: "github" as const,
+		},
 		status: "completed",
 		triggerType: "manual",
 		triggerRef: "refs/heads/main",

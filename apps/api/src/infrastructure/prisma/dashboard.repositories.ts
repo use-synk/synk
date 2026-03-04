@@ -61,7 +61,7 @@ export const createPrismaDashboardRepositories = (
 					? { repositoryId }
 					: { repositoryId, status: { in: [...filter.status] } };
 			const skip = (filter.page - 1) * filter.pageSize;
-			const [total, items] = await Promise.all([
+			const [total, rows] = await Promise.all([
 				client.analysisRun.count({ where }),
 				client.analysisRun.findMany({
 					where,
@@ -77,12 +77,25 @@ export const createPrismaDashboardRepositories = (
 						docsAffected: true,
 						docPrUrl: true,
 						error: true,
+						provider: true,
 						createdAt: true,
 						startedAt: true,
 						completedAt: true,
+						repository: {
+							select: {
+								fullName: true,
+							},
+						},
 					},
 				}),
 			]);
+			const items = rows.map(({ provider, repository, ...rest }) => ({
+				...rest,
+				repository: {
+					fullName: repository.fullName,
+					provider,
+				},
+			}));
 			return { items, total };
 		},
 		findRepositoryForManualRun: async (repositoryId) =>
@@ -98,10 +111,48 @@ export const createPrismaDashboardRepositories = (
 	};
 
 	const runRepository: RunRepository = {
-		findRunDetail: async (runId) =>
-			client.analysisRun.findUnique({
+		findRunDetail: async (runId) => {
+			const row = await client.analysisRun.findUnique({
 				where: { id: runId },
-			}),
+				select: {
+					id: true,
+					repositoryId: true,
+					provider: true,
+					status: true,
+					triggerType: true,
+					triggerRef: true,
+					triggerCommitSha: true,
+					triggerMergeRequestNumber: true,
+					triggerMeta: true,
+					result: true,
+					docsAffected: true,
+					docPrNumber: true,
+					docPrUrl: true,
+					tokenUsage: true,
+					error: true,
+					attemptCount: true,
+					queuedAt: true,
+					startedAt: true,
+					completedAt: true,
+					createdAt: true,
+					updatedAt: true,
+					repository: {
+						select: {
+							fullName: true,
+						},
+					},
+				},
+			});
+			if (!row) return null;
+			const { provider, repository, ...rest } = row;
+			return {
+				...rest,
+				repository: {
+					fullName: repository.fullName,
+					provider,
+				},
+			};
+		},
 	};
 
 	return {

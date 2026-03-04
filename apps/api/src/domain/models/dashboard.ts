@@ -1,4 +1,4 @@
-import type { RunStatus, TriggerType } from "@synk-ai/shared";
+import type { RunStatus, TriggerType, VcsProvider } from "@synk-ai/shared";
 
 export type Pagination = {
 	page: number;
@@ -42,6 +42,11 @@ export type ManualRunRepositoryState = {
 	installationId: string;
 };
 
+export type RunRepository = {
+	fullName: string;
+	provider: VcsProvider;
+};
+
 export type RunListItem = {
 	id: string;
 	status: RunStatus;
@@ -51,6 +56,7 @@ export type RunListItem = {
 	docsAffected: boolean | null;
 	docPrUrl: string | null;
 	error: string | null;
+	repository: RunRepository;
 	createdAt: Date;
 	startedAt: Date | null;
 	completedAt: Date | null;
@@ -63,6 +69,7 @@ export type RunListFilter = Pagination & {
 export type RunDetail = {
 	id: string;
 	repositoryId: string;
+	repository: RunRepository;
 	status: RunStatus;
 	triggerType: TriggerType;
 	triggerRef: string;

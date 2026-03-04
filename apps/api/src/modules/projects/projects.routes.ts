@@ -31,6 +31,11 @@ export function createProjectsRoutes({
 		isActive: openApiZ.boolean(),
 	});
 
+	const repositorySchema = openApiZ.object({
+		fullName: openApiZ.string(),
+		provider: openApiZ.string(),
+	});
+
 	const runSummarySchema = openApiZ.object({
 		id: openApiZ.string(),
 		status: openApiZ.string(),
@@ -40,6 +45,7 @@ export function createProjectsRoutes({
 		docsAffected: openApiZ.boolean().nullable(),
 		docPrUrl: openApiZ.string().nullable(),
 		error: openApiZ.string().nullable(),
+		repository: repositorySchema,
 		createdAt: openApiZ.string(),
 		startedAt: openApiZ.string().nullable(),
 		completedAt: openApiZ.string().nullable(),

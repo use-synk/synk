@@ -1,3 +1,4 @@
+import { vcsProviderSchema } from "@synk-ai/shared";
 import z from "zod";
 import { ValidationError } from "../errors";
 import { paginationResultSchema } from "../shared";
@@ -5,6 +6,11 @@ import type { ApiQuery } from "../types";
 
 const runStatusSchema = z.enum(["queued", "running", "completed", "skipped", "failed", "canceled"]);
 const triggerTypeSchema = z.enum(["push", "merge", "manual"]);
+
+const repositorySchema = z.object({
+	fullName: z.string(),
+	provider: vcsProviderSchema,
+});
 
 const runSummarySchema = z.object({
 	id: z.string(),
@@ -15,6 +21,7 @@ const runSummarySchema = z.object({
 	docsAffected: z.boolean().nullable(),
 	docPrUrl: z.string().nullable(),
 	error: z.string().nullable(),
+	repository: repositorySchema,
 	createdAt: z.string(),
 	startedAt: z.string().nullable(),
 	completedAt: z.string().nullable(),
@@ -23,6 +30,7 @@ const runSummarySchema = z.object({
 const runDetailSchema = z.object({
 	id: z.string(),
 	repositoryId: z.string(),
+	repository: repositorySchema,
 	status: runStatusSchema,
 	triggerType: triggerTypeSchema,
 	triggerRef: z.string(),

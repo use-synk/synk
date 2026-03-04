@@ -1,4 +1,4 @@
-import { runStatusSchema } from "@synk-ai/shared";
+import { runStatusSchema, vcsProviderSchema } from "@synk-ai/shared";
 import z from "zod";
 import { ValidationError } from "../errors";
 import { paginationResultSchema } from "../shared";
@@ -29,6 +29,11 @@ export const projectDetailSchema = z.object({
 	updatedAt: z.string(),
 });
 
+const repositorySchema = z.object({
+	fullName: z.string(),
+	provider: vcsProviderSchema,
+});
+
 export const runSummarySchema = z.object({
 	id: z.string(),
 	status: runStatusSchema,
@@ -38,6 +43,7 @@ export const runSummarySchema = z.object({
 	docsAffected: z.boolean().nullable(),
 	docPrUrl: z.string().nullable(),
 	error: z.string().nullable(),
+	repository: repositorySchema,
 	createdAt: z.string(),
 	startedAt: z.string().nullable(),
 	completedAt: z.string().nullable(),

@@ -19,6 +19,11 @@ export function createRunsRoutes({
 		total: openApiZ.number().int().min(0),
 		totalPages: openApiZ.number().int().min(0),
 	});
+	const repositorySchema = openApiZ.object({
+		fullName: openApiZ.string(),
+		provider: openApiZ.string(),
+	});
+
 	const getRunRoute = createRoute({
 		method: "get",
 		path: "/{runId}",
@@ -35,6 +40,7 @@ export function createRunsRoutes({
 							data: openApiZ.object({
 								id: openApiZ.string(),
 								repositoryId: openApiZ.string(),
+								repository: repositorySchema,
 								status: openApiZ.string(),
 								triggerType: openApiZ.string(),
 								triggerRef: openApiZ.string(),
@@ -95,6 +101,7 @@ export function createRunsRoutes({
 									docsAffected: openApiZ.boolean().nullable(),
 									docPrUrl: openApiZ.string().nullable(),
 									error: openApiZ.string().nullable(),
+									repository: repositorySchema,
 									createdAt: openApiZ.string(),
 									startedAt: openApiZ.string().nullable(),
 									completedAt: openApiZ.string().nullable(),
@@ -205,6 +212,8 @@ export function createRunsRoutes({
 			data: result.items.map((run) => ({
 				...run,
 				createdAt: run.createdAt.toISOString(),
+				startedAt: run.startedAt?.toISOString() ?? null,
+				completedAt: run.completedAt?.toISOString() ?? null,
 			})),
 			pagination: {
 				page,
