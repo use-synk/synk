@@ -111,7 +111,40 @@ describe("createDocGeneration", () => {
 		expect(result.skipped).toBe(true);
 	});
 
-	it("skips when content differs only by trailing whitespace", async () => {
+	it("throws TypeError when diff is empty", async () => {
+		const generation = createDocGeneration({
+			apiKey: "sk-test",
+			providerFactory: () => () => "model",
+			generateObjectFn: vi.fn(),
+		});
+
+		await expect(
+			generation.generate({ diff: "", docFile: sampleDocFile }),
+		).rejects.toThrow(TypeError);
+		await expect(
+			generation.generate({ diff: "   ", docFile: sampleDocFile }),
+		).rejects.toThrow(TypeError);
+	});
+
+	it("throws TypeError when docFile.content is empty", async () => {
+		const generation = createDocGeneration({
+			apiKey: "sk-test",
+			providerFactory: () => () => "model",
+			generateObjectFn: vi.fn(),
+		});
+
+		await expect(
+			generation.generate({ diff: sampleDiff, docFile: { path: "docs/test.md", content: "" } }),
+		).rejects.toThrow(TypeError);
+		await expect(
+			generation.generate({
+				diff: sampleDiff,
+				docFile: { path: "docs/test.md", content: "   " },
+			}),
+		).rejects.toThrow(TypeError);
+	});
+
+	it("skips when content is identical after normalizing line endings and trimming document edges", async () => {
 		const generateObjectFn = vi.fn(async () => ({
 			object: {
 				updatedContent: `${sampleDocFile.content}   `,

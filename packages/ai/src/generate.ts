@@ -89,10 +89,14 @@ const buildUserPrompt = (request: DocGenerationRequest): string => {
 		"Update the following documentation file to reflect the code change.",
 		"",
 		"## Current Documentation Content",
+		"<document>",
 		request.docFile.content,
+		"</document>",
 		"",
 		"## Code Diff",
+		"<diff>",
 		request.diff,
+		"</diff>",
 	];
 
 	if (request.frameworkConventions) {
@@ -150,6 +154,13 @@ export const createDocGeneration = (options: DocGenerationOptions): DocGeneratio
 
 	return {
 		generate: async (request: DocGenerationRequest): Promise<DocGenerationResult> => {
+			if (!request.diff.trim()) {
+				throw new TypeError("diff must not be empty.");
+			}
+			if (!request.docFile.content.trim()) {
+				throw new TypeError("docFile.content must not be empty.");
+			}
+
 			const modelId = modelIdFor("generate", modelSelection);
 			const prompt = buildUserPrompt(request);
 			const contextTokenEstimate = estimateTokenCount(GENERATION_SYSTEM_PROMPT + prompt);
@@ -179,7 +190,7 @@ export const createDocGeneration = (options: DocGenerationOptions): DocGeneratio
 					if (!validation.valid) {
 						logger.warn("ai.generate.validation_failed", {
 							filePath: request.docFile.path,
-							errors: validation.errors ?? [],
+							errorCount: validation.errors?.length ?? 0,
 						});
 					}
 				}
@@ -188,7 +199,6 @@ export const createDocGeneration = (options: DocGenerationOptions): DocGeneratio
 					modelId,
 					filePath: request.docFile.path,
 					skipped,
-					changeDescription: result.object.changeDescription,
 					tokenUsage,
 				});
 

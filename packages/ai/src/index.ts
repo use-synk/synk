@@ -49,5 +49,4 @@ export {
 	type DocGenerationResult,
 	type GenerationOutput,
 	type ValidateOutputFn,
-	type ValidationResult,
 } from "./generate.js";
