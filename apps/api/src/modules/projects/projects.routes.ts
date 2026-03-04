@@ -2,12 +2,22 @@ import { OpenAPIHono, createRoute, z as openApiZ } from "@hono/zod-openapi";
 import { HTTPException } from "hono/http-exception";
 import z from "zod";
 import type {
+	BulkDecideProjectSuggestionsInput,
+	DecideProjectSuggestionInput,
+	GetProjectSuggestionInput,
+	ListProjectSuggestionsInput,
 	ListProjectRunsInput,
 	ProjectServiceContract,
 } from "../../domain/services/project-service";
 import { createRequireAuthMiddleware } from "../../middleware/auth";
 import type { AuthenticatedAppEnv, RouteContext } from "../../types";
-import { createProjectBodySchema, listProjectRunsQuerySchema } from "./projects.schemas";
+import {
+	bulkDecideSuggestionsBodySchema,
+	createProjectBodySchema,
+	decideSuggestionBodySchema,
+	listProjectRunsQuerySchema,
+	listProjectSuggestionsQuerySchema,
+} from "./projects.schemas";
 
 export function createProjectsRoutes({
 	auth,
@@ -43,6 +53,39 @@ export function createProjectsRoutes({
 		createdAt: openApiZ.string(),
 		startedAt: openApiZ.string().nullable(),
 		completedAt: openApiZ.string().nullable(),
+	});
+
+	const suggestionStatusSchema = openApiZ.enum([
+		"pending",
+		"accepted",
+		"declined",
+		"superseded",
+		"stale",
+		"applied",
+	]);
+
+	const suggestionSummarySchema = openApiZ.object({
+		id: openApiZ.string(),
+		projectId: openApiZ.string(),
+		repositoryId: openApiZ.string(),
+		runId: openApiZ.string(),
+		docPath: openApiZ.string(),
+		status: suggestionStatusSchema,
+		reasoning: openApiZ.string().nullable(),
+		fingerprint: openApiZ.string(),
+		supersedesSuggestionId: openApiZ.string().nullable(),
+		decidedByUserId: openApiZ.string().nullable(),
+		decidedAt: openApiZ.string().nullable(),
+		decisionNote: openApiZ.string().nullable(),
+		createdAt: openApiZ.string(),
+		updatedAt: openApiZ.string(),
+	});
+
+	const suggestionDetailSchema = suggestionSummarySchema.extend({
+		baseDocSha: openApiZ.string(),
+		beforeContent: openApiZ.string().nullable(),
+		proposedContent: openApiZ.string(),
+		appliedInBatchId: openApiZ.string().nullable(),
 	});
 
 	const getProjectRoute = createRoute({
@@ -159,6 +202,151 @@ export function createProjectsRoutes({
 		},
 	});
 
+	const listProjectSuggestionsRoute = createRoute({
+		method: "get",
+		path: "/{projectId}/suggestions",
+		tags: ["projects", "suggestions"],
+		operationId: "listProjectSuggestions",
+		security: [{ cookieAuth: [] }],
+		request: {
+			params: openApiZ.object({ projectId: openApiZ.string() }),
+			query: openApiZ.object({
+				page: openApiZ.coerce.number().int().min(1).optional(),
+				pageSize: openApiZ.coerce.number().int().min(1).max(100).optional(),
+				status: openApiZ.array(suggestionStatusSchema).optional(),
+			}),
+		},
+		responses: {
+			200: {
+				description: "Project suggestions",
+				content: {
+					"application/json": {
+						schema: openApiZ.object({
+							data: openApiZ.array(suggestionSummarySchema),
+							pagination: paginationSchema,
+						}),
+					},
+				},
+			},
+			400: { description: "Bad request" },
+			401: { description: "Unauthorized" },
+			403: { description: "Forbidden" },
+		},
+	});
+
+	const getProjectSuggestionRoute = createRoute({
+		method: "get",
+		path: "/{projectId}/suggestions/{suggestionId}",
+		tags: ["projects", "suggestions"],
+		operationId: "getProjectSuggestion",
+		security: [{ cookieAuth: [] }],
+		request: {
+			params: openApiZ.object({
+				projectId: openApiZ.string(),
+				suggestionId: openApiZ.string(),
+			}),
+		},
+		responses: {
+			200: {
+				description: "Project suggestion detail",
+				content: {
+					"application/json": {
+						schema: openApiZ.object({
+							data: suggestionDetailSchema,
+						}),
+					},
+				},
+			},
+			401: { description: "Unauthorized" },
+			403: { description: "Forbidden" },
+			404: { description: "Suggestion not found" },
+		},
+	});
+
+	const decideProjectSuggestionRoute = createRoute({
+		method: "patch",
+		path: "/{projectId}/suggestions/{suggestionId}/decision",
+		tags: ["projects", "suggestions"],
+		operationId: "decideProjectSuggestion",
+		security: [{ cookieAuth: [] }],
+		request: {
+			params: openApiZ.object({
+				projectId: openApiZ.string(),
+				suggestionId: openApiZ.string(),
+			}),
+			body: {
+				required: true,
+				content: {
+					"application/json": {
+						schema: openApiZ.object({
+							decision: openApiZ.enum(["accept", "decline", "reset"]),
+							note: openApiZ.string().max(500).optional(),
+						}),
+					},
+				},
+			},
+		},
+		responses: {
+			200: {
+				description: "Updated suggestion",
+				content: {
+					"application/json": {
+						schema: openApiZ.object({
+							data: suggestionDetailSchema,
+						}),
+					},
+				},
+			},
+			400: { description: "Bad request" },
+			401: { description: "Unauthorized" },
+			403: { description: "Forbidden" },
+			404: { description: "Suggestion not found" },
+			409: { description: "Invalid transition" },
+		},
+	});
+
+	const bulkDecideProjectSuggestionsRoute = createRoute({
+		method: "post",
+		path: "/{projectId}/suggestions/decisions/bulk",
+		tags: ["projects", "suggestions"],
+		operationId: "bulkDecideProjectSuggestions",
+		security: [{ cookieAuth: [] }],
+		request: {
+			params: openApiZ.object({
+				projectId: openApiZ.string(),
+			}),
+			body: {
+				required: true,
+				content: {
+					"application/json": {
+						schema: openApiZ.object({
+							suggestionIds: openApiZ.array(openApiZ.string().min(1)).min(1).max(200),
+							decision: openApiZ.enum(["accept", "decline", "reset"]),
+							note: openApiZ.string().max(500).optional(),
+						}),
+					},
+				},
+			},
+		},
+		responses: {
+			200: {
+				description: "Updated suggestions",
+				content: {
+					"application/json": {
+						schema: openApiZ.object({
+							data: openApiZ.array(suggestionDetailSchema),
+						}),
+					},
+				},
+			},
+			400: { description: "Bad request" },
+			401: { description: "Unauthorized" },
+			403: { description: "Forbidden" },
+			404: { description: "Suggestion not found" },
+			409: { description: "Invalid transition" },
+		},
+	});
+
 	router.use("*", createRequireAuthMiddleware(auth));
 
 	router.openapi(getProjectRoute, async (ctx) => {
@@ -249,6 +437,129 @@ export function createProjectsRoutes({
 			data: {
 				...result,
 			},
+		});
+	});
+
+	router.openapi(listProjectSuggestionsRoute, async (ctx) => {
+		const userId = ctx.get("user").id;
+		const projectId = ctx.req.param("projectId");
+		const query = ctx.req.query();
+		const statusValues = ctx.req.queries("status") ?? [];
+		const queryInput = {
+			...query,
+			...(statusValues.length > 0 ? { status: statusValues } : {}),
+		};
+		const queryResult = listProjectSuggestionsQuerySchema.safeParse(queryInput);
+		if (!queryResult.success) {
+			throw new HTTPException(400, { message: z.prettifyError(queryResult.error) });
+		}
+		const { page = 1, pageSize = 10, status } = queryResult.data;
+		const listInput: ListProjectSuggestionsInput = {
+			userId,
+			projectId,
+			filter: {
+				page,
+				pageSize,
+				...(status === undefined ? {} : { status }),
+			},
+		};
+		const result = await projectService.listProjectSuggestions(listInput);
+		return ctx.json({
+			data: result.items.map((item) => ({
+				...item,
+				decidedAt: item.decidedAt?.toISOString() ?? null,
+				createdAt: item.createdAt.toISOString(),
+				updatedAt: item.updatedAt.toISOString(),
+			})),
+			pagination: {
+				page,
+				pageSize,
+				total: result.total,
+				totalPages: Math.ceil(result.total / pageSize),
+			},
+		});
+	});
+
+	router.openapi(getProjectSuggestionRoute, async (ctx) => {
+		const userId = ctx.get("user").id;
+		const projectId = ctx.req.param("projectId");
+		const suggestionId = ctx.req.param("suggestionId");
+		const input: GetProjectSuggestionInput = {
+			userId,
+			projectId,
+			suggestionId,
+		};
+		const result = await projectService.getProjectSuggestion(input);
+		return ctx.json({
+			data: {
+				...result,
+				decidedAt: result.decidedAt?.toISOString() ?? null,
+				createdAt: result.createdAt.toISOString(),
+				updatedAt: result.updatedAt.toISOString(),
+			},
+		});
+	});
+
+	router.openapi(decideProjectSuggestionRoute, async (ctx) => {
+		const userId = ctx.get("user").id;
+		const projectId = ctx.req.param("projectId");
+		const suggestionId = ctx.req.param("suggestionId");
+		let body: unknown;
+		try {
+			body = await ctx.req.json();
+		} catch {
+			throw new HTTPException(400, { message: "Invalid JSON payload" });
+		}
+		const bodyResult = decideSuggestionBodySchema.safeParse(body);
+		if (!bodyResult.success) {
+			throw new HTTPException(400, { message: z.prettifyError(bodyResult.error) });
+		}
+		const input: DecideProjectSuggestionInput = {
+			userId,
+			projectId,
+			suggestionId,
+			decision: bodyResult.data.decision,
+			note: bodyResult.data.note,
+		};
+		const result = await projectService.decideProjectSuggestion(input);
+		return ctx.json({
+			data: {
+				...result,
+				decidedAt: result.decidedAt?.toISOString() ?? null,
+				createdAt: result.createdAt.toISOString(),
+				updatedAt: result.updatedAt.toISOString(),
+			},
+		});
+	});
+
+	router.openapi(bulkDecideProjectSuggestionsRoute, async (ctx) => {
+		const userId = ctx.get("user").id;
+		const projectId = ctx.req.param("projectId");
+		let body: unknown;
+		try {
+			body = await ctx.req.json();
+		} catch {
+			throw new HTTPException(400, { message: "Invalid JSON payload" });
+		}
+		const bodyResult = bulkDecideSuggestionsBodySchema.safeParse(body);
+		if (!bodyResult.success) {
+			throw new HTTPException(400, { message: z.prettifyError(bodyResult.error) });
+		}
+		const input: BulkDecideProjectSuggestionsInput = {
+			userId,
+			projectId,
+			suggestionIds: bodyResult.data.suggestionIds,
+			decision: bodyResult.data.decision,
+			note: bodyResult.data.note,
+		};
+		const result = await projectService.bulkDecideProjectSuggestions(input);
+		return ctx.json({
+			data: result.map((item) => ({
+				...item,
+				decidedAt: item.decidedAt?.toISOString() ?? null,
+				createdAt: item.createdAt.toISOString(),
+				updatedAt: item.updatedAt.toISOString(),
+			})),
 		});
 	});
 
