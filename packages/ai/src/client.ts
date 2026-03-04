@@ -1,5 +1,6 @@
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { generateText as sdkGenerateText } from "ai";
+import { toErrorType } from "./error-type.js";
 import { parseOpenRouterEnvironment } from "./env.js";
 import { type AiLogger, noopAiLogger } from "./logging.js";
 import {
@@ -90,9 +91,6 @@ const createRetryOptions = (
 	backoffMultiplier: overrides?.backoffMultiplier ?? DEFAULT_RETRY_OPTIONS.backoffMultiplier,
 	sleep: overrides?.sleep ?? DEFAULT_RETRY_OPTIONS.sleep,
 });
-
-const toErrorType = (error: unknown): string =>
-	error instanceof Error ? error.name : "UnknownError";
 
 const toMaxAttempts = (maxRetries: number | undefined, fallback: number): number => {
 	if (maxRetries === undefined) {
