@@ -1,4 +1,5 @@
 import { db } from "@synk-ai/db";
+import { resolveSuggestionInboxRolloutMode } from "@synk-ai/shared";
 import { createApp } from "./app";
 import { buildAppDependencies } from "./composition/dependencies";
 import { parseApiEnvironment } from "./env";
@@ -10,6 +11,7 @@ const SHUTDOWN_TIMEOUT_MS = 10_000;
 const startServer = (): void => {
 	const env = parseApiEnvironment();
 	const logger = createLogger(env.LOG_LEVEL, env.NODE_ENV === "development");
+	const suggestionInboxRollout = resolveSuggestionInboxRolloutMode(env);
 	const analyzeChangesQueue = createAnalyzeChangesQueue(env.REDIS_URL);
 	const enqueueAnalyzeChanges = createAnalyzeChangesEnqueuer(analyzeChangesQueue, db);
 
@@ -24,6 +26,15 @@ const startServer = (): void => {
 	});
 
 	logger.info({ port: server.port, host: env.HOST }, "API server started");
+	logger.info(
+		{
+			suggestionInboxEnabled: suggestionInboxRollout.suggestionInboxEnabled,
+			autoPrEnabled: suggestionInboxRollout.autoPrEnabled,
+			autoPrDisabledByFlag: suggestionInboxRollout.autoPrDisabledByFlag,
+			decisionMemoryEnabled: suggestionInboxRollout.decisionMemoryEnabled,
+		},
+		"suggestion inbox rollout flags",
+	);
 
 	let isShuttingDown = false;
 

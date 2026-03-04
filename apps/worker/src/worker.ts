@@ -9,6 +9,7 @@ import {
 	getRepositoryActiveJob,
 	isAlreadyExistingJobError,
 	parsePendingPayloadRecord,
+	resolveSuggestionInboxRolloutMode,
 } from "@synk-ai/shared";
 import { type Job, type JobsOptions, UnrecoverableError } from "bullmq";
 import { parseWorkerEnvironment } from "./env";
@@ -167,8 +168,18 @@ const moveToDlq = async (
 const startWorker = async (): Promise<void> => {
 	const env = parseWorkerEnvironment();
 	const logger = createLogger(env.LOG_LEVEL, env.NODE_ENV === "development");
+	const suggestionInboxRollout = resolveSuggestionInboxRolloutMode(env);
 	const connection = createRedisConnectionOptions({ redisUrl: env.REDIS_URL, logger });
 	const analyzeChangesQueue = createAnalyzeChangesQueue(connection);
+	logger.info(
+		{
+			suggestionInboxEnabled: suggestionInboxRollout.suggestionInboxEnabled,
+			autoPrEnabled: suggestionInboxRollout.autoPrEnabled,
+			autoPrDisabledByFlag: suggestionInboxRollout.autoPrDisabledByFlag,
+			decisionMemoryEnabled: suggestionInboxRollout.decisionMemoryEnabled,
+		},
+		"suggestion inbox rollout flags",
+	);
 
 	const worker = createAnalyzeChangesWorker({
 		connection,

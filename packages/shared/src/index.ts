@@ -2,7 +2,11 @@ export {
 	databaseEnvironmentSchema,
 	nodeEnvironmentSchema,
 	parseEnvironment,
+	resolveSuggestionInboxRolloutMode,
 	sharedEnvironmentSchema,
+	suggestionInboxFeatureFlagsSchema,
+	type SuggestionInboxFeatureFlags,
+	type SuggestionInboxRolloutMode,
 } from "./env";
 export {
 	parseSynkAiConfigFromYaml,
