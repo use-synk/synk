@@ -152,6 +152,14 @@ const createProjectServiceMock = () => {
 	const getProjectSuggestion = mock(async () => SUGGESTION_DETAIL_ITEM);
 	const decideProjectSuggestion = mock(async () => SUGGESTION_DETAIL_ITEM);
 	const bulkDecideProjectSuggestions = mock(async () => [SUGGESTION_DETAIL_ITEM]);
+	const createProjectSuggestionsPr = mock(async () => ({
+		batchId: "batch-1",
+		status: "completed" as const,
+		prNumber: 12,
+		prUrl: "https://github.com/acme/docs/pull/12",
+		includedSuggestionIds: [SUGGESTION_DETAIL_ITEM.id],
+		excluded: [],
+	}));
 	const updateProject = mock(async () => {
 		throw new Error("updateProject should not be called in repository listing tests");
 	});
@@ -168,6 +176,7 @@ const createProjectServiceMock = () => {
 		getProjectSuggestion,
 		decideProjectSuggestion,
 		bulkDecideProjectSuggestions,
+		createProjectSuggestionsPr,
 		updateProject,
 		deleteProject,
 	};
@@ -1009,5 +1018,36 @@ describe("project routes — suggestion inbox endpoints", () => {
 		});
 
 		expect(response.status).toBe(403);
+	});
+
+	it("creates a PR from accepted suggestions", async () => {
+		const projectService = createProjectServiceMock();
+		const app = createTestApp(projectService);
+
+		const response = await app.request(`/api/v1/projects/${PROJECT_ID}/suggestions/pr`, {
+			method: "POST",
+			headers: authHeaders(),
+		});
+
+		expect(response.status).toBe(200);
+		expect(projectService.createProjectSuggestionsPr).toHaveBeenCalledWith({
+			userId: USER_ID,
+			projectId: PROJECT_ID,
+		});
+	});
+
+	it("returns 409 when no accepted suggestions are available for PR creation", async () => {
+		const projectService = createProjectServiceMock();
+		projectService.createProjectSuggestionsPr.mockRejectedValueOnce(
+			new HTTPException(409, { message: "No accepted suggestions available for PR creation" }),
+		);
+		const app = createTestApp(projectService);
+
+		const response = await app.request(`/api/v1/projects/${PROJECT_ID}/suggestions/pr`, {
+			method: "POST",
+			headers: authHeaders(),
+		});
+
+		expect(response.status).toBe(409);
 	});
 });
