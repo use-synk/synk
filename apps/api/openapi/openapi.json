@@ -264,6 +264,67 @@
                           "triggerCommitSha": {
                             "type": "string"
                           },
+                          "prNumber": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "prMessage": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "prAuthorName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "prAuthorUsername": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "prAuthorAvatarUrl": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "sourceBranch": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "targetBranch": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "suggestionsDetected": {
+                            "type": "boolean"
+                          },
+                          "suggestionsCount": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "errorCode": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "errorMessage": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "docsAffected": {
                             "type": [
                               "boolean",
@@ -304,6 +365,17 @@
                           "triggerType",
                           "triggerRef",
                           "triggerCommitSha",
+                          "prNumber",
+                          "prMessage",
+                          "prAuthorName",
+                          "prAuthorUsername",
+                          "prAuthorAvatarUrl",
+                          "sourceBranch",
+                          "targetBranch",
+                          "suggestionsDetected",
+                          "suggestionsCount",
+                          "errorCode",
+                          "errorMessage",
                           "docsAffected",
                           "docPrUrl",
                           "error",
@@ -1182,12 +1254,51 @@
                             "null"
                           ]
                         },
+                        "triggerPrTitle": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "triggerSourceBranch": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "triggerTargetBranch": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "triggerPrAuthorName": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "triggerPrAuthorUsername": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "triggerPrAuthorAvatarUrl": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "triggerMeta": {},
                         "docsAffected": {
                           "type": [
                             "boolean",
                             "null"
                           ]
+                        },
+                        "suggestionsCount": {
+                          "type": "number"
                         },
                         "docPrNumber": {
                           "type": [
@@ -1208,6 +1319,18 @@
                           ]
                         },
                         "tokenUsage": {},
+                        "errorCode": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "errorMessage": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "error": {
                           "type": [
                             "string",
@@ -1249,10 +1372,19 @@
                         "triggerRef",
                         "triggerCommitSha",
                         "triggerMergeRequestNumber",
+                        "triggerPrTitle",
+                        "triggerSourceBranch",
+                        "triggerTargetBranch",
+                        "triggerPrAuthorName",
+                        "triggerPrAuthorUsername",
+                        "triggerPrAuthorAvatarUrl",
                         "docsAffected",
+                        "suggestionsCount",
                         "docPrNumber",
                         "docPrUrl",
                         "prLink",
+                        "errorCode",
+                        "errorMessage",
                         "error",
                         "attemptCount",
                         "queuedAt",
@@ -1361,13 +1493,70 @@
                           "triggerCommitSha": {
                             "type": "string"
                           },
+                          "triggerMergeRequestNumber": {
+                            "type": [
+                              "number",
+                              "null"
+                            ]
+                          },
+                          "triggerPrTitle": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "triggerSourceBranch": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "triggerTargetBranch": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "triggerPrAuthorName": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "triggerPrAuthorUsername": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "triggerPrAuthorAvatarUrl": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "docsAffected": {
                             "type": [
                               "boolean",
                               "null"
                             ]
                           },
+                          "suggestionsCount": {
+                            "type": "number"
+                          },
                           "docPrUrl": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "errorCode": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "errorMessage": {
                             "type": [
                               "string",
                               "null"
@@ -1401,8 +1590,18 @@
                           "triggerType",
                           "triggerRef",
                           "triggerCommitSha",
+                          "triggerMergeRequestNumber",
+                          "triggerPrTitle",
+                          "triggerSourceBranch",
+                          "triggerTargetBranch",
+                          "triggerPrAuthorName",
+                          "triggerPrAuthorUsername",
+                          "triggerPrAuthorAvatarUrl",
                           "docsAffected",
+                          "suggestionsCount",
                           "docPrUrl",
+                          "errorCode",
+                          "errorMessage",
                           "error",
                           "createdAt",
                           "startedAt",
