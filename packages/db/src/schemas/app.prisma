@@ -44,6 +44,26 @@ enum RunTriggerType {
   @@map("run_trigger_type")
 }
 
+enum SuggestionStatus {
+  pending
+  accepted
+  declined
+  superseded
+  stale
+  applied
+
+  @@map("suggestion_status")
+}
+
+enum SuggestionBatchStatus {
+  queued
+  running
+  completed
+  failed
+
+  @@map("suggestion_batch_status")
+}
+
 enum AttemptStatus {
   running
   failed
@@ -109,6 +129,8 @@ model ProviderRepository {
   createdAt            DateTime             @default(now())
   updatedAt            DateTime             @updatedAt
   analysisRuns         AnalysisRun[]
+  suggestions          Suggestion[]
+  suggestionBatches    SuggestionBatch[]
 
   projectSources Project[] @relation("SourceRepository")
   docsSources    Project[] @relation("DocsRepository")
@@ -157,6 +179,7 @@ model AnalysisRun {
   createdAt                 DateTime             @default(now())
   updatedAt                 DateTime             @updatedAt
   attempts                  AnalysisRunAttempt[]
+  suggestions               Suggestion[]
 
   @@unique([projectId, repositoryId, triggerCommitSha, triggerType])
   @@index([projectId])
@@ -236,7 +259,9 @@ model Project {
   docsRepositoryId   String?
   config             Json                @default("{}")
 
-  analysisRuns AnalysisRun[]
+  analysisRuns       AnalysisRun[]
+  suggestions        Suggestion[]
+  suggestionBatches  SuggestionBatch[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -244,4 +269,66 @@ model Project {
   @@index([sourceRepositoryId])
   @@index([docsRepositoryId])
   @@map("projects")
+}
+
+model SuggestionBatch {
+  id              String                @id @default(uuid())
+  projectId       String
+  project         Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  repositoryId    String
+  repository      ProviderRepository    @relation(fields: [repositoryId], references: [id])
+  createdByUserId String                @db.Uuid
+  baseBranch      String
+  baseSha         String
+  headBranch      String
+  prNumber        Int?
+  prUrl           String?
+  status          SuggestionBatchStatus @default(queued)
+  summary         Json                  @default("{}")
+  error           String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  suggestions Suggestion[]
+
+  @@index([projectId])
+  @@index([repositoryId])
+  @@index([createdByUserId])
+  @@index([projectId, status, createdAt(sort: Desc)])
+  @@map("suggestion_batches")
+}
+
+model Suggestion {
+  id                    String          @id @default(uuid())
+  projectId             String
+  project               Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  repositoryId          String
+  repository            ProviderRepository @relation(fields: [repositoryId], references: [id])
+  runId                 String
+  run                   AnalysisRun     @relation(fields: [runId], references: [id], onDelete: Cascade)
+  docPath               String
+  baseDocSha            String
+  beforeContent         String?
+  proposedContent       String
+  reasoning             String?
+  fingerprint           String
+  status                SuggestionStatus @default(pending)
+  supersedesSuggestionId String?
+  supersedesSuggestion  Suggestion?     @relation("SuggestionSupersede", fields: [supersedesSuggestionId], references: [id])
+  supersededBy          Suggestion[]    @relation("SuggestionSupersede")
+  decidedByUserId       String?         @db.Uuid
+  decidedAt             DateTime?
+  decisionNote          String?
+  appliedInBatchId      String?
+  appliedInBatch        SuggestionBatch? @relation(fields: [appliedInBatchId], references: [id])
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  @@index([projectId])
+  @@index([repositoryId])
+  @@index([runId])
+  @@index([appliedInBatchId])
+  @@index([projectId, status, createdAt(sort: Desc)])
+  @@index([projectId, fingerprint, status])
+  @@map("suggestions")
 }
