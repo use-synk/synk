@@ -9,6 +9,8 @@ export const runStatusValues = [
 	"failed",
 	"canceled",
 ] as const;
+// These values must stay in sync with the VcsProvider enum in packages/db/src/schemas/app.prisma.
+// This package intentionally does not depend on @synk-ai/db, so the duplication is by design.
 export const vcsProviderValues = ["github", "gitlab", "bitbucket"] as const;
 
 export const triggerTypeSchema = z.enum(triggerTypeValues);
