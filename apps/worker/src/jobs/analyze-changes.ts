@@ -126,7 +126,10 @@ type PersistedSuggestion = {
 type SkippedSuggestion = {
 	docPath: string;
 	fingerprint: string;
-	reason: "duplicate-pending-or-accepted" | "declined-decision-memory";
+	reason:
+		| "duplicate-run-fingerprint"
+		| "duplicate-pending-or-accepted"
+		| "declined-decision-memory";
 };
 
 type SuggestionPersistenceOutcome = {
@@ -780,6 +783,23 @@ const persistSuggestions = async (input: {
 				baseDocSha: suggestion.baseDocSha,
 				proposedContent: suggestion.proposedContent,
 			});
+			const existingInRun = await tx.suggestion.findFirst({
+				where: {
+					runId: input.runId,
+					fingerprint,
+				},
+				select: {
+					id: true,
+				},
+			});
+			if (existingInRun !== null) {
+				skipped.push({
+					docPath: suggestion.docPath,
+					fingerprint,
+					reason: "duplicate-run-fingerprint",
+				});
+				continue;
+			}
 			const existingEquivalent = (await tx.suggestion.findFirst({
 				where: {
 					projectId: input.projectId,

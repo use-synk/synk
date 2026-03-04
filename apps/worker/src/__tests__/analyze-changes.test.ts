@@ -989,6 +989,60 @@ describe("processAnalyzeChangesJob", () => {
 		);
 	});
 
+	it("skips creating duplicate suggestions for the same run and fingerprint on retries", async () => {
+		mockFilterDiff
+			.mockReturnValueOnce([{ filename: "src/index.ts" }])
+			.mockReturnValueOnce([{ filename: "src/index.ts" }])
+			.mockReturnValue([]);
+		mockFetchRepoTree.mockResolvedValue([{ path: "docs/index.md", sha: "s1", size: 100 }]);
+		mockFetchMultipleFiles.mockResolvedValue([
+			{ path: "docs/index.md", content: "# Old", sha: "s1", size: 5 },
+		]);
+		mockFindFirstSuggestion
+			.mockResolvedValueOnce({ id: "run-duplicate-1" })
+			.mockResolvedValueOnce(null);
+
+		const adapter = makeAdapter();
+		adapter.getDocPaths.mockReturnValue(["**/*.md"]);
+		mockDetectAdapter.mockResolvedValue(adapter);
+		mockGetAdapter.mockReturnValue(adapter);
+
+		const mockServices = {
+			runTriage: mock().mockResolvedValue({
+				needsUpdate: true,
+				affectedDocFiles: ["docs/index.md"],
+				reasoning: "change detected",
+				tokenUsage: { prompt: 10, completion: 5, total: 15 },
+			}),
+			runGeneration: mock().mockResolvedValue({
+				path: "docs/index.md",
+				content: "# New and improved",
+				reasoning: "updated",
+				tokenUsage: { prompt: 20, completion: 10, total: 30 },
+			}),
+			createPullRequest: mock(),
+		};
+
+		await processAnalyzeChangesJob(makeJob(), makeLogger(), mockServices, {
+			autoPrEnabled: false,
+			decisionMemoryEnabled: true,
+		});
+
+		expect(mockCreateSuggestion).not.toHaveBeenCalled();
+		expect(mockUpdateAnalysisRun).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({
+					suggestionsCount: 0,
+					result: expect.objectContaining({
+						skippedSuggestions: [
+							expect.objectContaining({ reason: "duplicate-run-fingerprint" }),
+						],
+					}),
+				}),
+			}),
+		);
+	});
+
 	it("suppresses declined-equivalent suggestions when decision memory is enabled", async () => {
 		mockFilterDiff
 			.mockReturnValueOnce([{ filename: "src/index.ts" }])
@@ -998,9 +1052,14 @@ describe("processAnalyzeChangesJob", () => {
 		mockFetchMultipleFiles.mockResolvedValue([
 			{ path: "docs/index.md", content: "# Old", sha: "s1", size: 5 },
 		]);
-		mockFindFirstSuggestion.mockResolvedValue({
-			id: "declined-1",
-			status: "declined",
+		mockFindFirstSuggestion.mockImplementation(async ({ where }) => {
+			if ("runId" in where) {
+				return null;
+			}
+			return {
+				id: "declined-1",
+				status: "declined",
+			};
 		});
 
 		const adapter = makeAdapter();
@@ -1053,9 +1112,14 @@ describe("processAnalyzeChangesJob", () => {
 		mockFetchMultipleFiles.mockResolvedValue([
 			{ path: "docs/index.md", content: "# Old", sha: "s2", size: 5 },
 		]);
-		mockFindFirstSuggestion.mockResolvedValue({
-			id: "declined-1",
-			status: "declined",
+		mockFindFirstSuggestion.mockImplementation(async ({ where }) => {
+			if ("runId" in where) {
+				return null;
+			}
+			return {
+				id: "declined-1",
+				status: "declined",
+			};
 		});
 		mockFindManySuggestions.mockResolvedValue([{ id: "active-1" }, { id: "active-2" }]);
 
