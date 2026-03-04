@@ -4,6 +4,10 @@ import { z } from "zod";
 import { toErrorType } from "./error-type.js";
 import { type AiLogger, noopAiLogger } from "./logging.js";
 import { type ModelSelectionMap, modelIdFor, resolveModelSelection } from "./models.js";
+import {
+	VERSION as GENERATION_PROMPT_VERSION,
+	buildGenerationPrompt,
+} from "./prompts/generation.js";
 import { getErrorStatusCode } from "./retry.js";
 import { estimateTokenCount } from "./token-count.js";
 import { type AiTokenUsage, type UsageLike, normalizeTokenUsage, toUsageLike } from "./usage.js";
@@ -88,51 +92,6 @@ export type DocGeneration = {
 	generate: (request: DocGenerationRequest) => Promise<DocGenerationResult>;
 };
 
-const GENERATION_SYSTEM_PROMPT = `You are a documentation writer for a software project. Update existing documentation to reflect code changes.
-
-Guidelines:
-- Make minimal, targeted changes to the documentation
-- Preserve the existing style, tone, and formatting exactly
-- Only update sections affected by the code change
-- Do not add new unrelated sections or content
-- Do not remove existing content unless it is explicitly invalidated by the change
-- Keep structural elements (headings, lists, code blocks) in the same format
-
-Respond with the complete updated document content and a brief description of what changed.`;
-
-const buildUserPrompt = (request: DocGenerationRequest): string => {
-	const sections: string[] = [
-		"Update the following documentation file to reflect the code change.",
-		"",
-		"## Current Documentation Content",
-		"<document>",
-		request.docFile.content,
-		"</document>",
-		"",
-		"## Code Diff",
-		"<diff>",
-		request.diff,
-		"</diff>",
-	];
-
-	if (request.frameworkConventions) {
-		sections.push("", "## Framework Conventions", request.frameworkConventions);
-	}
-
-	if (request.customInstructions) {
-		sections.push("", "## Custom Instructions", request.customInstructions);
-	}
-
-	sections.push(
-		"",
-		"Provide:",
-		"1. The complete updated documentation content (updatedContent) — return the full file, not just changed sections",
-		"2. A brief description of what you changed (changeDescription) — use an empty string if no changes were needed",
-	);
-
-	return sections.join("\n");
-};
-
 const normalizeContent = (content: string): string =>
 	content.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 
@@ -175,11 +134,21 @@ export const createDocGeneration = (options: DocGenerationOptions): DocGeneratio
 			}
 
 			const modelId = modelIdFor("generate", modelSelection);
-			const prompt = buildUserPrompt(request);
-			const contextTokenEstimate = estimateTokenCount(GENERATION_SYSTEM_PROMPT + prompt);
+			const messages = buildGenerationPrompt({
+				diff: request.diff,
+				docFilePath: request.docFile.path,
+				docFileContent: request.docFile.content,
+				frameworkConventions: request.frameworkConventions,
+				customInstructions: request.customInstructions,
+			});
+			const [systemMessage, userMessage] = messages;
+			const contextTokenEstimate = estimateTokenCount(
+				systemMessage.content + userMessage.content,
+			);
 
 			logger.info("ai.generate.request", {
 				modelId,
+				promptVersion: GENERATION_PROMPT_VERSION,
 				filePath: request.docFile.path,
 				diffLength: request.diff.length,
 				contentLength: request.docFile.content.length,
@@ -190,8 +159,8 @@ export const createDocGeneration = (options: DocGenerationOptions): DocGeneratio
 				const result = await generateObjectFn({
 					model: openRouterProvider(modelId),
 					schema: generationOutputSchema,
-					system: GENERATION_SYSTEM_PROMPT,
-					prompt,
+					system: systemMessage.content,
+					prompt: userMessage.content,
 				});
 
 				const tokenUsage = normalizeTokenUsage(result.usage, contextTokenEstimate);
