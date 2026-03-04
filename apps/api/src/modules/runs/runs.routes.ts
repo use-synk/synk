@@ -4,6 +4,7 @@ import z from "zod";
 import type { DashboardServiceContract } from "../../domain/services";
 import { createRequireAuthMiddleware } from "../../middleware/auth";
 import type { AuthenticatedAppEnv, RouteContext } from "../../types";
+import { repositorySchema } from "../shared/openapi-schemas";
 import { listRepositoryRunsQuerySchema, triggerManualRunBodySchema } from "./runs.schemas";
 
 export function createRunsRoutes({
@@ -19,11 +20,6 @@ export function createRunsRoutes({
 		total: openApiZ.number().int().min(0),
 		totalPages: openApiZ.number().int().min(0),
 	});
-	const repositorySchema = openApiZ.object({
-		fullName: openApiZ.string(),
-		provider: openApiZ.string(),
-	});
-
 	const getRunRoute = createRoute({
 		method: "get",
 		path: "/{runId}",

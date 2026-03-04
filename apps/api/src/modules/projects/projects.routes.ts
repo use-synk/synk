@@ -7,6 +7,7 @@ import type {
 } from "../../domain/services/project-service";
 import { createRequireAuthMiddleware } from "../../middleware/auth";
 import type { AuthenticatedAppEnv, RouteContext } from "../../types";
+import { repositorySchema } from "../shared/openapi-schemas";
 import { createProjectBodySchema, listProjectRunsQuerySchema } from "./projects.schemas";
 
 export function createProjectsRoutes({
@@ -29,11 +30,6 @@ export function createProjectsRoutes({
 		fullName: openApiZ.string(),
 		defaultBranch: openApiZ.string(),
 		isActive: openApiZ.boolean(),
-	});
-
-	const repositorySchema = openApiZ.object({
-		fullName: openApiZ.string(),
-		provider: openApiZ.string(),
 	});
 
 	const runSummarySchema = openApiZ.object({
