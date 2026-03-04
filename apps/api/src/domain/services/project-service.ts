@@ -4,6 +4,10 @@ import type {
 	RepositoryListItem,
 	RunListFilter,
 	RunListItem,
+	SuggestionDecision,
+	SuggestionDetail,
+	SuggestionListFilter,
+	SuggestionSummary,
 } from "../models";
 import type { Project, ProjectDetail } from "../models/project";
 import type { AuthorizationRepository, OrganizationRepository, ProjectRepository } from "../ports";
@@ -67,6 +71,34 @@ export type ListOrganizationRepositoriesInput = {
 	pagination: Pagination;
 };
 
+export type ListProjectSuggestionsInput = {
+	userId: string;
+	projectId: string;
+	filter: SuggestionListFilter;
+};
+
+export type GetProjectSuggestionInput = {
+	userId: string;
+	projectId: string;
+	suggestionId: string;
+};
+
+export type DecideProjectSuggestionInput = {
+	userId: string;
+	projectId: string;
+	suggestionId: string;
+	decision: SuggestionDecision;
+	note?: string;
+};
+
+export type BulkDecideProjectSuggestionsInput = {
+	userId: string;
+	projectId: string;
+	suggestionIds: string[];
+	decision: SuggestionDecision;
+	note?: string;
+};
+
 export interface ProjectServiceContract {
 	findProject(input: FindProjectInput): Promise<Project | null>;
 	getProjectDetail(input: GetProjectDetailInput): Promise<ProjectDetail>;
@@ -75,6 +107,12 @@ export interface ProjectServiceContract {
 		input: ListOrganizationRepositoriesInput,
 	): Promise<PaginatedResult<RepositoryListItem>>;
 	listProjectRuns(input: ListProjectRunsInput): Promise<PaginatedResult<RunListItem>>;
+	listProjectSuggestions(input: ListProjectSuggestionsInput): Promise<PaginatedResult<SuggestionSummary>>;
+	getProjectSuggestion(input: GetProjectSuggestionInput): Promise<SuggestionDetail>;
+	decideProjectSuggestion(input: DecideProjectSuggestionInput): Promise<SuggestionDetail>;
+	bulkDecideProjectSuggestions(
+		input: BulkDecideProjectSuggestionsInput,
+	): Promise<SuggestionDetail[]>;
 	createProject(input: CreateProjectInput): Promise<Project>;
 	updateProject(input: UpdateProjectInput): Promise<Project>;
 	deleteProject(input: DeleteProjectInput): Promise<void>;

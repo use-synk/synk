@@ -18,3 +18,22 @@ export const listProjectRunsQuerySchema = z.object({
 	pageSize: z.coerce.number().int().min(1).max(100).optional(),
 	status: z.array(runStatusSchema).optional(),
 });
+
+export const suggestionDecisionSchema = z.enum(["accept", "decline", "reset"]);
+
+export const listProjectSuggestionsQuerySchema = z.object({
+	page: z.coerce.number().int().min(1).optional(),
+	pageSize: z.coerce.number().int().min(1).max(100).optional(),
+	status: z.array(z.enum(["pending", "accepted", "declined", "superseded", "stale", "applied"])).optional(),
+});
+
+export const decideSuggestionBodySchema = z.object({
+	decision: suggestionDecisionSchema,
+	note: z.string().max(500).optional(),
+});
+
+export const bulkDecideSuggestionsBodySchema = z.object({
+	suggestionIds: z.array(z.string().min(1)).min(1).max(200),
+	decision: suggestionDecisionSchema,
+	note: z.string().max(500).optional(),
+});

@@ -1,7 +1,7 @@
 import type { db } from "@synk-ai/db";
 import type { ProjectRepository } from "../../domain/ports";
 
-type PrismaProjectClient = Pick<typeof db, "project" | "providerRepository">;
+type PrismaProjectClient = Pick<typeof db, "project" | "providerRepository" | "suggestion">;
 
 export const createPrismaProjectRepository = (client: PrismaProjectClient): ProjectRepository => ({
 	findProject: async (projectId) => {
@@ -109,6 +109,126 @@ export const createPrismaProjectRepository = (client: PrismaProjectClient): Proj
 	deleteProject: async (projectId) => {
 		return await client.project.delete({
 			where: { id: projectId },
+		});
+	},
+	listProjectSuggestions: async (projectId, filter) => {
+		const skip = (filter.page - 1) * filter.pageSize;
+		const where = {
+			projectId,
+			...(filter.status !== undefined ? { status: { in: filter.status } } : {}),
+		};
+		const [total, items] = await Promise.all([
+			client.suggestion.count({ where }),
+			client.suggestion.findMany({
+				where,
+				orderBy: { createdAt: "desc" },
+				skip,
+				take: filter.pageSize,
+				select: {
+					id: true,
+					projectId: true,
+					repositoryId: true,
+					runId: true,
+					docPath: true,
+					status: true,
+					reasoning: true,
+					fingerprint: true,
+					supersedesSuggestionId: true,
+					decidedByUserId: true,
+					decidedAt: true,
+					decisionNote: true,
+					createdAt: true,
+					updatedAt: true,
+				},
+			}),
+		]);
+		return { items, total };
+	},
+	findProjectSuggestion: async (projectId, suggestionId) =>
+		client.suggestion.findFirst({
+			where: {
+				id: suggestionId,
+				projectId,
+			},
+			select: {
+				id: true,
+				projectId: true,
+				repositoryId: true,
+				runId: true,
+				docPath: true,
+				baseDocSha: true,
+				beforeContent: true,
+				proposedContent: true,
+				reasoning: true,
+				fingerprint: true,
+				status: true,
+				supersedesSuggestionId: true,
+				decidedByUserId: true,
+				decidedAt: true,
+				decisionNote: true,
+				appliedInBatchId: true,
+				createdAt: true,
+				updatedAt: true,
+			},
+		}),
+	findProjectSuggestionsByIds: async (projectId, suggestionIds) =>
+		client.suggestion.findMany({
+			where: {
+				projectId,
+				id: { in: [...suggestionIds] },
+			},
+			select: {
+				id: true,
+				projectId: true,
+				repositoryId: true,
+				runId: true,
+				docPath: true,
+				baseDocSha: true,
+				beforeContent: true,
+				proposedContent: true,
+				reasoning: true,
+				fingerprint: true,
+				status: true,
+				supersedesSuggestionId: true,
+				decidedByUserId: true,
+				decidedAt: true,
+				decisionNote: true,
+				appliedInBatchId: true,
+				createdAt: true,
+				updatedAt: true,
+			},
+		}),
+	updateSuggestionDecision: async (suggestionId, patch) =>
+		client.suggestion.update({
+			where: { id: suggestionId },
+			data: patch,
+			select: {
+				id: true,
+				projectId: true,
+				repositoryId: true,
+				runId: true,
+				docPath: true,
+				baseDocSha: true,
+				beforeContent: true,
+				proposedContent: true,
+				reasoning: true,
+				fingerprint: true,
+				status: true,
+				supersedesSuggestionId: true,
+				decidedByUserId: true,
+				decidedAt: true,
+				decisionNote: true,
+				appliedInBatchId: true,
+				createdAt: true,
+				updatedAt: true,
+			},
+		}),
+	updateSuggestionsDecision: async (suggestionIds, patch) => {
+		await client.suggestion.updateMany({
+			where: {
+				id: { in: [...suggestionIds] },
+			},
+			data: patch,
 		});
 	},
 });

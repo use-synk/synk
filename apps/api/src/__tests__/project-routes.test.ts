@@ -100,6 +100,31 @@ const RUN_LIST_ITEM = {
 	completedAt: NOW,
 };
 
+const SUGGESTION_SUMMARY_ITEM = {
+	id: "suggestion-1",
+	projectId: PROJECT_ID,
+	repositoryId: DOCS_REPOSITORY_ID,
+	runId: RUN_LIST_ITEM.id,
+	docPath: "docs/getting-started.md",
+	status: "pending" as const,
+	reasoning: "Docs should include the new setup step.",
+	fingerprint: "fp-1",
+	supersedesSuggestionId: null,
+	decidedByUserId: null,
+	decidedAt: null,
+	decisionNote: null,
+	createdAt: NOW,
+	updatedAt: NOW,
+};
+
+const SUGGESTION_DETAIL_ITEM = {
+	...SUGGESTION_SUMMARY_ITEM,
+	baseDocSha: "abc123",
+	beforeContent: "# Old content",
+	proposedContent: "# New content",
+	appliedInBatchId: null,
+};
+
 const createProjectServiceMock = () => {
 	const listOrganizationRepositories = mock(async () => ({
 		items: [
@@ -123,6 +148,10 @@ const createProjectServiceMock = () => {
 	const findProject = mock(async () => null);
 	const getProjectDetail = mock(async () => PROJECT_DETAIL);
 	const listProjectRuns = mock(async () => ({ items: [], total: 0 }));
+	const listProjectSuggestions = mock(async () => ({ items: [], total: 0 }));
+	const getProjectSuggestion = mock(async () => SUGGESTION_DETAIL_ITEM);
+	const decideProjectSuggestion = mock(async () => SUGGESTION_DETAIL_ITEM);
+	const bulkDecideProjectSuggestions = mock(async () => [SUGGESTION_DETAIL_ITEM]);
 	const updateProject = mock(async () => {
 		throw new Error("updateProject should not be called in repository listing tests");
 	});
@@ -135,6 +164,10 @@ const createProjectServiceMock = () => {
 		findProject,
 		getProjectDetail,
 		listProjectRuns,
+		listProjectSuggestions,
+		getProjectSuggestion,
+		decideProjectSuggestion,
+		bulkDecideProjectSuggestions,
 		updateProject,
 		deleteProject,
 	};
@@ -842,5 +875,139 @@ describe("project routes — GET /projects/:projectId/runs", () => {
 
 		expect(response.status).toBe(400);
 		expect(projectService.listProjectRuns).not.toHaveBeenCalled();
+	});
+});
+
+describe("project routes — suggestion inbox endpoints", () => {
+	beforeEach(() => {
+		mock.restore();
+		getSessionMock.mockResolvedValue({
+			user: { id: USER_ID },
+			session: {
+				token: SESSION_TOKEN,
+				userId: USER_ID,
+				expiresAt: new Date("2099-01-01T00:00:00.000Z"),
+			},
+		});
+	});
+
+	it("returns paginated suggestions for GET /projects/:projectId/suggestions", async () => {
+		const projectService = createProjectServiceMock();
+		projectService.listProjectSuggestions.mockResolvedValueOnce({
+			items: [SUGGESTION_SUMMARY_ITEM],
+			total: 1,
+		});
+		const app = createTestApp(projectService);
+
+		const response = await app.request(`/api/v1/projects/${PROJECT_ID}/suggestions`, {
+			headers: authHeaders(),
+		});
+
+		expect(response.status).toBe(200);
+		expect(projectService.listProjectSuggestions).toHaveBeenCalledWith({
+			userId: USER_ID,
+			projectId: PROJECT_ID,
+			filter: { page: 1, pageSize: 10 },
+		});
+	});
+
+	it("returns suggestion detail for GET /projects/:projectId/suggestions/:suggestionId", async () => {
+		const projectService = createProjectServiceMock();
+		const app = createTestApp(projectService);
+
+		const response = await app.request(
+			`/api/v1/projects/${PROJECT_ID}/suggestions/${SUGGESTION_DETAIL_ITEM.id}`,
+			{
+				headers: authHeaders(),
+			},
+		);
+
+		expect(response.status).toBe(200);
+		expect(projectService.getProjectSuggestion).toHaveBeenCalledWith({
+			userId: USER_ID,
+			projectId: PROJECT_ID,
+			suggestionId: SUGGESTION_DETAIL_ITEM.id,
+		});
+	});
+
+	it("validates decision payload and forwards PATCH decision", async () => {
+		const projectService = createProjectServiceMock();
+		const app = createTestApp(projectService);
+
+		const response = await app.request(
+			`/api/v1/projects/${PROJECT_ID}/suggestions/${SUGGESTION_DETAIL_ITEM.id}/decision`,
+			{
+				method: "PATCH",
+				headers: { ...authHeaders(), "Content-Type": "application/json" },
+				body: JSON.stringify({ decision: "accept", note: "Looks good" }),
+			},
+		);
+
+		expect(response.status).toBe(200);
+		expect(projectService.decideProjectSuggestion).toHaveBeenCalledWith({
+			userId: USER_ID,
+			projectId: PROJECT_ID,
+			suggestionId: SUGGESTION_DETAIL_ITEM.id,
+			decision: "accept",
+			note: "Looks good",
+		});
+	});
+
+	it("forwards bulk decision updates", async () => {
+		const projectService = createProjectServiceMock();
+		const app = createTestApp(projectService);
+
+		const response = await app.request(
+			`/api/v1/projects/${PROJECT_ID}/suggestions/decisions/bulk`,
+			{
+				method: "POST",
+				headers: { ...authHeaders(), "Content-Type": "application/json" },
+				body: JSON.stringify({
+					suggestionIds: [SUGGESTION_DETAIL_ITEM.id],
+					decision: "decline",
+					note: "Not now",
+				}),
+			},
+		);
+
+		expect(response.status).toBe(200);
+		expect(projectService.bulkDecideProjectSuggestions).toHaveBeenCalledWith({
+			userId: USER_ID,
+			projectId: PROJECT_ID,
+			suggestionIds: [SUGGESTION_DETAIL_ITEM.id],
+			decision: "decline",
+			note: "Not now",
+		});
+	});
+
+	it("returns 400 on invalid suggestion decision", async () => {
+		const projectService = createProjectServiceMock();
+		const app = createTestApp(projectService);
+
+		const response = await app.request(
+			`/api/v1/projects/${PROJECT_ID}/suggestions/${SUGGESTION_DETAIL_ITEM.id}/decision`,
+			{
+				method: "PATCH",
+				headers: { ...authHeaders(), "Content-Type": "application/json" },
+				body: JSON.stringify({ decision: "invalid" }),
+			},
+		);
+
+		expect(response.status).toBe(400);
+		expect(projectService.decideProjectSuggestion).not.toHaveBeenCalled();
+	});
+
+	it("returns 403 when suggestion endpoint service throws AccessDeniedError", async () => {
+		const projectService = createProjectServiceMock();
+		projectService.listProjectSuggestions.mockRejectedValueOnce(
+			new AccessDeniedError("You do not have access to this project"),
+		);
+		const app = createTestApp(projectService);
+
+		const response = await app.request(`/api/v1/projects/${PROJECT_ID}/suggestions`, {
+			headers: authHeaders(),
+		});
+
+		expect(response.status).toBe(403);
 	});
 });

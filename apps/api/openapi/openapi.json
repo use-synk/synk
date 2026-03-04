@@ -555,6 +555,780 @@
         }
       }
     },
+    "/api/v1/projects/{projectId}/suggestions": {
+      "get": {
+        "tags": [
+          "projects",
+          "suggestions"
+        ],
+        "operationId": "listProjectSuggestions",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "required": false,
+            "name": "page",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "required": false,
+            "name": "pageSize",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "pending",
+                  "accepted",
+                  "declined",
+                  "superseded",
+                  "stale",
+                  "applied"
+                ]
+              }
+            },
+            "required": false,
+            "name": "status",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Project suggestions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "projectId": {
+                            "type": "string"
+                          },
+                          "repositoryId": {
+                            "type": "string"
+                          },
+                          "runId": {
+                            "type": "string"
+                          },
+                          "docPath": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "pending",
+                              "accepted",
+                              "declined",
+                              "superseded",
+                              "stale",
+                              "applied"
+                            ]
+                          },
+                          "reasoning": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "fingerprint": {
+                            "type": "string"
+                          },
+                          "supersedesSuggestionId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "decidedByUserId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "decidedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "decisionNote": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "projectId",
+                          "repositoryId",
+                          "runId",
+                          "docPath",
+                          "status",
+                          "reasoning",
+                          "fingerprint",
+                          "supersedesSuggestionId",
+                          "decidedByUserId",
+                          "decidedAt",
+                          "decisionNote",
+                          "createdAt",
+                          "updatedAt"
+                        ]
+                      }
+                    },
+                    "pagination": {
+                      "type": "object",
+                      "properties": {
+                        "page": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "pageSize": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "total": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "totalPages": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "page",
+                        "pageSize",
+                        "total",
+                        "totalPages"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "pagination"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{projectId}/suggestions/{suggestionId}": {
+      "get": {
+        "tags": [
+          "projects",
+          "suggestions"
+        ],
+        "operationId": "getProjectSuggestion",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "suggestionId",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Project suggestion detail",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "projectId": {
+                          "type": "string"
+                        },
+                        "repositoryId": {
+                          "type": "string"
+                        },
+                        "runId": {
+                          "type": "string"
+                        },
+                        "docPath": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "pending",
+                            "accepted",
+                            "declined",
+                            "superseded",
+                            "stale",
+                            "applied"
+                          ]
+                        },
+                        "reasoning": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "fingerprint": {
+                          "type": "string"
+                        },
+                        "supersedesSuggestionId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "decidedByUserId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "decidedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "decisionNote": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        },
+                        "baseDocSha": {
+                          "type": "string"
+                        },
+                        "beforeContent": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "proposedContent": {
+                          "type": "string"
+                        },
+                        "appliedInBatchId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "projectId",
+                        "repositoryId",
+                        "runId",
+                        "docPath",
+                        "status",
+                        "reasoning",
+                        "fingerprint",
+                        "supersedesSuggestionId",
+                        "decidedByUserId",
+                        "decidedAt",
+                        "decisionNote",
+                        "createdAt",
+                        "updatedAt",
+                        "baseDocSha",
+                        "beforeContent",
+                        "proposedContent",
+                        "appliedInBatchId"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Suggestion not found"
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{projectId}/suggestions/{suggestionId}/decision": {
+      "patch": {
+        "tags": [
+          "projects",
+          "suggestions"
+        ],
+        "operationId": "decideProjectSuggestion",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "suggestionId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "decision": {
+                    "type": "string",
+                    "enum": [
+                      "accept",
+                      "decline",
+                      "reset"
+                    ]
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "decision"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated suggestion",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string"
+                        },
+                        "projectId": {
+                          "type": "string"
+                        },
+                        "repositoryId": {
+                          "type": "string"
+                        },
+                        "runId": {
+                          "type": "string"
+                        },
+                        "docPath": {
+                          "type": "string"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "pending",
+                            "accepted",
+                            "declined",
+                            "superseded",
+                            "stale",
+                            "applied"
+                          ]
+                        },
+                        "reasoning": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "fingerprint": {
+                          "type": "string"
+                        },
+                        "supersedesSuggestionId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "decidedByUserId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "decidedAt": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "decisionNote": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        },
+                        "baseDocSha": {
+                          "type": "string"
+                        },
+                        "beforeContent": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "proposedContent": {
+                          "type": "string"
+                        },
+                        "appliedInBatchId": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "projectId",
+                        "repositoryId",
+                        "runId",
+                        "docPath",
+                        "status",
+                        "reasoning",
+                        "fingerprint",
+                        "supersedesSuggestionId",
+                        "decidedByUserId",
+                        "decidedAt",
+                        "decisionNote",
+                        "createdAt",
+                        "updatedAt",
+                        "baseDocSha",
+                        "beforeContent",
+                        "proposedContent",
+                        "appliedInBatchId"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Suggestion not found"
+          },
+          "409": {
+            "description": "Invalid transition"
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{projectId}/suggestions/decisions/bulk": {
+      "post": {
+        "tags": [
+          "projects",
+          "suggestions"
+        ],
+        "operationId": "bulkDecideProjectSuggestions",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string"
+            },
+            "required": true,
+            "name": "projectId",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "suggestionIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "minItems": 1,
+                    "maxItems": 200
+                  },
+                  "decision": {
+                    "type": "string",
+                    "enum": [
+                      "accept",
+                      "decline",
+                      "reset"
+                    ]
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "suggestionIds",
+                  "decision"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated suggestions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "projectId": {
+                            "type": "string"
+                          },
+                          "repositoryId": {
+                            "type": "string"
+                          },
+                          "runId": {
+                            "type": "string"
+                          },
+                          "docPath": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "pending",
+                              "accepted",
+                              "declined",
+                              "superseded",
+                              "stale",
+                              "applied"
+                            ]
+                          },
+                          "reasoning": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "fingerprint": {
+                            "type": "string"
+                          },
+                          "supersedesSuggestionId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "decidedByUserId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "decidedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "decisionNote": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          },
+                          "baseDocSha": {
+                            "type": "string"
+                          },
+                          "beforeContent": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "proposedContent": {
+                            "type": "string"
+                          },
+                          "appliedInBatchId": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "projectId",
+                          "repositoryId",
+                          "runId",
+                          "docPath",
+                          "status",
+                          "reasoning",
+                          "fingerprint",
+                          "supersedesSuggestionId",
+                          "decidedByUserId",
+                          "decidedAt",
+                          "decisionNote",
+                          "createdAt",
+                          "updatedAt",
+                          "baseDocSha",
+                          "beforeContent",
+                          "proposedContent",
+                          "appliedInBatchId"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Suggestion not found"
+          },
+          "409": {
+            "description": "Invalid transition"
+          }
+        }
+      }
+    },
     "/api/v1/organizations": {
       "get": {
         "tags": [
