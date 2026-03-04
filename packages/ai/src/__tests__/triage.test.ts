@@ -53,7 +53,9 @@ describe("createDocTriage", () => {
 		expect(result.output.needsUpdate).toBe(true);
 		expect(result.output.confidence).toBe(0.9);
 		expect(result.output.affectedDocFiles).toEqual(["docs/api/users.md"]);
-		expect(result.output.reasoning).toBeTruthy();
+		expect(result.output.reasoning).toBe(
+			"A new deleteUser API was added which should be documented.",
+		);
 		expect(result.skipped).toBe(false);
 		expect(result.tokenUsage).toEqual({ prompt: 120, completion: 45, total: 165 });
 
@@ -134,6 +136,44 @@ describe("createDocTriage", () => {
 		const result = await triage.triage({ diff: "change", docFileTree: [] });
 
 		expect(result.skipped).toBe(true);
+	});
+
+	it("rejects confidenceThreshold values outside [0, 1] at factory creation", () => {
+		const baseOptions = {
+			apiKey: "sk-test",
+			providerFactory: () => () => "model",
+			generateObjectFn: vi.fn(),
+		};
+
+		expect(() => createDocTriage({ ...baseOptions, confidenceThreshold: -0.1 })).toThrow(
+			RangeError,
+		);
+		expect(() => createDocTriage({ ...baseOptions, confidenceThreshold: 1.1 })).toThrow(RangeError);
+		expect(() => createDocTriage({ ...baseOptions, confidenceThreshold: 0 })).not.toThrow();
+		expect(() => createDocTriage({ ...baseOptions, confidenceThreshold: 1 })).not.toThrow();
+	});
+
+	it("logs and rethrows errors from the AI call", async () => {
+		const generateObjectFn = vi.fn(async (): Promise<never> => {
+			throw { statusCode: 503, message: "service unavailable" };
+		});
+
+		const { logger, entries } = createLoggerCollector();
+		const triage = createDocTriage({
+			apiKey: "sk-test",
+			providerFactory: () => () => "model",
+			generateObjectFn,
+			logger,
+		});
+
+		await expect(triage.triage({ diff: sampleDiff, docFileTree: sampleDocTree })).rejects.toEqual({
+			statusCode: 503,
+			message: "service unavailable",
+		});
+
+		expect(entries.some((e) => e.message === "ai.triage.error")).toBe(true);
+		// Sensitive error details must not appear in logs
+		expect(JSON.stringify(entries)).not.toContain("service unavailable");
 	});
 
 	it("includes framework conventions and custom instructions in the user prompt when provided", async () => {

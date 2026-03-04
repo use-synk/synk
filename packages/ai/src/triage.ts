@@ -3,6 +3,7 @@ import { generateObject as sdkGenerateObject } from "ai";
 import { z } from "zod";
 import { type AiLogger, noopAiLogger } from "./logging.js";
 import { type ModelSelectionMap, modelIdFor, resolveModelSelection } from "./models.js";
+import { getErrorStatusCode } from "./retry.js";
 import { estimateTokenCount } from "./token-count.js";
 import { type AiTokenUsage, type UsageLike, normalizeTokenUsage, toUsageLike } from "./usage.js";
 
@@ -120,51 +121,67 @@ const runGenerateObject: GenerateObjectFn = async (input) => {
 	};
 };
 
+const toErrorType = (error: unknown): string =>
+	error instanceof Error ? error.name : "UnknownError";
+
 export const createDocTriage = (options: DocTriageOptions): DocTriage => {
+	const confidenceThreshold = options.confidenceThreshold ?? DEFAULT_CONFIDENCE_THRESHOLD;
+
+	if (confidenceThreshold < 0 || confidenceThreshold > 1) {
+		throw new RangeError("confidenceThreshold must be between 0 and 1.");
+	}
+
 	const providerFactory: ProviderFactory = options.providerFactory ?? createOpenRouter;
 	const logger = options.logger ?? noopAiLogger;
 	const modelSelection = resolveModelSelection(options.models);
 	const generateObjectFn = options.generateObjectFn ?? runGenerateObject;
-	const confidenceThreshold = options.confidenceThreshold ?? DEFAULT_CONFIDENCE_THRESHOLD;
 	const openRouterProvider = providerFactory({ apiKey: options.apiKey });
 
 	return {
 		triage: async (request: DocTriageRequest): Promise<DocTriageResult> => {
 			const modelId = modelIdFor("triage", modelSelection);
-			const system = TRIAGE_SYSTEM_PROMPT;
 			const prompt = buildUserPrompt(request);
-			const promptTokenEstimate = estimateTokenCount(system + prompt);
+			const contextTokenEstimate = estimateTokenCount(TRIAGE_SYSTEM_PROMPT + prompt);
 
 			logger.info("ai.triage.request", {
 				modelId,
 				diffLength: request.diff.length,
 				docFileCount: request.docFileTree.length,
-				promptTokenEstimate,
+				contextTokenEstimate,
 			});
 
-			const result = await generateObjectFn({
-				model: openRouterProvider(modelId),
-				schema: triageOutputSchema,
-				system,
-				prompt,
-			});
+			try {
+				const result = await generateObjectFn({
+					model: openRouterProvider(modelId),
+					schema: triageOutputSchema,
+					system: TRIAGE_SYSTEM_PROMPT,
+					prompt,
+				});
 
-			const tokenUsage = normalizeTokenUsage(result.usage, promptTokenEstimate);
-			const skipped = result.object.confidence < confidenceThreshold;
+				const tokenUsage = normalizeTokenUsage(result.usage, contextTokenEstimate);
+				const skipped = result.object.confidence < confidenceThreshold;
 
-			logger.info("ai.triage.response", {
-				modelId,
-				needsUpdate: result.object.needsUpdate,
-				confidence: result.object.confidence,
-				skipped,
-				tokenUsage,
-			});
+				logger.info("ai.triage.response", {
+					modelId,
+					needsUpdate: result.object.needsUpdate,
+					confidence: result.object.confidence,
+					skipped,
+					tokenUsage,
+				});
 
-			return {
-				output: result.object,
-				tokenUsage,
-				skipped,
-			};
+				return {
+					output: result.object,
+					tokenUsage,
+					skipped,
+				};
+			} catch (error) {
+				logger.error("ai.triage.error", {
+					modelId,
+					statusCode: getErrorStatusCode(error),
+					errorType: toErrorType(error),
+				});
+				throw error;
+			}
 		},
 	};
 };
