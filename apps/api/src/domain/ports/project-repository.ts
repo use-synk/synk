@@ -1,5 +1,10 @@
 import type { PaginatedResult, RepositoryListItem } from "../models";
 import type { Project, ProjectDetail } from "../models/project";
+import type {
+	SuggestionDetail,
+	SuggestionListFilter,
+	SuggestionSummary,
+} from "../models/suggestion";
 
 export type CreateProjectInput = {
 	name: string;
@@ -33,6 +38,13 @@ export type UpdateProjectCommand = {
 	patch: ProjectPatch;
 };
 
+export type SuggestionDecisionPatch = {
+	status: "pending" | "accepted" | "declined";
+	decidedByUserId: string | null;
+	decidedAt: Date | null;
+	decisionNote: string | null;
+};
+
 export interface ProjectRepository {
 	findProject(projectId: string): Promise<Project | null>;
 	findProjectWithRepositories(projectId: string): Promise<ProjectDetail | null>;
@@ -43,4 +55,21 @@ export interface ProjectRepository {
 	createProject(project: CreateProjectInput): Promise<Project>;
 	updateProject(command: UpdateProjectCommand): Promise<Project>;
 	deleteProject(projectId: string): Promise<Project>;
+	listProjectSuggestions(
+		projectId: string,
+		filter: SuggestionListFilter,
+	): Promise<PaginatedResult<SuggestionSummary>>;
+	findProjectSuggestion(projectId: string, suggestionId: string): Promise<SuggestionDetail | null>;
+	findProjectSuggestionsByIds(
+		projectId: string,
+		suggestionIds: readonly string[],
+	): Promise<SuggestionDetail[]>;
+	updateSuggestionDecision(
+		suggestionId: string,
+		patch: SuggestionDecisionPatch,
+	): Promise<SuggestionDetail>;
+	updateSuggestionsDecision(
+		suggestionIds: readonly string[],
+		patch: SuggestionDecisionPatch,
+	): Promise<void>;
 }
