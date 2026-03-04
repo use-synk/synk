@@ -79,11 +79,21 @@ const PROJECT_DETAIL = {
 const RUN_LIST_ITEM = {
 	id: "run-1",
 	status: "completed" as const,
-	triggerType: "push" as const,
+	triggerType: "merge" as const,
 	triggerRef: "refs/heads/main",
 	triggerCommitSha: "abc123",
+	triggerMergeRequestNumber: 42,
+	triggerPrTitle: "docs: update guides",
+	triggerSourceBranch: "feature/docs",
+	triggerTargetBranch: "main",
+	triggerPrAuthorName: "The Octocat",
+	triggerPrAuthorUsername: "octocat",
+	triggerPrAuthorAvatarUrl: "https://avatars.githubusercontent.com/u/583231?v=4",
 	docsAffected: true,
+	suggestionsCount: 3,
 	docPrUrl: null,
+	errorCode: null,
+	errorMessage: null,
 	error: null,
 	createdAt: NOW,
 	startedAt: NOW,
@@ -733,12 +743,24 @@ describe("project routes — GET /projects/:projectId/runs", () => {
 
 		expect(response.status).toBe(200);
 		const body = (await response.json()) as {
-			data: Array<{ id: string; status: string; createdAt: string }>;
+			data: Array<{
+				id: string;
+				status: string;
+				prNumber: number | null;
+				prAuthorUsername: string | null;
+				suggestionsDetected: boolean;
+				suggestionsCount: number;
+				createdAt: string;
+			}>;
 			pagination: { page: number; pageSize: number; total: number; totalPages: number };
 		};
 		expect(body.data).toHaveLength(1);
 		expect(body.data[0]?.id).toBe(RUN_LIST_ITEM.id);
 		expect(body.data[0]?.status).toBe("completed");
+		expect(body.data[0]?.prNumber).toBe(42);
+		expect(body.data[0]?.prAuthorUsername).toBe("octocat");
+		expect(body.data[0]?.suggestionsDetected).toBe(true);
+		expect(body.data[0]?.suggestionsCount).toBe(3);
 		expect(body.data[0]?.createdAt).toBe(NOW_ISO);
 		expect(body.pagination).toEqual({ page: 1, pageSize: 10, total: 1, totalPages: 1 });
 	});

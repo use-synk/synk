@@ -133,14 +133,23 @@ model AnalysisRun {
   triggerRef                String
   triggerCommitSha          String
   triggerMergeRequestNumber Int?
+  triggerPrTitle            String?
+  triggerSourceBranch       String?
+  triggerTargetBranch       String?
+  triggerPrAuthorName       String?
+  triggerPrAuthorUsername   String?
+  triggerPrAuthorAvatarUrl  String?
   triggerMeta               Json                 @default("{}")
   status                    RunStatus
   result                    Json                 @default("{}")
   docsAffected              Boolean?
+  suggestionsCount          Int                  @default(0)
   docPrNumber               Int?
   docPrUrl                  String?
   tokenUsage                Json                 @default("{}")
   error                     String?
+  errorCode                 String?
+  errorMessage              String?
   attemptCount              Int                  @default(0)
   queuedAt                  DateTime             @default(now())
   startedAt                 DateTime?
