@@ -58,6 +58,27 @@ const REPO_LIST_ITEM = {
 	updatedAt: NOW,
 };
 
+const SUGGESTION_DETAIL = {
+	id: "suggestion-1",
+	projectId: PROJECT_ID,
+	repositoryId: DOCS_REPOSITORY_ID,
+	runId: "run-1",
+	docPath: "docs/getting-started.md",
+	baseDocSha: "abc123",
+	beforeContent: "# Old content",
+	proposedContent: "# New content",
+	reasoning: "Update docs",
+	fingerprint: "fp-1",
+	status: "pending" as const,
+	supersedesSuggestionId: null,
+	decidedByUserId: null,
+	decidedAt: null,
+	decisionNote: null,
+	appliedInBatchId: null,
+	createdAt: NOW,
+	updatedAt: NOW,
+};
+
 const createDependencies = (): ProjectServiceDependencies => {
 	const authorizationRepository: ProjectServiceDependencies["authorizationRepository"] = {
 		hasInstallationAccess: mock(async () => true),
@@ -103,6 +124,11 @@ const createDependencies = (): ProjectServiceDependencies => {
 		deleteProject: mock(async () => {
 			throw new Error("deleteProject should not be called");
 		}),
+		listProjectSuggestions: mock(async () => ({ items: [], total: 0 })),
+		findProjectSuggestion: mock(async () => null),
+		findProjectSuggestionsByIds: mock(async () => []),
+		updateSuggestionDecision: mock(async () => SUGGESTION_DETAIL),
+		updateSuggestionsDecision: mock(async () => undefined),
 	};
 
 	const dashboardRepository: ProjectServiceDependencies["dashboardRepository"] = {
@@ -597,5 +623,73 @@ describe("ProjectService.listProjectRuns", () => {
 
 		expect(deps.projectRepository.findProject).not.toHaveBeenCalled();
 		expect(deps.dashboardRepository.listRepositoryRuns).not.toHaveBeenCalled();
+	});
+});
+
+describe("ProjectService suggestion decisions", () => {
+	it("asserts project access when listing suggestions", async () => {
+		const deps = createDependencies();
+		const service = new ProjectService(deps);
+
+		await service.listProjectSuggestions({
+			userId: USER_ID,
+			projectId: PROJECT_ID,
+			filter: { page: 1, pageSize: 10 },
+		});
+
+		expect(deps.authorizationRepository.assertProjectAccess).toHaveBeenCalledWith({
+			projectId: PROJECT_ID,
+			userId: USER_ID,
+		});
+	});
+
+	it("returns 404 when deciding a missing suggestion", async () => {
+		const deps = createDependencies();
+		const service = new ProjectService(deps);
+
+		await expect(
+			service.decideProjectSuggestion({
+				userId: USER_ID,
+				projectId: PROJECT_ID,
+				suggestionId: "missing",
+				decision: "accept",
+			}),
+		).rejects.toMatchObject({ status: 404 } satisfies Pick<HTTPException, "status">);
+	});
+
+	it("rejects decision transitions for superseded suggestions", async () => {
+		const deps = createDependencies();
+		deps.projectRepository.findProjectSuggestion = mock(async () => ({
+			...SUGGESTION_DETAIL,
+			status: "superseded",
+		}));
+		const service = new ProjectService(deps);
+
+		await expect(
+			service.decideProjectSuggestion({
+				userId: USER_ID,
+				projectId: PROJECT_ID,
+				suggestionId: SUGGESTION_DETAIL.id,
+				decision: "accept",
+			}),
+		).rejects.toMatchObject({ status: 409 } satisfies Pick<HTTPException, "status">);
+		expect(deps.projectRepository.updateSuggestionDecision).not.toHaveBeenCalled();
+	});
+
+	it("applies bulk decisions to all matching suggestions", async () => {
+		const deps = createDependencies();
+		deps.projectRepository.findProjectSuggestionsByIds = mock(async () => [SUGGESTION_DETAIL]);
+		const service = new ProjectService(deps);
+
+		const result = await service.bulkDecideProjectSuggestions({
+			userId: USER_ID,
+			projectId: PROJECT_ID,
+			suggestionIds: [SUGGESTION_DETAIL.id],
+			decision: "decline",
+			note: "not needed",
+		});
+
+		expect(deps.projectRepository.updateSuggestionsDecision).toHaveBeenCalled();
+		expect(result).toHaveLength(1);
 	});
 });
