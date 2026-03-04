@@ -16,12 +16,9 @@ import {
 	withExponentialBackoff,
 } from "./retry.js";
 import { estimateTokenCount } from "./token-count.js";
+import { type AiTokenUsage, type UsageLike, normalizeTokenUsage } from "./usage.js";
 
-export type AiTokenUsage = {
-	prompt: number;
-	completion: number;
-	total: number;
-};
+export type { AiTokenUsage } from "./usage.js";
 
 export type AiTextGenerationRequest = {
 	purpose: LogicalModelName;
@@ -43,14 +40,6 @@ type RequiredRetryOptions = Omit<RetryOptions, "sleep"> & {
 
 type GenerateTextArguments = Parameters<typeof sdkGenerateText>[0];
 type GenerateTextModel = GenerateTextArguments["model"];
-
-type UsageLike = {
-	inputTokens?: number | undefined;
-	outputTokens?: number | undefined;
-	totalTokens?: number | undefined;
-	promptTokens?: number | undefined;
-	completionTokens?: number | undefined;
-};
 
 type GenerateTextCall = {
 	model: GenerateTextModel;
@@ -79,6 +68,7 @@ export type AiClient = {
 	generateText: (request: AiTextGenerationRequest) => Promise<AiTextGenerationResponse>;
 };
 
+// Bridges LanguageModelUsage (SDK type) to UsageLike (internal type)
 const toUsageLike = (usage: LanguageModelUsage | undefined): UsageLike | undefined => usage;
 
 const runGenerateText: GenerateTextFunction = async (
@@ -94,13 +84,6 @@ const runGenerateText: GenerateTextFunction = async (
 		usage: toUsageLike(result.usage),
 		finishReason: typeof result.finishReason === "string" ? result.finishReason : undefined,
 	};
-};
-
-const normalizeTokenUsage = (usage: UsageLike | undefined, estimate: number): AiTokenUsage => {
-	const prompt = usage?.inputTokens ?? usage?.promptTokens ?? estimate;
-	const completion = usage?.outputTokens ?? usage?.completionTokens ?? 0;
-	const total = usage?.totalTokens ?? prompt + completion;
-	return { prompt, completion, total };
 };
 
 const createRetryOptions = (
