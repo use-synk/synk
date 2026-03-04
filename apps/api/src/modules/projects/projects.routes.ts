@@ -3,6 +3,7 @@ import { HTTPException } from "hono/http-exception";
 import z from "zod";
 import type {
 	BulkDecideProjectSuggestionsInput,
+	CreateProjectSuggestionsPrInput,
 	DecideProjectSuggestionInput,
 	GetProjectSuggestionInput,
 	ListProjectSuggestionsInput,
@@ -358,6 +359,52 @@ export function createProjectsRoutes({
 		},
 	});
 
+	const createProjectSuggestionsPrRoute = createRoute({
+		method: "post",
+		path: "/{projectId}/suggestions/pr",
+		tags: ["projects", "suggestions"],
+		operationId: "createProjectSuggestionsPr",
+		security: [{ cookieAuth: [] }],
+		request: {
+			params: openApiZ.object({
+				projectId: openApiZ.string(),
+			}),
+		},
+		responses: {
+			200: {
+				description: "Created suggestions PR",
+				content: {
+					"application/json": {
+						schema: openApiZ.object({
+							data: openApiZ.object({
+								batchId: openApiZ.string(),
+								status: openApiZ.enum(["completed", "failed"]),
+								prNumber: openApiZ.number().nullable(),
+								prUrl: openApiZ.string().nullable(),
+								includedSuggestionIds: openApiZ.array(openApiZ.string()),
+								excluded: openApiZ.array(
+									openApiZ.object({
+										suggestionId: openApiZ.string(),
+										docPath: openApiZ.string(),
+										reason: openApiZ.enum([
+											"file-missing",
+											"base-sha-mismatch",
+											"already-applied",
+										]),
+									}),
+								),
+							}),
+						}),
+					},
+				},
+			},
+			401: { description: "Unauthorized" },
+			403: { description: "Forbidden" },
+			404: { description: "Project not found" },
+			409: { description: "No accepted suggestions" },
+		},
+	});
+
 	router.use("*", createRequireAuthMiddleware(auth));
 
 	router.openapi(getProjectRoute, async (ctx) => {
@@ -590,6 +637,17 @@ export function createProjectsRoutes({
 				updatedAt: item.updatedAt.toISOString(),
 			})),
 		});
+	});
+
+	router.openapi(createProjectSuggestionsPrRoute, async (ctx) => {
+		const userId = ctx.get("user").id;
+		const projectId = ctx.req.param("projectId");
+		const input: CreateProjectSuggestionsPrInput = {
+			userId,
+			projectId,
+		};
+		const result = await projectService.createProjectSuggestionsPr(input);
+		return ctx.json({ data: result });
 	});
 
 	return router;

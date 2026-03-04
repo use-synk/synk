@@ -1,7 +1,10 @@
-import type { db } from "@synk-ai/db";
+import { type Prisma, type db } from "@synk-ai/db";
 import type { ProjectRepository } from "../../domain/ports";
 
-type PrismaProjectClient = Pick<typeof db, "project" | "providerRepository" | "suggestion">;
+type PrismaProjectClient = Pick<
+	typeof db,
+	"project" | "providerRepository" | "suggestion" | "suggestionBatch"
+>;
 
 export const createPrismaProjectRepository = (client: PrismaProjectClient): ProjectRepository => ({
 	findProject: async (projectId) => {
@@ -229,6 +232,145 @@ export const createPrismaProjectRepository = (client: PrismaProjectClient): Proj
 				id: { in: [...suggestionIds] },
 			},
 			data: patch,
+		});
+	},
+	findProjectSuggestionTarget: async (projectId) => {
+		const project = await client.project.findUnique({
+			where: { id: projectId },
+			select: {
+				id: true,
+				sourceRepository: {
+					select: {
+						id: true,
+						fullName: true,
+						defaultBranch: true,
+						provider: true,
+						installation: {
+							select: {
+								providerInstallationId: true,
+							},
+						},
+					},
+				},
+				docsRepository: {
+					select: {
+						id: true,
+						fullName: true,
+						defaultBranch: true,
+						provider: true,
+						installation: {
+							select: {
+								providerInstallationId: true,
+							},
+						},
+					},
+				},
+			},
+		});
+		if (project === null) {
+			return null;
+		}
+		const target = project.docsRepository ?? project.sourceRepository;
+		return {
+			projectId: project.id,
+			repositoryId: target.id,
+			repositoryFullName: target.fullName,
+			baseBranch: target.defaultBranch,
+			provider: target.provider,
+			providerInstallationId: target.installation.providerInstallationId,
+		};
+	},
+	listAcceptedSuggestionsForPr: async (projectId, repositoryId) =>
+		client.suggestion.findMany({
+			where: {
+				projectId,
+				repositoryId,
+				status: "accepted",
+				appliedInBatchId: null,
+			},
+			orderBy: {
+				createdAt: "asc",
+			},
+			select: {
+				id: true,
+				docPath: true,
+				baseDocSha: true,
+				proposedContent: true,
+				reasoning: true,
+			},
+		}),
+	createSuggestionBatch: async (input) => {
+		const created = await client.suggestionBatch.create({
+			data: {
+				projectId: input.projectId,
+				repositoryId: input.repositoryId,
+				createdByUserId: input.createdByUserId,
+				baseBranch: input.baseBranch,
+				baseSha: input.baseSha,
+				headBranch: input.headBranch,
+				status: "running",
+				summary: input.summary as unknown as Prisma.InputJsonValue,
+			},
+			select: {
+				id: true,
+			},
+		});
+		return created;
+	},
+	completeSuggestionBatch: async (input) => {
+		await client.suggestionBatch.update({
+			where: { id: input.batchId },
+			data: {
+				status: "completed",
+				prNumber: input.prNumber,
+				prUrl: input.prUrl,
+				headBranch: input.headBranch,
+				summary: input.summary as unknown as Prisma.InputJsonValue,
+				error: null,
+			},
+		});
+	},
+	failSuggestionBatch: async (input) => {
+		await client.suggestionBatch.update({
+			where: { id: input.batchId },
+			data: {
+				status: "failed",
+				error: input.error,
+				summary: input.summary as unknown as Prisma.InputJsonValue,
+			},
+		});
+	},
+	markSuggestionsApplied: async (suggestionIds, batchId) => {
+		if (suggestionIds.length === 0) {
+			return;
+		}
+		await client.suggestion.updateMany({
+			where: {
+				id: { in: [...suggestionIds] },
+			},
+			data: {
+				status: "applied",
+				appliedInBatchId: batchId,
+			},
+		});
+	},
+	markSuggestionsExcluded: async (suggestions) => {
+		if (suggestions.length === 0) {
+			return;
+		}
+		const staleIds = suggestions
+			.filter((item) => item.reason === "file-missing" || item.reason === "base-sha-mismatch")
+			.map((item) => item.suggestionId);
+		if (staleIds.length === 0) {
+			return;
+		}
+		await client.suggestion.updateMany({
+			where: {
+				id: { in: staleIds },
+			},
+			data: {
+				status: "stale",
+			},
 		});
 	},
 });

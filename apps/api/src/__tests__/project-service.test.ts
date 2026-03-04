@@ -129,6 +129,20 @@ const createDependencies = (): ProjectServiceDependencies => {
 		findProjectSuggestionsByIds: mock(async () => []),
 		updateSuggestionDecision: mock(async () => SUGGESTION_DETAIL),
 		updateSuggestionsDecision: mock(async () => undefined),
+		findProjectSuggestionTarget: mock(async () => ({
+			projectId: PROJECT_ID,
+			repositoryId: DOCS_REPOSITORY_ID,
+			repositoryFullName: "acme/docs",
+			baseBranch: "main",
+			provider: "github" as const,
+			providerInstallationId: "12345",
+		})),
+		listAcceptedSuggestionsForPr: mock(async () => []),
+		createSuggestionBatch: mock(async () => ({ id: "batch-1" })),
+		completeSuggestionBatch: mock(async () => undefined),
+		failSuggestionBatch: mock(async () => undefined),
+		markSuggestionsApplied: mock(async () => undefined),
+		markSuggestionsExcluded: mock(async () => undefined),
 	};
 
 	const dashboardRepository: ProjectServiceDependencies["dashboardRepository"] = {
@@ -145,6 +159,10 @@ const createDependencies = (): ProjectServiceDependencies => {
 		organizationRepository,
 		projectRepository,
 		dashboardRepository,
+		githubCredentials: {
+			appId: 1,
+			privateKey: "-----BEGIN PRIVATE KEY-----\\nabc\\n-----END PRIVATE KEY-----",
+		},
 	};
 };
 
@@ -691,5 +709,38 @@ describe("ProjectService suggestion decisions", () => {
 
 		expect(deps.projectRepository.updateSuggestionsDecision).toHaveBeenCalled();
 		expect(result).toHaveLength(1);
+	});
+
+	it("returns 409 when creating suggestion PR without accepted suggestions", async () => {
+		const deps = createDependencies();
+		deps.projectRepository.listAcceptedSuggestionsForPr = mock(async () => []);
+		const service = new ProjectService(deps);
+
+		await expect(
+			service.createProjectSuggestionsPr({
+				userId: USER_ID,
+				projectId: PROJECT_ID,
+			}),
+		).rejects.toMatchObject({ status: 409 } satisfies Pick<HTTPException, "status">);
+	});
+
+	it("returns 400 when creating suggestion PR for non-github repository", async () => {
+		const deps = createDependencies();
+		deps.projectRepository.findProjectSuggestionTarget = mock(async () => ({
+			projectId: PROJECT_ID,
+			repositoryId: DOCS_REPOSITORY_ID,
+			repositoryFullName: "acme/docs",
+			baseBranch: "main",
+			provider: "gitlab",
+			providerInstallationId: "12345",
+		}));
+		const service = new ProjectService(deps);
+
+		await expect(
+			service.createProjectSuggestionsPr({
+				userId: USER_ID,
+				projectId: PROJECT_ID,
+			}),
+		).rejects.toMatchObject({ status: 400 } satisfies Pick<HTTPException, "status">);
 	});
 });

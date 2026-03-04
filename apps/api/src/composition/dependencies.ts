@@ -123,6 +123,7 @@ export const buildAppDependencies = (options: BuildAppDependenciesOptions): AppD
 			organizationRepository,
 			projectRepository,
 			dashboardRepository: dashboardRepositories.dashboardRepository,
+			githubCredentials,
 		}),
 		listInstallationRepositories,
 	};

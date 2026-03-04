@@ -31,3 +31,37 @@ export type SuggestionDetail = SuggestionSummary & {
 	proposedContent: string;
 	appliedInBatchId: string | null;
 };
+
+export type CreateSuggestionsPrExcludedReason =
+	| "file-missing"
+	| "base-sha-mismatch"
+	| "already-applied";
+
+export type CreateSuggestionsPrExcludedItem = {
+	suggestionId: string;
+	docPath: string;
+	reason: CreateSuggestionsPrExcludedReason;
+};
+
+export type CreateSuggestionsPrResult = {
+	batchId: string;
+	status: "completed" | "failed";
+	prNumber: number | null;
+	prUrl: string | null;
+	includedSuggestionIds: string[];
+	excluded: CreateSuggestionsPrExcludedItem[];
+};
+
+export type SuggestionCreatePrCandidate = Pick<
+	SuggestionDetail,
+	"id" | "docPath" | "baseDocSha" | "proposedContent" | "reasoning"
+>;
+
+export type ProjectSuggestionTarget = {
+	projectId: string;
+	repositoryId: string;
+	repositoryFullName: string;
+	baseBranch: string;
+	provider: "github" | "gitlab" | "bitbucket";
+	providerInstallationId: string;
+};

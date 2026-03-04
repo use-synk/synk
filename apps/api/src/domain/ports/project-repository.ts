@@ -1,8 +1,11 @@
 import type { PaginatedResult, RepositoryListItem } from "../models";
 import type { Project, ProjectDetail } from "../models/project";
 import type {
+	CreateSuggestionsPrExcludedItem,
+	ProjectSuggestionTarget,
 	SuggestionDetail,
 	SuggestionListFilter,
+	SuggestionCreatePrCandidate,
 	SuggestionSummary,
 } from "../models/suggestion";
 
@@ -72,4 +75,32 @@ export interface ProjectRepository {
 		suggestionIds: readonly string[],
 		patch: SuggestionDecisionPatch,
 	): Promise<void>;
+	findProjectSuggestionTarget(projectId: string): Promise<ProjectSuggestionTarget | null>;
+	listAcceptedSuggestionsForPr(
+		projectId: string,
+		repositoryId: string,
+	): Promise<SuggestionCreatePrCandidate[]>;
+	createSuggestionBatch(input: {
+		projectId: string;
+		repositoryId: string;
+		createdByUserId: string;
+		baseBranch: string;
+		baseSha: string;
+		headBranch: string;
+		summary: Record<string, unknown>;
+	}): Promise<{ id: string }>;
+	completeSuggestionBatch(input: {
+		batchId: string;
+		prNumber: number;
+		prUrl: string;
+		headBranch: string;
+		summary: Record<string, unknown>;
+	}): Promise<void>;
+	failSuggestionBatch(input: {
+		batchId: string;
+		error: string;
+		summary: Record<string, unknown>;
+	}): Promise<void>;
+	markSuggestionsApplied(suggestionIds: readonly string[], batchId: string): Promise<void>;
+	markSuggestionsExcluded(suggestions: readonly CreateSuggestionsPrExcludedItem[]): Promise<void>;
 }
