@@ -1,10 +1,10 @@
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-import { type LanguageModelUsage, generateObject as sdkGenerateObject } from "ai";
+import { generateObject as sdkGenerateObject } from "ai";
 import { z } from "zod";
 import { type AiLogger, noopAiLogger } from "./logging.js";
 import { type ModelSelectionMap, modelIdFor, resolveModelSelection } from "./models.js";
 import { estimateTokenCount } from "./token-count.js";
-import { type AiTokenUsage, type UsageLike, normalizeTokenUsage } from "./usage.js";
+import { type AiTokenUsage, type UsageLike, normalizeTokenUsage, toUsageLike } from "./usage.js";
 
 export const triageOutputSchema = z.object({
 	needsUpdate: z.boolean(),
@@ -105,9 +105,6 @@ const buildUserPrompt = (request: DocTriageRequest): string => {
 
 	return sections.join("\n");
 };
-
-// Bridges LanguageModelUsage (SDK type) to UsageLike (internal type)
-const toUsageLike = (usage: LanguageModelUsage): UsageLike => usage;
 
 const runGenerateObject: GenerateObjectFn = async (input) => {
 	const result = await sdkGenerateObject({

@@ -1,5 +1,5 @@
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-import { type LanguageModelUsage, generateText as sdkGenerateText } from "ai";
+import { generateText as sdkGenerateText } from "ai";
 import { parseOpenRouterEnvironment } from "./env.js";
 import { type AiLogger, noopAiLogger } from "./logging.js";
 import {
@@ -16,9 +16,7 @@ import {
 	withExponentialBackoff,
 } from "./retry.js";
 import { estimateTokenCount } from "./token-count.js";
-import { type AiTokenUsage, type UsageLike, normalizeTokenUsage } from "./usage.js";
-
-export type { AiTokenUsage } from "./usage.js";
+import { type AiTokenUsage, type UsageLike, normalizeTokenUsage, toUsageLike } from "./usage.js";
 
 export type AiTextGenerationRequest = {
 	purpose: LogicalModelName;
@@ -67,9 +65,6 @@ export type AiClientOptions = {
 export type AiClient = {
 	generateText: (request: AiTextGenerationRequest) => Promise<AiTextGenerationResponse>;
 };
-
-// Bridges LanguageModelUsage (SDK type) to UsageLike (internal type)
-const toUsageLike = (usage: LanguageModelUsage | undefined): UsageLike | undefined => usage;
 
 const runGenerateText: GenerateTextFunction = async (
 	input: GenerateTextCall,

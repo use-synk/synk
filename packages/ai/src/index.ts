@@ -5,8 +5,8 @@ export {
 	type AiClientOptions,
 	type AiTextGenerationRequest,
 	type AiTextGenerationResponse,
-	type AiTokenUsage,
 } from "./client.js";
+export type { AiTokenUsage } from "./usage.js";
 export {
 	openRouterEnvironmentSchema,
 	parseOpenRouterEnvironment,
