@@ -186,7 +186,9 @@ const startWorker = async (): Promise<void> => {
 		concurrency: env.WORKER_CONCURRENCY,
 		processor: async (job: Job<AnalyzeChangesJobPayload>) => {
 			await updatePayloadFromPending(analyzeChangesQueue, job);
-			await processAnalyzeChangesJob(job, logger);
+			await processAnalyzeChangesJob(job, logger, undefined, {
+				autoPrEnabled: suggestionInboxRollout.autoPrEnabled,
+			});
 		},
 	});
 	const queueEvents = createAnalyzeChangesQueueEvents(connection);
