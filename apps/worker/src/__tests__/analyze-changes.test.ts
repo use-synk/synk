@@ -13,6 +13,8 @@ const mockUpdateProject = mock();
 const mockUpdateProviderRepository = mock().mockResolvedValue({});
 const mockUpsertAnalysisRun = mock();
 const mockUpdateAnalysisRun = mock();
+const mockCreateSuggestion = mock();
+const mockDbTransaction = mock();
 const mockParseGitHubCredentialsEnvironment = mock();
 const mockCredentialsFromEnvironment = mock();
 const mockCreateInstallationOctokit = mock();
@@ -39,6 +41,10 @@ mock.module("@synk-ai/db", () => ({
 			upsert: mockUpsertAnalysisRun,
 			update: mockUpdateAnalysisRun,
 		},
+		suggestion: {
+			create: mockCreateSuggestion,
+		},
+		$transaction: mockDbTransaction,
 	},
 }));
 
@@ -444,6 +450,8 @@ describe("processAnalyzeChangesJob", () => {
 		mockUpdateProviderRepository.mockClear();
 		mockUpsertAnalysisRun.mockClear();
 		mockUpdateAnalysisRun.mockClear();
+		mockCreateSuggestion.mockClear();
+		mockDbTransaction.mockClear();
 		mockParseGitHubCredentialsEnvironment.mockClear();
 		mockCredentialsFromEnvironment.mockClear();
 		mockCreateInstallationOctokit.mockClear();
@@ -468,10 +476,24 @@ describe("processAnalyzeChangesJob", () => {
 		mockFindFirstProject.mockResolvedValue({
 			id: "project-1",
 			config: {},
+			sourceRepositoryId: "repo-1",
+			docsRepositoryId: null,
 		});
 		mockUpdateProject.mockResolvedValue({});
 		mockUpsertAnalysisRun.mockResolvedValue({ id: "run-1" });
 		mockUpdateAnalysisRun.mockResolvedValue({});
+		mockCreateSuggestion.mockImplementation(async ({ data }) => ({
+			id: `suggestion-${data.docPath}`,
+			docPath: data.docPath,
+			fingerprint: data.fingerprint,
+		}));
+		mockDbTransaction.mockImplementation(async (handler) =>
+			handler({
+				suggestion: {
+					create: mockCreateSuggestion,
+				},
+			}),
+		);
 
 		const defaultAdapter = makeAdapter();
 		mockDetectAdapter.mockResolvedValue(defaultAdapter);
@@ -658,6 +680,8 @@ describe("processAnalyzeChangesJob", () => {
 
 		mockFindFirstProject.mockResolvedValueOnce({
 			id: "project-1",
+			sourceRepositoryId: "repo-1",
+			docsRepositoryId: null,
 			config: {
 				docs: { framework: "nextra" },
 				triggers: { branches: ["main", "release"], ignore_paths: ["db-ignore/**"] },
@@ -830,6 +854,70 @@ describe("processAnalyzeChangesJob", () => {
 					suggestionsCount: 1,
 					docPrNumber: 42,
 					docPrUrl: "https://github.com/pr/42",
+				}),
+			}),
+		);
+	});
+
+	it("persists suggestions instead of creating a PR when auto PR is disabled", async () => {
+		mockFilterDiff
+			.mockReturnValueOnce([{ filename: "src/index.ts" }])
+			.mockReturnValueOnce([{ filename: "src/index.ts" }])
+			.mockReturnValue([]);
+
+		mockFetchRepoTree.mockResolvedValue([{ path: "docs/index.md", sha: "s1", size: 100 }]);
+		mockFetchMultipleFiles.mockResolvedValue([
+			{ path: "docs/index.md", content: "# Old", sha: "s1", size: 5 },
+		]);
+
+		const adapter = makeAdapter();
+		adapter.getDocPaths.mockReturnValue(["**/*.md"]);
+		mockDetectAdapter.mockResolvedValue(adapter);
+		mockGetAdapter.mockReturnValue(adapter);
+
+		const mockServices = {
+			runTriage: mock().mockResolvedValue({
+				needsUpdate: true,
+				affectedDocFiles: ["docs/index.md"],
+				reasoning: "change detected",
+				tokenUsage: { prompt: 10, completion: 5, total: 15 },
+			}),
+			runGeneration: mock().mockResolvedValue({
+				path: "docs/index.md",
+				content: "# New and improved",
+				reasoning: "updated",
+				tokenUsage: { prompt: 20, completion: 10, total: 30 },
+			}),
+			createPullRequest: mock(),
+		};
+
+		await processAnalyzeChangesJob(makeJob(), makeLogger(), mockServices, {
+			autoPrEnabled: false,
+		});
+
+		expect(mockServices.createPullRequest).not.toHaveBeenCalled();
+		expect(mockCreateSuggestion).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({
+					projectId: "project-1",
+					repositoryId: "repo-1",
+					runId: "run-1",
+					docPath: "docs/index.md",
+					baseDocSha: "s1",
+					beforeContent: "# Old",
+					proposedContent: "# New and improved",
+					reasoning: "updated",
+				}),
+			}),
+		);
+		expect(mockUpdateAnalysisRun).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({
+					status: "completed",
+					docsAffected: true,
+					suggestionsCount: 1,
+					docPrNumber: null,
+					docPrUrl: null,
 				}),
 			}),
 		);
