@@ -68,6 +68,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{projectId}/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listProjectSuggestions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{projectId}/suggestions/{suggestionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getProjectSuggestion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{projectId}/suggestions/{suggestionId}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["decideProjectSuggestion"];
+        trace?: never;
+    };
+    "/api/v1/projects/{projectId}/suggestions/decisions/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["bulkDecideProjectSuggestions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organizations": {
         parameters: {
             query?: never;
@@ -483,6 +547,319 @@ export interface operations {
             };
             /** @description Organization not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listProjectSuggestions: {
+        parameters: {
+            query?: {
+                page?: number;
+                pageSize?: number;
+                status?: ("pending" | "accepted" | "declined" | "superseded" | "stale" | "applied")[];
+            };
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Project suggestions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: string;
+                            projectId: string;
+                            repositoryId: string;
+                            runId: string;
+                            docPath: string;
+                            /** @enum {string} */
+                            status: "pending" | "accepted" | "declined" | "superseded" | "stale" | "applied";
+                            reasoning: string | null;
+                            fingerprint: string;
+                            supersedesSuggestionId: string | null;
+                            decidedByUserId: string | null;
+                            decidedAt: string | null;
+                            decisionNote: string | null;
+                            createdAt: string;
+                            updatedAt: string;
+                        }[];
+                        pagination: {
+                            page: number;
+                            pageSize: number;
+                            total: number;
+                            totalPages: number;
+                        };
+                    };
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getProjectSuggestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                suggestionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Project suggestion detail */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: string;
+                            projectId: string;
+                            repositoryId: string;
+                            runId: string;
+                            docPath: string;
+                            /** @enum {string} */
+                            status: "pending" | "accepted" | "declined" | "superseded" | "stale" | "applied";
+                            reasoning: string | null;
+                            fingerprint: string;
+                            supersedesSuggestionId: string | null;
+                            decidedByUserId: string | null;
+                            decidedAt: string | null;
+                            decisionNote: string | null;
+                            createdAt: string;
+                            updatedAt: string;
+                            baseDocSha: string;
+                            beforeContent: string | null;
+                            proposedContent: string;
+                            appliedInBatchId: string | null;
+                        };
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Suggestion not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    decideProjectSuggestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                suggestionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    decision: "accept" | "decline" | "reset";
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Updated suggestion */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: string;
+                            projectId: string;
+                            repositoryId: string;
+                            runId: string;
+                            docPath: string;
+                            /** @enum {string} */
+                            status: "pending" | "accepted" | "declined" | "superseded" | "stale" | "applied";
+                            reasoning: string | null;
+                            fingerprint: string;
+                            supersedesSuggestionId: string | null;
+                            decidedByUserId: string | null;
+                            decidedAt: string | null;
+                            decisionNote: string | null;
+                            createdAt: string;
+                            updatedAt: string;
+                            baseDocSha: string;
+                            beforeContent: string | null;
+                            proposedContent: string;
+                            appliedInBatchId: string | null;
+                        };
+                    };
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Suggestion not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid transition */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    bulkDecideProjectSuggestions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    suggestionIds: string[];
+                    /** @enum {string} */
+                    decision: "accept" | "decline" | "reset";
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Updated suggestions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: string;
+                            projectId: string;
+                            repositoryId: string;
+                            runId: string;
+                            docPath: string;
+                            /** @enum {string} */
+                            status: "pending" | "accepted" | "declined" | "superseded" | "stale" | "applied";
+                            reasoning: string | null;
+                            fingerprint: string;
+                            supersedesSuggestionId: string | null;
+                            decidedByUserId: string | null;
+                            decidedAt: string | null;
+                            decisionNote: string | null;
+                            createdAt: string;
+                            updatedAt: string;
+                            baseDocSha: string;
+                            beforeContent: string | null;
+                            proposedContent: string;
+                            appliedInBatchId: string | null;
+                        }[];
+                    };
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Suggestion not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid transition */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
