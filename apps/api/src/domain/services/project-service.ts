@@ -1,4 +1,5 @@
 import type {
+	CreateSuggestionsPrResult,
 	PaginatedResult,
 	Pagination,
 	RepositoryListItem,
@@ -13,12 +14,14 @@ import type { Project, ProjectDetail } from "../models/project";
 import type { AuthorizationRepository, OrganizationRepository, ProjectRepository } from "../ports";
 import type { DashboardRepository } from "../ports/dashboard-repository";
 import type { ProjectPatch } from "../ports/project-repository";
+import type { GitHubAppCredentials } from "@synk-ai/github";
 
 export type ProjectServiceDependencies = {
 	authorizationRepository: AuthorizationRepository;
 	organizationRepository: OrganizationRepository;
 	projectRepository: ProjectRepository;
 	dashboardRepository: DashboardRepository;
+	githubCredentials: GitHubAppCredentials;
 };
 
 export type CreateProjectInput = {
@@ -99,6 +102,11 @@ export type BulkDecideProjectSuggestionsInput = {
 	note?: string;
 };
 
+export type CreateProjectSuggestionsPrInput = {
+	userId: string;
+	projectId: string;
+};
+
 export interface ProjectServiceContract {
 	findProject(input: FindProjectInput): Promise<Project | null>;
 	getProjectDetail(input: GetProjectDetailInput): Promise<ProjectDetail>;
@@ -113,6 +121,7 @@ export interface ProjectServiceContract {
 	bulkDecideProjectSuggestions(
 		input: BulkDecideProjectSuggestionsInput,
 	): Promise<SuggestionDetail[]>;
+	createProjectSuggestionsPr(input: CreateProjectSuggestionsPrInput): Promise<CreateSuggestionsPrResult>;
 	createProject(input: CreateProjectInput): Promise<Project>;
 	updateProject(input: UpdateProjectInput): Promise<Project>;
 	deleteProject(input: DeleteProjectInput): Promise<void>;
