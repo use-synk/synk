@@ -54,6 +54,71 @@ export const runSummarySchema = z.object({
 	completedAt: z.string().nullable(),
 });
 
+const suggestionStatusSchema = z.enum([
+	"pending",
+	"accepted",
+	"declined",
+	"superseded",
+	"stale",
+	"applied",
+]);
+
+const suggestionDecisionSchema = z.enum(["accept", "decline", "reset"]);
+
+const suggestionSummarySchema = z.object({
+	id: z.string(),
+	projectId: z.string(),
+	repositoryId: z.string(),
+	runId: z.string(),
+	docPath: z.string(),
+	status: suggestionStatusSchema,
+	reasoning: z.string().nullable(),
+	fingerprint: z.string(),
+	supersedesSuggestionId: z.string().nullable(),
+	decidedByUserId: z.string().nullable(),
+	decidedAt: z.string().nullable(),
+	decisionNote: z.string().nullable(),
+	createdAt: z.string(),
+	updatedAt: z.string(),
+});
+
+const suggestionDetailSchema = suggestionSummarySchema.extend({
+	baseDocSha: z.string(),
+	beforeContent: z.string().nullable(),
+	proposedContent: z.string(),
+	appliedInBatchId: z.string().nullable(),
+});
+
+const listProjectSuggestionsPropsSchema = z.object({
+	projectId: z.string().min(1),
+	page: z.number().int().min(1).default(1),
+	pageSize: z.number().int().min(1).default(10),
+	status: z.array(suggestionStatusSchema).optional(),
+});
+
+const getProjectSuggestionPropsSchema = z.object({
+	projectId: z.string().min(1),
+	suggestionId: z.string().min(1),
+});
+
+const decideProjectSuggestionPropsSchema = z.object({
+	projectId: z.string().min(1),
+	suggestionId: z.string().min(1),
+	decision: suggestionDecisionSchema,
+	note: z.string().max(500).optional(),
+});
+
+const bulkDecideProjectSuggestionsPropsSchema = z.object({
+	projectId: z.string().min(1),
+	suggestionIds: z.array(z.string().min(1)).min(1).max(200),
+	decision: suggestionDecisionSchema,
+	note: z.string().max(500).optional(),
+});
+
+const createProjectSuggestionsPrPropsSchema = z.object({
+	projectId: z.string().min(1),
+});
+
 export function getProjectDetail({ projectId }: { projectId: string }) {
 	return {
 		url: `/projects/${projectId}`,
@@ -128,5 +193,125 @@ export function createProject(props: z.infer<typeof createProjectBodySchema>) {
 			}),
 		}),
 		key: ["projects", "create"],
+	} satisfies ApiQuery;
+}
+
+export function listProjectSuggestions(props: z.input<typeof listProjectSuggestionsPropsSchema>) {
+	const parsed = listProjectSuggestionsPropsSchema.safeParse(props);
+	if (!parsed.success) {
+		throw new ValidationError("params", parsed.error.issues);
+	}
+
+	const params = new URLSearchParams({
+		page: parsed.data.page.toString(),
+		pageSize: parsed.data.pageSize.toString(),
+	});
+	for (const status of parsed.data.status ?? []) {
+		params.append("status", status);
+	}
+
+	return {
+		url: `/projects/${parsed.data.projectId}/suggestions?${params.toString()}`,
+		init: { method: "GET" },
+		response: z.object({
+			data: z.array(suggestionSummarySchema),
+			pagination: paginationResultSchema,
+		}),
+		key: [
+			"projects",
+			parsed.data.projectId,
+			"suggestions",
+			`${parsed.data.page}`,
+			`${parsed.data.pageSize}`,
+			(parsed.data.status ?? []).join(","),
+		],
+	} satisfies ApiQuery;
+}
+
+export function getProjectSuggestion(props: z.input<typeof getProjectSuggestionPropsSchema>) {
+	const parsed = getProjectSuggestionPropsSchema.safeParse(props);
+	if (!parsed.success) {
+		throw new ValidationError("params", parsed.error.issues);
+	}
+
+	return {
+		url: `/projects/${parsed.data.projectId}/suggestions/${parsed.data.suggestionId}`,
+		init: { method: "GET" },
+		response: z.object({ data: suggestionDetailSchema }),
+		key: ["projects", parsed.data.projectId, "suggestions", parsed.data.suggestionId],
+	} satisfies ApiQuery;
+}
+
+export function decideProjectSuggestion(props: z.input<typeof decideProjectSuggestionPropsSchema>) {
+	const parsed = decideProjectSuggestionPropsSchema.safeParse(props);
+	if (!parsed.success) {
+		throw new ValidationError("params", parsed.error.issues);
+	}
+
+	return {
+		url: `/projects/${parsed.data.projectId}/suggestions/${parsed.data.suggestionId}/decision`,
+		init: {
+			method: "PATCH",
+			body: JSON.stringify({
+				decision: parsed.data.decision,
+				...(parsed.data.note === undefined ? {} : { note: parsed.data.note }),
+			}),
+		},
+		response: z.object({ data: suggestionDetailSchema }),
+		key: ["projects", parsed.data.projectId, "suggestions", parsed.data.suggestionId, "decision"],
+	} satisfies ApiQuery;
+}
+
+export function bulkDecideProjectSuggestions(
+	props: z.input<typeof bulkDecideProjectSuggestionsPropsSchema>,
+) {
+	const parsed = bulkDecideProjectSuggestionsPropsSchema.safeParse(props);
+	if (!parsed.success) {
+		throw new ValidationError("params", parsed.error.issues);
+	}
+
+	return {
+		url: `/projects/${parsed.data.projectId}/suggestions/decisions/bulk`,
+		init: {
+			method: "POST",
+			body: JSON.stringify({
+				suggestionIds: parsed.data.suggestionIds,
+				decision: parsed.data.decision,
+				...(parsed.data.note === undefined ? {} : { note: parsed.data.note }),
+			}),
+		},
+		response: z.object({ data: z.array(suggestionDetailSchema) }),
+		key: ["projects", parsed.data.projectId, "suggestions", "bulk-decision"],
+	} satisfies ApiQuery;
+}
+
+export function createProjectSuggestionsPr(
+	props: z.input<typeof createProjectSuggestionsPrPropsSchema>,
+) {
+	const parsed = createProjectSuggestionsPrPropsSchema.safeParse(props);
+	if (!parsed.success) {
+		throw new ValidationError("params", parsed.error.issues);
+	}
+
+	return {
+		url: `/projects/${parsed.data.projectId}/suggestions/pr`,
+		init: { method: "POST" },
+		response: z.object({
+			data: z.object({
+				batchId: z.string(),
+				status: z.enum(["completed", "failed"]),
+				prNumber: z.number().nullable(),
+				prUrl: z.string().nullable(),
+				includedSuggestionIds: z.array(z.string()),
+				excluded: z.array(
+					z.object({
+						suggestionId: z.string(),
+						docPath: z.string(),
+						reason: z.enum(["file-missing", "base-sha-mismatch", "already-applied"]),
+					}),
+				),
+			}),
+		}),
+		key: ["projects", parsed.data.projectId, "suggestions", "create-pr"],
 	} satisfies ApiQuery;
 }
