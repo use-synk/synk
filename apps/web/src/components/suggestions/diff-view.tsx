@@ -40,7 +40,7 @@ export async function DiffView({ oldContent, newContent, language, filename }: D
 
 	if (hunks.length === 0) {
 		return (
-			<div className="font-mono text-sm rounded-md border border-stone-200 overflow-hidden bg-white">
+			<div className="font-mono text-sm bg-white">
 				<div className="px-4 py-3 text-stone-400 text-xs">No changes</div>
 			</div>
 		);
@@ -59,7 +59,7 @@ export async function DiffView({ oldContent, newContent, language, filename }: D
 	const renderedHunks = buildRenderedHunks(hunks, oldResult.tokens, newResult.tokens);
 
 	return (
-		<div className="font-mono text-xs rounded-md border border-stone-200 overflow-x-auto bg-white">
+		<div className="font-mono text-xs bg-white">
 			{filename !== undefined && (
 				<div className="px-4 py-2 bg-stone-50 border-b border-stone-200 text-stone-500 text-xs">
 					{filename}
@@ -167,7 +167,7 @@ function DiffLineRow({ line }: { line: RenderedLine }) {
 				{isAdded ? "+" : isRemoved ? "-" : " "}
 			</td>
 			{/* Code content */}
-			<td className="pl-2 pr-6 py-0.5 whitespace-pre align-top leading-5">
+			<td className="pl-2 pr-6 py-0.5 whitespace-pre-wrap break-words align-top leading-5">
 				{line.spans.map((span, k) => (
 					<span
 						// biome-ignore lint/suspicious/noArrayIndexKey: spans are positional within a stable line
