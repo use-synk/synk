@@ -43,7 +43,7 @@ export async function SuggestionDetailContent({
 							{formatDistanceToNow(new Date(suggestion.updatedAt), { addSuffix: true })}
 						</p>
 					</div>
-					<div className="ml-auto">
+					<div className="ml-auto pr-12">
 						<SuggestionDecisionActions
 							projectId={projectId}
 							suggestionId={suggestionId}
