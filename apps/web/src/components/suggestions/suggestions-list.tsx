@@ -82,7 +82,7 @@ const queryParsers = {
 
 export function SuggestionsList({ projectId }: { projectId: string }) {
 	const [{ sPage: page, sStatus: statusFilter, sSearch: searchQuery }, setQueryState] =
-		useQueryStates(queryParsers);
+		useQueryStates(queryParsers, { shallow: false });
 
 	// Local input value updates immediately; the URL param is debounced.
 	const [searchInput, setSearchInput] = useState(searchQuery ?? "");
