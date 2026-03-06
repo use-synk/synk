@@ -142,7 +142,7 @@ export function SuggestionsList({ projectId }: { projectId: string }) {
 				<div className="relative w-64">
 					<SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-stone-400 pointer-events-none" />
 					<Input
-						type="search"
+						type="text"
 						placeholder="Search suggestions…"	
 						value={searchInput}
 						onChange={handleSearchChange}
