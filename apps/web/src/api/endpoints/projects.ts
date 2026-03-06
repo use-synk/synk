@@ -106,6 +106,7 @@ const listProjectSuggestionsPropsSchema = z.object({
 	page: z.number().int().min(1).default(1),
 	pageSize: z.number().int().min(1).default(10),
 	status: z.array(suggestionStatusSchema).optional(),
+	search: z.string().max(200).optional(),
 });
 
 const getProjectSuggestionPropsSchema = z.object({
@@ -221,6 +222,9 @@ export function listProjectSuggestions(props: z.input<typeof listProjectSuggesti
 	for (const status of parsed.data.status ?? []) {
 		params.append("status", status);
 	}
+	if (parsed.data.search !== undefined && parsed.data.search.length > 0) {
+		params.set("search", parsed.data.search);
+	}
 
 	return {
 		url: `/projects/${parsed.data.projectId}/suggestions?${params.toString()}`,
@@ -236,6 +240,7 @@ export function listProjectSuggestions(props: z.input<typeof listProjectSuggesti
 			`${parsed.data.page}`,
 			`${parsed.data.pageSize}`,
 			(parsed.data.status ?? []).join(","),
+			parsed.data.search ?? "",
 		],
 	} satisfies ApiQuery;
 }

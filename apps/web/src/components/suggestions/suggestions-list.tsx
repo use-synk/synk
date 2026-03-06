@@ -4,6 +4,7 @@ import { useApiQuery } from "@/api/client";
 import { listProjectSuggestions, type suggestionSummarySchema } from "@/api/endpoints";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
 	Pagination,
 	PaginationContent,
@@ -26,17 +27,19 @@ import {
 	GitPullRequestClosedIcon,
 	GitPullRequestDraftIcon,
 	GitPullRequestIcon,
+	SearchIcon,
 	UserCircle2Icon,
 	XIcon,
 } from "lucide-react";
 import {
 	parseAsArrayOf,
 	parseAsInteger,
+	parseAsString,
 	parseAsStringLiteral,
 	useQueryState,
 } from "nuqs";
 import type React from "react";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type z from "zod";
 
 type SuggestionSummary = z.infer<typeof suggestionSummarySchema>;
@@ -64,6 +67,7 @@ const pageParser = parseAsInteger.withDefault(1);
 const statusParser = parseAsArrayOf(
 	parseAsStringLiteral(SUGGESTION_STATUSES),
 ).withDefault([]);
+const searchParser = parseAsString;
 
 const PAGE_SIZE = 10;
 
@@ -75,6 +79,28 @@ const columns = [columnHelper.display({ id: "suggestion" })];
 export function SuggestionsList({ projectId }: { projectId: string }) {
 	const [page, setPage] = useQueryState("sPage", pageParser);
 	const [statusFilter, setStatusFilter] = useQueryState("sStatus", statusParser);
+	const [searchQuery, setSearchQuery] = useQueryState("sSearch", searchParser);
+
+	// Local input value updates immediately; the URL param is debounced.
+	const [searchInput, setSearchInput] = useState(searchQuery ?? "");
+	const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+		const value = e.target.value;
+		setSearchInput(value);
+		if (debounceRef.current !== null) {
+			clearTimeout(debounceRef.current);
+		}
+		debounceRef.current = setTimeout(() => {
+			setSearchQuery(value.length > 0 ? value : null);
+			setPage(1);
+		}, 300);
+	};
+
+	// Sync input when URL param is cleared externally (e.g. browser back).
+	useEffect(() => {
+		setSearchInput(searchQuery ?? "");
+	}, [searchQuery]);
 
 	const { data, isLoading } = useApiQuery(
 		listProjectSuggestions({
@@ -82,6 +108,7 @@ export function SuggestionsList({ projectId }: { projectId: string }) {
 			page,
 			pageSize: PAGE_SIZE,
 			status: statusFilter.length > 0 ? statusFilter : undefined,
+			search: searchQuery ?? undefined,
 		}),
 	);
 
@@ -116,7 +143,18 @@ export function SuggestionsList({ projectId }: { projectId: string }) {
 
 	return (
 		<div className="space-y-4">
-			<div className="flex items-center gap-2 flex-wrap">
+			<div className="flex items-center gap-3 flex-wrap">
+				<div className="relative w-64">
+					<SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-stone-400 pointer-events-none" />
+					<Input
+						type="search"
+						placeholder="Search suggestions…"
+						value={searchInput}
+						onChange={handleSearchChange}
+						className="pl-8 h-7 text-sm"
+					/>
+				</div>
+				<div className="w-px h-5 bg-stone-200 shrink-0" />
 				{SUGGESTION_STATUSES.map((status) => {
 					const isActive = statusFilter.includes(status);
 					return (
