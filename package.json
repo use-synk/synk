@@ -5,6 +5,7 @@
 	"scripts": {
 		"build": "turbo run build",
 		"dev": "turbo run dev --filter=./apps/*",
+		"start": "turbo run build --filter=@synk-ai/api --filter=@synk-ai/worker --filter=@synk-ai/web && turbo run start --filter=@synk-ai/api --filter=@synk-ai/worker --filter=@synk-ai/web",
 		"lint": "turbo run lint",
 		"lint:write": "turbo run lint:write",
 		"lint:unsafe": "turbo run lint:unsafe",

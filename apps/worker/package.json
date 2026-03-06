@@ -6,6 +6,7 @@
 	"scripts": {
 		"dev": "bun --env-file=../../.env --env-file=.env --watch src/worker.ts",
 		"build": "bun build src/worker.ts --outdir dist --format esm --target bun --sourcemap",
+		"start": "bun --env-file=../../.env --env-file=.env run dist/worker.js",
 		"lint": "biome check .",
 		"lint:write": "biome check . --write",
 		"lint:unsafe": "biome check . --write --unsafe",
