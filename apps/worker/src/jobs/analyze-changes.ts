@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { diffLines } from "diff";
 import { type Prisma, db } from "@synk-ai/db";
 import {
 	type DocAdapter,
@@ -208,31 +209,19 @@ const parseCredentialsOrFail = (): ReturnType<typeof credentialsFromEnvironment>
 
 // The following pure utility functions are exported for unit testing.
 
-const computeLcsLength = (a: readonly string[], b: readonly string[]): number => {
-	if (a.length === 0 || b.length === 0) return 0;
-	let prev = new Array<number>(b.length + 1).fill(0);
-	let curr = new Array<number>(b.length + 1).fill(0);
-	for (let i = 1; i <= a.length; i++) {
-		for (let j = 1; j <= b.length; j++) {
-			curr[j] = a[i - 1] === b[j - 1] ? prev[j - 1] + 1 : Math.max(prev[j], curr[j - 1]);
-		}
-		[prev, curr] = [curr, prev];
-		curr.fill(0);
-	}
-	return prev[b.length];
-};
-
 export const computeDiffStats = (
 	before: string,
 	after: string,
 ): { additions: number; deletions: number } => {
-	const beforeLines = before.split("\n");
-	const afterLines = after.split("\n");
-	const lcsLen = computeLcsLength(beforeLines, afterLines);
-	return {
-		deletions: beforeLines.length - lcsLen,
-		additions: afterLines.length - lcsLen,
-	};
+	const hunks = diffLines(before, after);
+	let additions = 0;
+	let deletions = 0;
+	for (const hunk of hunks) {
+		const count = hunk.count ?? 0;
+		if (hunk.added) additions += count;
+		else if (hunk.removed) deletions += count;
+	}
+	return { additions, deletions };
 };
 // They are internal implementation details and not considered public API.
 
