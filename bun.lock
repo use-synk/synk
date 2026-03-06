@@ -88,6 +88,7 @@
       "name": "@synk-ai/worker",
       "version": "0.0.0",
       "dependencies": {
+        "@synk-ai/ai": "workspace:*",
         "@synk-ai/db": "workspace:*",
         "@synk-ai/doc-adapters": "workspace:*",
         "@synk-ai/github": "workspace:*",
