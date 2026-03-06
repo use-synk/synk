@@ -18,5 +18,6 @@ export type {
 	SuggestionCreatePrCandidate,
 	SuggestionDetail,
 	SuggestionListFilter,
+	SuggestionStats,
 	SuggestionSummary,
 } from "./suggestion";

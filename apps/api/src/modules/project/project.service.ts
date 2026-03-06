@@ -1,9 +1,5 @@
+import { createDocUpdatePR, createInstallationOctokit, fetchFileContent } from "@synk-ai/github";
 import { HTTPException } from "hono/http-exception";
-import {
-	createDocUpdatePR,
-	createInstallationOctokit,
-	fetchFileContent,
-} from "@synk-ai/github";
 import type { PaginatedResult } from "../../domain";
 import type { Project, ProjectDetail } from "../../domain/models/project";
 import type {
@@ -16,16 +12,17 @@ import type {
 } from "../../domain/models/suggestion";
 import type {
 	BulkDecideProjectSuggestionsInput,
-	CreateProjectSuggestionsPrInput,
 	CreateProjectInput,
+	CreateProjectSuggestionsPrInput,
 	DecideProjectSuggestionInput,
 	DeleteProjectInput,
 	FindProjectInput,
-	GetProjectSuggestionInput,
 	GetProjectDetailInput,
-	ListProjectSuggestionsInput,
+	GetProjectSuggestionInput,
+	GetProjectSuggestionStatsInput,
 	ListOrganizationRepositoriesInput,
 	ListProjectRunsInput,
+	ListProjectSuggestionsInput,
 	ListProjectsInput,
 	ProjectServiceContract,
 	ProjectServiceDependencies,
@@ -259,6 +256,14 @@ export class ProjectService implements ProjectServiceContract {
 		return this.deps.projectRepository.listProjectSuggestions(input.projectId, input.filter);
 	}
 
+	async getProjectSuggestionStats(input: GetProjectSuggestionStatsInput) {
+		await this.deps.authorizationRepository.assertProjectAccess({
+			projectId: input.projectId,
+			userId: input.userId,
+		});
+		return this.deps.projectRepository.countProjectSuggestionStats(input.projectId);
+	}
+
 	async getProjectSuggestion(input: GetProjectSuggestionInput): Promise<SuggestionDetail> {
 		await this.deps.authorizationRepository.assertProjectAccess({
 			projectId: input.projectId,
@@ -322,7 +327,9 @@ export class ProjectService implements ProjectServiceContract {
 		return this.deps.projectRepository.findProjectSuggestionsByIds(input.projectId, suggestionIds);
 	}
 
-	async createProjectSuggestionsPr(input: CreateProjectSuggestionsPrInput): Promise<CreateSuggestionsPrResult> {
+	async createProjectSuggestionsPr(
+		input: CreateProjectSuggestionsPrInput,
+	): Promise<CreateSuggestionsPrResult> {
 		await this.deps.authorizationRepository.assertProjectAccess({
 			projectId: input.projectId,
 			userId: input.userId,
@@ -340,7 +347,9 @@ export class ProjectService implements ProjectServiceContract {
 			target.repositoryId,
 		);
 		if (suggestions.length === 0) {
-			throw new HTTPException(409, { message: "No accepted suggestions available for PR creation" });
+			throw new HTTPException(409, {
+				message: "No accepted suggestions available for PR creation",
+			});
 		}
 		const installationId = parseInstallationId(target.providerInstallationId);
 		const octokit = createInstallationOctokit(installationId, this.deps.githubCredentials);

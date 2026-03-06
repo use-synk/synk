@@ -1,4 +1,10 @@
-export type SuggestionStatus = "pending" | "accepted" | "declined" | "superseded" | "stale" | "applied";
+export type SuggestionStatus =
+	| "pending"
+	| "accepted"
+	| "declined"
+	| "superseded"
+	| "stale"
+	| "applied";
 
 export type SuggestionDecision = "accept" | "decline" | "reset";
 
@@ -7,6 +13,11 @@ export type SuggestionListFilter = {
 	pageSize: number;
 	status?: SuggestionStatus[];
 	search?: string;
+};
+
+export type SuggestionStats = {
+	pending: number;
+	accepted: number;
 };
 
 export type SuggestionDecider = {

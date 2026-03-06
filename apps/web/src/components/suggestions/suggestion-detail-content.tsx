@@ -9,6 +9,7 @@ import { compileMDX } from "next-mdx-remote/rsc";
 import { notFound } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { DiffView } from "./diff-view";
+import { SuggestionDecisionActions } from "./suggestion-decision-actions";
 import { SuggestionStatusIcon } from "./suggestions-list";
 
 type SuggestionDetailContentProps = {
@@ -30,7 +31,7 @@ export async function SuggestionDetailContent({
 	return (
 		<div className="h-full min-h-0 flex flex-col">
 			<div className="px-6 py-4 border-b border-stone-200 space-y-3 pb-12">
-				<div className="flex justify-start items-start gap-4">
+				<div className="flex justify-start items-start gap-4 flex-wrap">
 					<SuggestionStatusIcon status={suggestion.status} className="size-4 mt-1.5" />
 					<div>
 						<p className="grow max-w-xl text-lg font-medium text-stone-800">
@@ -41,6 +42,13 @@ export async function SuggestionDetailContent({
 							Last updated{" "}
 							{formatDistanceToNow(new Date(suggestion.updatedAt), { addSuffix: true })}
 						</p>
+					</div>
+					<div className="ml-auto pr-12">
+						<SuggestionDecisionActions
+							projectId={projectId}
+							suggestionId={suggestionId}
+							status={suggestion.status}
+						/>
 					</div>
 				</div>
 				<div className="flex items-center gap-6 flex-wrap text-xs text-stone-500 mt-6">

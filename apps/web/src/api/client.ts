@@ -2,6 +2,8 @@
 
 import type { StandardSchemaV1 } from "@/lib/types/standard-schema";
 import {
+	type UseMutationOptions,
+	useMutation as useTanStackMutation,
 	useQuery as useTanStackQuery,
 	useSuspenseQuery as useTanStackSuspenseQuery,
 } from "@tanstack/react-query";
@@ -85,6 +87,33 @@ export function useApiQuery<R extends StandardSchemaV1>({
 	return useTanStackQuery({
 		queryKey: key,
 		queryFn: async () => {
+			const res = await clientFetch(url, init, response);
+			return res.data;
+		},
+	});
+}
+
+export function useApiMutation<R extends StandardSchemaV1>(
+	{
+		url,
+		init,
+		response,
+	}: {
+		url: string;
+		init: RequestInit;
+		key: string[];
+		response: R;
+	},
+	options: UseMutationOptions<
+		StandardSchemaV1.InferOutput<R>,
+		Error,
+		Parameters<typeof clientFetch>[0],
+		unknown
+	>,
+) {
+	return useTanStackMutation({
+		...options,
+		mutationFn: async () => {
 			const res = await clientFetch(url, init, response);
 			return res.data;
 		},

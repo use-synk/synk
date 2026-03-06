@@ -84,6 +84,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{projectId}/suggestions/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getProjectSuggestionStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/projects/{projectId}/suggestions/{suggestionId}": {
         parameters: {
             query?: never;
@@ -587,6 +603,7 @@ export interface operations {
                 page?: number;
                 pageSize?: number;
                 status?: ("pending" | "accepted" | "declined" | "superseded" | "stale" | "applied")[];
+                search?: string;
             };
             header?: never;
             path: {
@@ -605,16 +622,27 @@ export interface operations {
                     "application/json": {
                         data: {
                             id: string;
+                            readableId: number;
                             projectId: string;
                             repositoryId: string;
                             runId: string;
                             docPath: string;
+                            baseDocSha: string;
                             /** @enum {string} */
                             status: "pending" | "accepted" | "declined" | "superseded" | "stale" | "applied";
+                            title: string | null;
                             reasoning: string | null;
                             fingerprint: string;
+                            diffAdditions: number;
+                            diffDeletions: number;
                             supersedesSuggestionId: string | null;
                             decidedByUserId: string | null;
+                            decidedByUser: {
+                                id: string;
+                                name: string;
+                                email: string;
+                                image: string | null;
+                            } | null;
                             decidedAt: string | null;
                             decisionNote: string | null;
                             createdAt: string;
@@ -635,6 +663,47 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getProjectSuggestionStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Project suggestion stats */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            pending: number;
+                            accepted: number;
+                        };
+                    };
+                };
             };
             /** @description Unauthorized */
             401: {
@@ -673,21 +742,31 @@ export interface operations {
                     "application/json": {
                         data: {
                             id: string;
+                            readableId: number;
                             projectId: string;
                             repositoryId: string;
                             runId: string;
                             docPath: string;
+                            baseDocSha: string;
                             /** @enum {string} */
                             status: "pending" | "accepted" | "declined" | "superseded" | "stale" | "applied";
+                            title: string | null;
                             reasoning: string | null;
                             fingerprint: string;
+                            diffAdditions: number;
+                            diffDeletions: number;
                             supersedesSuggestionId: string | null;
                             decidedByUserId: string | null;
+                            decidedByUser: {
+                                id: string;
+                                name: string;
+                                email: string;
+                                image: string | null;
+                            } | null;
                             decidedAt: string | null;
                             decisionNote: string | null;
                             createdAt: string;
                             updatedAt: string;
-                            baseDocSha: string;
                             beforeContent: string | null;
                             proposedContent: string;
                             appliedInBatchId: string | null;
@@ -747,21 +826,31 @@ export interface operations {
                     "application/json": {
                         data: {
                             id: string;
+                            readableId: number;
                             projectId: string;
                             repositoryId: string;
                             runId: string;
                             docPath: string;
+                            baseDocSha: string;
                             /** @enum {string} */
                             status: "pending" | "accepted" | "declined" | "superseded" | "stale" | "applied";
+                            title: string | null;
                             reasoning: string | null;
                             fingerprint: string;
+                            diffAdditions: number;
+                            diffDeletions: number;
                             supersedesSuggestionId: string | null;
                             decidedByUserId: string | null;
+                            decidedByUser: {
+                                id: string;
+                                name: string;
+                                email: string;
+                                image: string | null;
+                            } | null;
                             decidedAt: string | null;
                             decisionNote: string | null;
                             createdAt: string;
                             updatedAt: string;
-                            baseDocSha: string;
                             beforeContent: string | null;
                             proposedContent: string;
                             appliedInBatchId: string | null;
@@ -835,21 +924,31 @@ export interface operations {
                     "application/json": {
                         data: {
                             id: string;
+                            readableId: number;
                             projectId: string;
                             repositoryId: string;
                             runId: string;
                             docPath: string;
+                            baseDocSha: string;
                             /** @enum {string} */
                             status: "pending" | "accepted" | "declined" | "superseded" | "stale" | "applied";
+                            title: string | null;
                             reasoning: string | null;
                             fingerprint: string;
+                            diffAdditions: number;
+                            diffDeletions: number;
                             supersedesSuggestionId: string | null;
                             decidedByUserId: string | null;
+                            decidedByUser: {
+                                id: string;
+                                name: string;
+                                email: string;
+                                image: string | null;
+                            } | null;
                             decidedAt: string | null;
                             decisionNote: string | null;
                             createdAt: string;
                             updatedAt: string;
-                            baseDocSha: string;
                             beforeContent: string | null;
                             proposedContent: string;
                             appliedInBatchId: string | null;

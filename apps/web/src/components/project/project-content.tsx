@@ -1,4 +1,5 @@
 import type { projectDetailSchema, runSummarySchema } from "@/api/endpoints";
+import { SuggestionStatsHeader } from "@/components/suggestions/suggestion-stats-header";
 import { SuggestionsList } from "@/components/suggestions/suggestions-list";
 import { cn } from "@/lib/utils";
 import type { runStatusSchema } from "@synk-ai/shared";
@@ -95,8 +96,11 @@ function SuggestionsTab({ projectId }: { projectId: string }) {
 	return (
 		<PageTabPanel value={"suggestions"}>
 			<section className="pb-12">
-				<div className="mx-auto px-8 w-full max-w-7xl">
+				<div className="mx-auto px-8 w-full max-w-7xl flex justify-between items-center gap-6">
 					<p className="text-lg font-medium text-stone-800">Suggestions</p>
+					<div className="mt-1">
+						<SuggestionStatsHeader projectId={projectId} />
+					</div>
 				</div>
 			</section>
 			<section>

@@ -101,6 +101,11 @@ const suggestionDetailSchema = suggestionSummarySchema.extend({
 	appliedInBatchId: z.string().nullable(),
 });
 
+export const suggestionStatsSchema = z.object({
+	pending: z.number().int().min(0),
+	accepted: z.number().int().min(0),
+});
+
 const listProjectSuggestionsPropsSchema = z.object({
 	projectId: z.string().min(1),
 	page: z.number().int().min(1).default(1),
@@ -112,6 +117,10 @@ const listProjectSuggestionsPropsSchema = z.object({
 const getProjectSuggestionPropsSchema = z.object({
 	projectId: z.string().min(1),
 	suggestionId: z.string().min(1),
+});
+
+const getProjectSuggestionStatsPropsSchema = z.object({
+	projectId: z.string().min(1),
 });
 
 const decideProjectSuggestionPropsSchema = z.object({
@@ -256,6 +265,22 @@ export function getProjectSuggestion(props: z.input<typeof getProjectSuggestionP
 		init: { method: "GET" },
 		response: z.object({ data: suggestionDetailSchema }),
 		key: ["projects", parsed.data.projectId, "suggestions", parsed.data.suggestionId],
+	} satisfies ApiQuery;
+}
+
+export function getProjectSuggestionStats(
+	props: z.input<typeof getProjectSuggestionStatsPropsSchema>,
+) {
+	const parsed = getProjectSuggestionStatsPropsSchema.safeParse(props);
+	if (!parsed.success) {
+		throw new ValidationError("params", parsed.error.issues);
+	}
+
+	return {
+		url: `/projects/${parsed.data.projectId}/suggestions/stats`,
+		init: { method: "GET" },
+		response: z.object({ data: suggestionStatsSchema }),
+		key: ["projects", parsed.data.projectId, "suggestions", "stats"],
 	} satisfies ApiQuery;
 }
 

@@ -60,7 +60,7 @@ export const createApp = (options: AppOptions): OpenAPIHono<AppEnv> => {
 		cors({
 			origin: env.CORS_ORIGIN,
 			allowHeaders: ["Content-Type", "Authorization"],
-			allowMethods: ["POST", "GET", "OPTIONS"],
+			allowMethods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
 			exposeHeaders: ["Content-Length"],
 			maxAge: 600,
 			credentials: true,

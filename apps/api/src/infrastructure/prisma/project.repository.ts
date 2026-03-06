@@ -1,4 +1,4 @@
-import { type Prisma, type db } from "@synk-ai/db";
+import type { Prisma, db } from "@synk-ai/db";
 import type { ProjectRepository } from "../../domain/ports";
 
 type PrismaProjectClient = Pick<
@@ -176,6 +176,38 @@ export const createPrismaProjectRepository = (client: PrismaProjectClient): Proj
 			}),
 		]);
 		return { items, total };
+	},
+	countProjectSuggestionStats: async (projectId) => {
+		const counts = await client.suggestion.groupBy({
+			by: ["status"],
+			where: {
+				projectId,
+				status: {
+					in: ["pending", "accepted"],
+				},
+			},
+			_count: {
+				_all: true,
+			},
+		});
+
+		let pending = 0;
+		let accepted = 0;
+
+		for (const item of counts) {
+			if (item.status === "pending") {
+				pending = item._count._all;
+				continue;
+			}
+			if (item.status === "accepted") {
+				accepted = item._count._all;
+			}
+		}
+
+		return {
+			pending,
+			accepted,
+		};
 	},
 	findProjectSuggestion: async (projectId, suggestionId) =>
 		client.suggestion.findFirst({

@@ -130,6 +130,7 @@ const createDependencies = (): ProjectServiceDependencies => {
 			throw new Error("deleteProject should not be called");
 		}),
 		listProjectSuggestions: mock(async () => ({ items: [], total: 0 })),
+		countProjectSuggestionStats: mock(async () => ({ pending: 0, accepted: 0 })),
 		findProjectSuggestion: mock(async () => null),
 		findProjectSuggestionsByIds: mock(async () => []),
 		updateSuggestionDecision: mock(async () => SUGGESTION_DETAIL),
@@ -678,6 +679,27 @@ describe("ProjectService suggestion decisions", () => {
 				decision: "accept",
 			}),
 		).rejects.toMatchObject({ status: 404 } satisfies Pick<HTTPException, "status">);
+	});
+
+	it("returns suggestion stats for pending and accepted statuses", async () => {
+		const deps = createDependencies();
+		deps.projectRepository.countProjectSuggestionStats = mock(async () => ({
+			pending: 9,
+			accepted: 3,
+		}));
+		const service = new ProjectService(deps);
+
+		const result = await service.getProjectSuggestionStats({
+			userId: USER_ID,
+			projectId: PROJECT_ID,
+		});
+
+		expect(deps.authorizationRepository.assertProjectAccess).toHaveBeenCalledWith({
+			projectId: PROJECT_ID,
+			userId: USER_ID,
+		});
+		expect(deps.projectRepository.countProjectSuggestionStats).toHaveBeenCalledWith(PROJECT_ID);
+		expect(result).toEqual({ pending: 9, accepted: 3 });
 	});
 
 	it("rejects decision transitions for superseded suggestions", async () => {
