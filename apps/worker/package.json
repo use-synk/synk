@@ -13,11 +13,14 @@
 		"test": "bun --env-file=../../.env --env-file=.env test src/__tests__ --coverage"
 	},
 	"dependencies": {
+		"@synk-ai/ai": "workspace:*",
 		"@synk-ai/db": "workspace:*",
 		"@synk-ai/doc-adapters": "workspace:*",
 		"@synk-ai/github": "workspace:*",
 		"@synk-ai/shared": "workspace:*",
+		"@types/diff": "^8.0.0",
 		"bullmq": "^5.58.5",
+		"diff": "^8.0.3",
 		"pino": "^9.7.0",
 		"zod": "^4.3.6"
 	},

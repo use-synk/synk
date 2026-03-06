@@ -76,17 +76,30 @@ export function createProjectsRoutes({
 		"applied",
 	]);
 
+	const suggestionDeciderSchema = openApiZ.object({
+		id: openApiZ.string(),
+		name: openApiZ.string(),
+		email: openApiZ.string(),
+		image: openApiZ.string().nullable(),
+	});
+
 	const suggestionSummarySchema = openApiZ.object({
 		id: openApiZ.string(),
+		readableId: openApiZ.number().int(),
 		projectId: openApiZ.string(),
 		repositoryId: openApiZ.string(),
 		runId: openApiZ.string(),
 		docPath: openApiZ.string(),
+		baseDocSha: openApiZ.string(),
 		status: suggestionStatusSchema,
+		title: openApiZ.string().nullable(),
 		reasoning: openApiZ.string().nullable(),
 		fingerprint: openApiZ.string(),
+		diffAdditions: openApiZ.number().int(),
+		diffDeletions: openApiZ.number().int(),
 		supersedesSuggestionId: openApiZ.string().nullable(),
 		decidedByUserId: openApiZ.string().nullable(),
+		decidedByUser: suggestionDeciderSchema.nullable(),
 		decidedAt: openApiZ.string().nullable(),
 		decisionNote: openApiZ.string().nullable(),
 		createdAt: openApiZ.string(),
@@ -94,7 +107,6 @@ export function createProjectsRoutes({
 	});
 
 	const suggestionDetailSchema = suggestionSummarySchema.extend({
-		baseDocSha: openApiZ.string(),
 		beforeContent: openApiZ.string().nullable(),
 		proposedContent: openApiZ.string(),
 		appliedInBatchId: openApiZ.string().nullable(),

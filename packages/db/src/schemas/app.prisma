@@ -299,31 +299,37 @@ model SuggestionBatch {
 }
 
 model Suggestion {
-  id                    String          @id @default(uuid())
+  id                    String           @id @default(uuid())
+  readableId            Int
   projectId             String
-  project               Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project               Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
   repositoryId          String
   repository            ProviderRepository @relation(fields: [repositoryId], references: [id])
   runId                 String
-  run                   AnalysisRun     @relation(fields: [runId], references: [id], onDelete: Cascade)
+  run                   AnalysisRun      @relation(fields: [runId], references: [id], onDelete: Cascade)
   docPath               String
   baseDocSha            String
   beforeContent         String?
   proposedContent       String
   reasoning             String?
+  title                 String?
+  diffAdditions         Int              @default(0)
+  diffDeletions         Int              @default(0)
   fingerprint           String
   status                SuggestionStatus @default(pending)
   supersedesSuggestionId String?
-  supersedesSuggestion  Suggestion?     @relation("SuggestionSupersede", fields: [supersedesSuggestionId], references: [id])
-  supersededBy          Suggestion[]    @relation("SuggestionSupersede")
-  decidedByUserId       String?         @db.Uuid
+  supersedesSuggestion  Suggestion?      @relation("SuggestionSupersede", fields: [supersedesSuggestionId], references: [id])
+  supersededBy          Suggestion[]     @relation("SuggestionSupersede")
+  decidedByUserId       String?          @db.Uuid
+  decidedByUser         User?            @relation("SuggestionDecider", fields: [decidedByUserId], references: [id])
   decidedAt             DateTime?
   decisionNote          String?
   appliedInBatchId      String?
   appliedInBatch        SuggestionBatch? @relation(fields: [appliedInBatchId], references: [id])
-  createdAt             DateTime        @default(now())
-  updatedAt             DateTime        @updatedAt
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
 
+  @@unique([projectId, readableId])
   @@index([projectId])
   @@index([repositoryId])
   @@index([runId])

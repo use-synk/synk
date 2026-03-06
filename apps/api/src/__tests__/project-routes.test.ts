@@ -102,15 +102,21 @@ const RUN_LIST_ITEM = {
 
 const SUGGESTION_SUMMARY_ITEM = {
 	id: "suggestion-1",
+	readableId: 1,
 	projectId: PROJECT_ID,
 	repositoryId: DOCS_REPOSITORY_ID,
 	runId: RUN_LIST_ITEM.id,
 	docPath: "docs/getting-started.md",
+	baseDocSha: "abc123",
 	status: "pending" as const,
+	title: null,
 	reasoning: "Docs should include the new setup step.",
 	fingerprint: "fp-1",
+	diffAdditions: 5,
+	diffDeletions: 2,
 	supersedesSuggestionId: null,
 	decidedByUserId: null,
+	decidedByUser: null,
 	decidedAt: null,
 	decisionNote: null,
 	createdAt: NOW,
@@ -119,7 +125,6 @@ const SUGGESTION_SUMMARY_ITEM = {
 
 const SUGGESTION_DETAIL_ITEM = {
 	...SUGGESTION_SUMMARY_ITEM,
-	baseDocSha: "abc123",
 	beforeContent: "# Old content",
 	proposedContent: "# New content",
 	appliedInBatchId: null,

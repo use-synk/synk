@@ -15,3 +15,8 @@ export {
 	type DocumentChange,
 	type SummarizationPromptParams,
 } from "./summarization.js";
+export {
+	VERSION as TITLE_PROMPT_VERSION,
+	buildTitlePrompt,
+	type TitlePromptParams,
+} from "./title.js";

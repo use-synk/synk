@@ -12,6 +12,7 @@ describe("model selection", () => {
 		expect(selection).toEqual({
 			triage: "openai/gpt-5-mini",
 			generate: DEFAULT_MODEL_SELECTION.generate,
+			title: DEFAULT_MODEL_SELECTION.title,
 		});
 	});
 

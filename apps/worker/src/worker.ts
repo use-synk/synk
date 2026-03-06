@@ -1,3 +1,4 @@
+import { createSuggestionTitle } from "@synk-ai/ai";
 import { db } from "@synk-ai/db";
 import {
 	ANALYZE_CHANGES_COALESCE_WINDOW_MS,
@@ -13,7 +14,7 @@ import {
 } from "@synk-ai/shared";
 import { type Job, type JobsOptions, UnrecoverableError } from "bullmq";
 import { parseWorkerEnvironment } from "./env";
-import { processAnalyzeChangesJob } from "./jobs/analyze-changes";
+import { type AnalyzeChangesServices, processAnalyzeChangesJob } from "./jobs/analyze-changes";
 import { createLogger } from "./logger";
 import {
 	type AnalyzeChangesDlqPayload,
@@ -181,12 +182,25 @@ const startWorker = async (): Promise<void> => {
 		"suggestion inbox rollout flags",
 	);
 
+	const titleGenerator =
+		env.OPENROUTER_API_KEY !== undefined
+			? createSuggestionTitle({ apiKey: env.OPENROUTER_API_KEY })
+			: null;
+
+	const servicesOverride: Partial<AnalyzeChangesServices> | undefined =
+		titleGenerator !== null
+			? {
+					generateSuggestionTitle: (input) =>
+						titleGenerator.generate(input).then((r) => r.title).catch(() => null),
+				}
+			: undefined;
+
 	const worker = createAnalyzeChangesWorker({
 		connection,
 		concurrency: env.WORKER_CONCURRENCY,
 		processor: async (job: Job<AnalyzeChangesJobPayload>) => {
 			await updatePayloadFromPending(analyzeChangesQueue, job);
-			await processAnalyzeChangesJob(job, logger, undefined, {
+			await processAnalyzeChangesJob(job, logger, servicesOverride, {
 				autoPrEnabled: suggestionInboxRollout.autoPrEnabled,
 				decisionMemoryEnabled: suggestionInboxRollout.decisionMemoryEnabled,
 			});

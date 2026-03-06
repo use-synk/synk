@@ -6,6 +6,43 @@ type PrismaProjectClient = Pick<
 	"project" | "providerRepository" | "suggestion" | "suggestionBatch"
 >;
 
+const decidedByUserSelect = {
+	id: true,
+	name: true,
+	email: true,
+	image: true,
+} as const;
+
+const suggestionSummarySelect = {
+	id: true,
+	readableId: true,
+	projectId: true,
+	repositoryId: true,
+	runId: true,
+	docPath: true,
+	baseDocSha: true,
+	status: true,
+	title: true,
+	reasoning: true,
+	fingerprint: true,
+	diffAdditions: true,
+	diffDeletions: true,
+	supersedesSuggestionId: true,
+	decidedByUserId: true,
+	decidedByUser: { select: decidedByUserSelect },
+	decidedAt: true,
+	decisionNote: true,
+	createdAt: true,
+	updatedAt: true,
+} as const;
+
+const suggestionDetailSelect = {
+	...suggestionSummarySelect,
+	beforeContent: true,
+	proposedContent: true,
+	appliedInBatchId: true,
+} as const;
+
 export const createPrismaProjectRepository = (client: PrismaProjectClient): ProjectRepository => ({
 	findProject: async (projectId) => {
 		return await client.project.findUnique({
@@ -127,22 +164,7 @@ export const createPrismaProjectRepository = (client: PrismaProjectClient): Proj
 				orderBy: { createdAt: "desc" },
 				skip,
 				take: filter.pageSize,
-				select: {
-					id: true,
-					projectId: true,
-					repositoryId: true,
-					runId: true,
-					docPath: true,
-					status: true,
-					reasoning: true,
-					fingerprint: true,
-					supersedesSuggestionId: true,
-					decidedByUserId: true,
-					decidedAt: true,
-					decisionNote: true,
-					createdAt: true,
-					updatedAt: true,
-				},
+				select: suggestionSummarySelect,
 			}),
 		]);
 		return { items, total };
@@ -153,26 +175,7 @@ export const createPrismaProjectRepository = (client: PrismaProjectClient): Proj
 				id: suggestionId,
 				projectId,
 			},
-			select: {
-				id: true,
-				projectId: true,
-				repositoryId: true,
-				runId: true,
-				docPath: true,
-				baseDocSha: true,
-				beforeContent: true,
-				proposedContent: true,
-				reasoning: true,
-				fingerprint: true,
-				status: true,
-				supersedesSuggestionId: true,
-				decidedByUserId: true,
-				decidedAt: true,
-				decisionNote: true,
-				appliedInBatchId: true,
-				createdAt: true,
-				updatedAt: true,
-			},
+			select: suggestionDetailSelect,
 		}),
 	findProjectSuggestionsByIds: async (projectId, suggestionIds) =>
 		client.suggestion.findMany({
@@ -180,51 +183,13 @@ export const createPrismaProjectRepository = (client: PrismaProjectClient): Proj
 				projectId,
 				id: { in: [...suggestionIds] },
 			},
-			select: {
-				id: true,
-				projectId: true,
-				repositoryId: true,
-				runId: true,
-				docPath: true,
-				baseDocSha: true,
-				beforeContent: true,
-				proposedContent: true,
-				reasoning: true,
-				fingerprint: true,
-				status: true,
-				supersedesSuggestionId: true,
-				decidedByUserId: true,
-				decidedAt: true,
-				decisionNote: true,
-				appliedInBatchId: true,
-				createdAt: true,
-				updatedAt: true,
-			},
+			select: suggestionDetailSelect,
 		}),
 	updateSuggestionDecision: async (suggestionId, patch) =>
 		client.suggestion.update({
 			where: { id: suggestionId },
 			data: patch,
-			select: {
-				id: true,
-				projectId: true,
-				repositoryId: true,
-				runId: true,
-				docPath: true,
-				baseDocSha: true,
-				beforeContent: true,
-				proposedContent: true,
-				reasoning: true,
-				fingerprint: true,
-				status: true,
-				supersedesSuggestionId: true,
-				decidedByUserId: true,
-				decidedAt: true,
-				decisionNote: true,
-				appliedInBatchId: true,
-				createdAt: true,
-				updatedAt: true,
-			},
+			select: suggestionDetailSelect,
 		}),
 	updateSuggestionsDecision: async (suggestionIds, patch) => {
 		await client.suggestion.updateMany({

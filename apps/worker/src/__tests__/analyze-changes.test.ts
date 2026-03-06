@@ -14,6 +14,7 @@ const mockUpdateProviderRepository = mock().mockResolvedValue({});
 const mockUpsertAnalysisRun = mock();
 const mockUpdateAnalysisRun = mock();
 const mockCreateSuggestion = mock();
+const mockAggregateSuggestion = mock();
 const mockDbTransaction = mock();
 const mockFindFirstSuggestion = mock();
 const mockFindManySuggestions = mock();
@@ -46,6 +47,7 @@ mock.module("@synk-ai/db", () => ({
 		},
 		suggestion: {
 			create: mockCreateSuggestion,
+			aggregate: mockAggregateSuggestion,
 			findFirst: mockFindFirstSuggestion,
 			findMany: mockFindManySuggestions,
 			updateMany: mockUpdateManySuggestions,
@@ -494,6 +496,7 @@ describe("processAnalyzeChangesJob", () => {
 		mockFindFirstSuggestion.mockResolvedValue(null);
 		mockFindManySuggestions.mockResolvedValue([]);
 		mockUpdateManySuggestions.mockResolvedValue({ count: 0 });
+		mockAggregateSuggestion.mockResolvedValue({ _max: { readableId: null } });
 		mockCreateSuggestion.mockImplementation(async ({ data }) => ({
 			id: `suggestion-${data.docPath}`,
 			docPath: data.docPath,
@@ -503,6 +506,7 @@ describe("processAnalyzeChangesJob", () => {
 			handler({
 				suggestion: {
 					create: mockCreateSuggestion,
+					aggregate: mockAggregateSuggestion,
 					findFirst: mockFindFirstSuggestion,
 					findMany: mockFindManySuggestions,
 					updateMany: mockUpdateManySuggestions,

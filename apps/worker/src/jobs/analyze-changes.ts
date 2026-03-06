@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { diffLines } from "diff";
 import { type Prisma, db } from "@synk-ai/db";
 import {
 	type DocAdapter,
@@ -115,6 +116,9 @@ type SuggestionDraft = {
 	beforeContent: string;
 	proposedContent: string;
 	reasoning?: string;
+	title: string | null;
+	diffAdditions: number;
+	diffDeletions: number;
 };
 
 type PersistedSuggestion = {
@@ -153,7 +157,7 @@ type RepoLocation = {
 	ref: string;
 };
 
-type AnalyzeChangesServices = {
+export type AnalyzeChangesServices = {
 	runTriage: (input: {
 		filteredDiff: readonly DiffFile[];
 		docTree: ReturnType<DocAdapter["parseStructure"]>;
@@ -180,6 +184,12 @@ type AnalyzeChangesServices = {
 		};
 		config: PullRequestConfig;
 	}) => Promise<PullRequestResult>;
+	generateSuggestionTitle: (input: {
+		docPath: string;
+		reasoning: string | undefined;
+		beforeContent: string;
+		afterContent: string;
+	}) => Promise<string | null>;
 };
 
 /**
@@ -198,6 +208,21 @@ const parseCredentialsOrFail = (): ReturnType<typeof credentialsFromEnvironment>
 };
 
 // The following pure utility functions are exported for unit testing.
+
+export const computeDiffStats = (
+	before: string,
+	after: string,
+): { additions: number; deletions: number } => {
+	const hunks = diffLines(before, after);
+	let additions = 0;
+	let deletions = 0;
+	for (const hunk of hunks) {
+		const count = hunk.count ?? 0;
+		if (hunk.added) additions += count;
+		else if (hunk.removed) deletions += count;
+	}
+	return { additions, deletions };
+};
 // They are internal implementation details and not considered public API.
 
 export const normalizeTokenUsage = (value: Partial<TokenUsage> | undefined): TokenUsage => {
@@ -775,6 +800,11 @@ const persistSuggestions = async (input: {
 	db.$transaction(async (tx) => {
 		const persisted: PersistedSuggestion[] = [];
 		const skipped: SkippedSuggestion[] = [];
+		const { _max } = await tx.suggestion.aggregate({
+			where: { projectId: input.projectId },
+			_max: { readableId: true },
+		});
+		let nextReadableId = (_max.readableId ?? 0) + 1;
 		for (const suggestion of input.suggestions) {
 			const fingerprint = buildSuggestionFingerprint({
 				projectId: input.projectId,
@@ -855,8 +885,12 @@ const persistSuggestions = async (input: {
 					beforeContent: suggestion.beforeContent,
 					proposedContent: suggestion.proposedContent,
 					reasoning: suggestion.reasoning,
+					title: suggestion.title,
+					diffAdditions: suggestion.diffAdditions,
+					diffDeletions: suggestion.diffDeletions,
 					fingerprint,
 					supersedesSuggestionId,
+					readableId: nextReadableId++,
 				},
 				select: {
 					id: true,
@@ -1122,6 +1156,7 @@ const defaultServices: AnalyzeChangesServices = {
 	runTriage: defaultRunTriage,
 	runGeneration: defaultRunGeneration,
 	createPullRequest: defaultCreatePullRequest,
+	generateSuggestionTitle: async () => null,
 };
 
 const defaultOptions: AnalyzeChangesOptions = {
@@ -1132,9 +1167,10 @@ const defaultOptions: AnalyzeChangesOptions = {
 export const processAnalyzeChangesJob = async (
 	job: Job<AnalyzeChangesJobPayload>,
 	logger: Logger,
-	services: AnalyzeChangesServices = defaultServices,
+	servicesOverride?: Partial<AnalyzeChangesServices>,
 	options: AnalyzeChangesOptions = defaultOptions,
 ): Promise<void> => {
+	const services: AnalyzeChangesServices = { ...defaultServices, ...servicesOverride };
 	const jobLogger = logger.child({
 		jobId: job.id ?? "unknown",
 		attemptNumber: job.attemptsMade + 1,
@@ -1343,15 +1379,42 @@ export const processAnalyzeChangesJob = async (
 				);
 				continue;
 			}
+			const { additions, deletions } = computeDiffStats(
+				currentFile.content,
+				output.content,
+			);
 			meaningfulChanges.push({
 				docPath: output.path,
 				baseDocSha,
 				beforeContent: currentFile.content,
 				proposedContent: output.content,
 				reasoning: output.reasoning,
+				title: null,
+				diffAdditions: additions,
+				diffDeletions: deletions,
 			});
 		}
-		if (meaningfulChanges.length === 0) {
+
+		const { value: titledChanges, durationMs: titleDurationMs } = await measureStep(
+			jobLogger,
+			runId,
+			"generate-suggestion-titles",
+			async () => {
+				const results: SuggestionDraft[] = [];
+				for (const change of meaningfulChanges) {
+					const title = await services.generateSuggestionTitle({
+						docPath: change.docPath,
+						reasoning: change.reasoning,
+						beforeContent: change.beforeContent,
+						afterContent: change.proposedContent,
+					}).catch(() => null);
+					results.push({ ...change, title });
+				}
+				return results;
+			},
+		);
+		timings.generateSuggestionTitles = titleDurationMs;
+		if (titledChanges.length === 0) {
 			await updateRunStatus(runId, RUN_STATUS_COMPLETED, {
 				docsAffected: false,
 				suggestionsCount: 0,
@@ -1389,7 +1452,7 @@ export const processAnalyzeChangesJob = async (
 						projectId: repository.projectId,
 						repositoryId: suggestionRepositoryId,
 						runId,
-						suggestions: meaningfulChanges,
+						suggestions: titledChanges,
 						decisionMemoryEnabled: options.decisionMemoryEnabled,
 					}),
 				);
@@ -1422,7 +1485,7 @@ export const processAnalyzeChangesJob = async (
 					owner: docsLocation.owner,
 					repo: docsLocation.repo,
 					baseBranch: docsLocation.ref,
-					files: meaningfulChanges.map((change) => ({
+					files: titledChanges.map((change) => ({
 						path: change.docPath,
 						content: change.proposedContent,
 						reasoning: change.reasoning,
@@ -1441,7 +1504,7 @@ export const processAnalyzeChangesJob = async (
 			docsAffected: true,
 			docPrNumber: prResult.prNumber,
 			docPrUrl: prResult.prUrl,
-			suggestionsCount: meaningfulChanges.length,
+			suggestionsCount: titledChanges.length,
 			tokenUsage: aggregateTokenUsage(triageUsage, generationUsage),
 			result: runResultBase,
 		});
