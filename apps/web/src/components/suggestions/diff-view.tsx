@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import { codeToTokens } from "shiki";
+import { type BundledLanguage, codeToTokens } from "shiki";
 import type { RenderedHunk, RenderedLine } from "./diff-view-utils";
 import { buildDiffLines, buildHunks, buildRenderedHunks } from "./diff-view-utils";
 
@@ -52,8 +52,10 @@ export async function DiffView({ oldContent, newContent, language, filename }: D
 	const safeNew = newContent || "\n";
 
 	const [oldResult, newResult] = await Promise.all([
-		codeToTokens(safeOld, { lang: safeLanguage, theme: "github-light" }),
-		codeToTokens(safeNew, { lang: safeLanguage, theme: "github-light" }),
+		// TODO: unsafe cast
+		codeToTokens(safeOld, { lang: safeLanguage as BundledLanguage, theme: "github-light" }),
+		// TODO: unsafe cast
+		codeToTokens(safeNew, { lang: safeLanguage as BundledLanguage, theme: "github-light" }),
 	]);
 
 	const renderedHunks = buildRenderedHunks(hunks, oldResult.tokens, newResult.tokens);
@@ -66,6 +68,7 @@ export async function DiffView({ oldContent, newContent, language, filename }: D
 				</div>
 			)}
 			{renderedHunks.map((hunk, i) => (
+				// biome-ignore lint/suspicious/noArrayIndexKey: hunk order is stable render-to-render
 				<DiffHunk key={hunk.header + i} hunk={hunk} isFirst={i === 0} />
 			))}
 		</div>
@@ -83,7 +86,8 @@ export async function DiffView({ oldContent, newContent, language, filename }: D
  */
 async function resolveLanguage(language: string): Promise<string> {
 	try {
-		await codeToTokens("", { lang: language, theme: "github-light" });
+		// TODO: unsafe cast
+		await codeToTokens("", { lang: language as BundledLanguage, theme: "github-light" });
 		return language;
 	} catch {
 		return "text";
