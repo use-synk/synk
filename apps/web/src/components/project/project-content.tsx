@@ -1,26 +1,16 @@
-import type {
-	projectDetailSchema,
-	runSummarySchema,
-	suggestionSummarySchema,
-} from "@/api/endpoints";
+import type { projectDetailSchema, runSummarySchema } from "@/api/endpoints";
+import { SuggestionsList } from "@/components/suggestions/suggestions-list";
 import { cn } from "@/lib/utils";
 import type { runStatusSchema } from "@synk-ai/shared";
-import { format, formatDistanceToNow } from "date-fns";
+import { format } from "date-fns";
 import {
 	CheckIcon,
 	CircleXIcon,
 	ClockIcon,
 	GitBranchIcon,
 	GitCommitIcon,
-	GitMergeConflictIcon,
-	GitMergeIcon,
-	GitPullRequestArrowIcon,
-	GitPullRequestClosedIcon,
-	GitPullRequestDraftIcon,
-	GitPullRequestIcon,
 	Loader2Icon,
 	TriangleAlertIcon,
-	UserCircle2Icon,
 	XIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -30,7 +20,6 @@ import type z from "zod";
 import { type PageTabItem, PageTabList, PageTabPanel, PageTabs } from "../page-tabs";
 import { PageDescription, PageTitle } from "../typography";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import { Badge } from "../ui/badge";
 import { GithubLight } from "../ui/svgs/githubLight";
 
 export const projectTabItems: PageTabItem[] = [
@@ -51,11 +40,9 @@ export const projectTabItems: PageTabItem[] = [
 export function ProjectContent({
 	projectDetail,
 	runs,
-	suggestions,
 }: {
 	projectDetail: z.infer<typeof projectDetailSchema>;
 	runs: z.infer<typeof runSummarySchema>[];
-	suggestions: z.infer<typeof suggestionSummarySchema>[];
 }) {
 	return (
 		<PageTabs tabs={projectTabItems}>
@@ -66,7 +53,7 @@ export function ProjectContent({
 			</section>
 			<main className="py-12">
 				<OverviewTab projectDetail={projectDetail} />
-				<SuggestionsTab suggestions={suggestions} />
+				<SuggestionsTab projectId={projectDetail.id} />
 				<RunsTab runs={runs} />
 			</main>
 		</PageTabs>
@@ -104,32 +91,7 @@ function OverviewTab({
 
 /* ----- Suggestions -------------------------------------------------------------- */
 
-function SuggestionStatusIcon({
-	status,
-	className,
-	...props
-}: React.ComponentProps<"svg"> & { status: z.infer<typeof suggestionSummarySchema>["status"] }) {
-	switch (status) {
-		case "accepted":
-			return <GitPullRequestArrowIcon className={cn("text-green-500", className)} {...props} />;
-		case "applied":
-			return <GitPullRequestIcon className={cn("text-violet-500", className)} {...props} />;
-		case "declined":
-			return <GitPullRequestClosedIcon className={cn("text-red-500", className)} {...props} />;
-		case "pending":
-			return <GitPullRequestDraftIcon className={cn("text-gray-500", className)} {...props} />;
-		case "stale":
-			return <GitMergeIcon className={cn("text-gray-500", className)} {...props} />;
-		case "superseded":
-			return <GitMergeConflictIcon className={cn("text-red-500", className)} {...props} />;
-		default:
-			return <XIcon className={cn("text-gray-500", className)} {...props} />;
-	}
-}
-
-function SuggestionsTab({
-	suggestions,
-}: { suggestions: z.infer<typeof suggestionSummarySchema>[] }) {
+function SuggestionsTab({ projectId }: { projectId: string }) {
 	return (
 		<PageTabPanel value={"suggestions"}>
 			<section className="pb-12">
@@ -138,52 +100,9 @@ function SuggestionsTab({
 				</div>
 			</section>
 			<section>
-				<ul className="max-w-7xl w-full mx-auto px-8 space-y-2">
-					{suggestions.map((suggestion) => (
-						<li key={suggestion.id} className="border border-stone-200 rounded-md">
-							<div
-								className={cn(
-									"flex justify-start items-center gap-2 h-11 px-4 py-1",
-									suggestion.status === "superseded" && "opacity-60",
-								)}
-							>
-								<SuggestionStatusIcon status={suggestion.status} className="size-4" />
-								<p className="text-sm font-medium text-stone-800 ml-2">
-									<span className="text-sm text-stone-500">#{suggestion.readableId}:</span>{" "}
-									{suggestion.title ?? "Untitled suggestion"}
-								</p>
-								<Badge variant={"outline"} className="font-normal text-stone-500 ml-2">
-									{suggestion.docPath}
-								</Badge>
-								<div className="flex justify-center items-center gap-1 ml-2">
-									<span className="text-xs text-green-500 font-medium">
-										+{suggestion.diffAdditions}
-									</span>
-									<span className="text-xs text-red-500 font-medium">
-										-{suggestion.diffDeletions}
-									</span>
-								</div>
-								<p className="text-sm text-stone-500 ml-auto">
-									{formatDistanceToNow(new Date(suggestion.createdAt), { addSuffix: true })}
-								</p>
-								<div className="ml-2">
-									{suggestion.decidedByUser !== null ? (
-										<div className="flex justify-start items-center gap-2">
-											<Avatar className={"shrink-0 size-4"}>
-												<AvatarImage src={suggestion.decidedByUser.image ?? ""} />
-												<AvatarFallback>
-													{suggestion.decidedByUser.name.charAt(0)}
-												</AvatarFallback>
-											</Avatar>
-										</div>
-									) : (
-										<UserCircle2Icon className="size-4 text-stone-500" />
-									)}
-								</div>
-							</div>
-						</li>
-					))}
-				</ul>
+				<div className="max-w-7xl w-full mx-auto px-8">
+					<SuggestionsList projectId={projectId} />
+				</div>
 			</section>
 		</PageTabPanel>
 	);
