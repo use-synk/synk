@@ -65,17 +65,30 @@ const suggestionStatusSchema = z.enum([
 
 const suggestionDecisionSchema = z.enum(["accept", "decline", "reset"]);
 
-const suggestionSummarySchema = z.object({
+const suggestionDeciderSchema = z.object({
 	id: z.string(),
+	name: z.string(),
+	email: z.string(),
+	image: z.string().nullable(),
+});
+
+export const suggestionSummarySchema = z.object({
+	id: z.string(),
+	readableId: z.number().int(),
 	projectId: z.string(),
 	repositoryId: z.string(),
 	runId: z.string(),
 	docPath: z.string(),
+	baseDocSha: z.string(),
 	status: suggestionStatusSchema,
+	title: z.string().nullable(),
 	reasoning: z.string().nullable(),
 	fingerprint: z.string(),
+	diffAdditions: z.number().int(),
+	diffDeletions: z.number().int(),
 	supersedesSuggestionId: z.string().nullable(),
 	decidedByUserId: z.string().nullable(),
+	decidedByUser: suggestionDeciderSchema.nullable(),
 	decidedAt: z.string().nullable(),
 	decisionNote: z.string().nullable(),
 	createdAt: z.string(),
@@ -83,7 +96,6 @@ const suggestionSummarySchema = z.object({
 });
 
 const suggestionDetailSchema = suggestionSummarySchema.extend({
-	baseDocSha: z.string(),
 	beforeContent: z.string().nullable(),
 	proposedContent: z.string(),
 	appliedInBatchId: z.string().nullable(),
