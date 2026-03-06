@@ -25,6 +25,7 @@ export const listProjectSuggestionsQuerySchema = z.object({
 	page: z.coerce.number().int().min(1).optional(),
 	pageSize: z.coerce.number().int().min(1).max(100).optional(),
 	status: z.array(z.enum(["pending", "accepted", "declined", "superseded", "stale", "applied"])).optional(),
+	search: z.string().max(200).optional(),
 });
 
 export const decideSuggestionBodySchema = z.object({

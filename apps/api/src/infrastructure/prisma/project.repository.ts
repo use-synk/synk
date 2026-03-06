@@ -156,6 +156,14 @@ export const createPrismaProjectRepository = (client: PrismaProjectClient): Proj
 		const where = {
 			projectId,
 			...(filter.status !== undefined ? { status: { in: filter.status } } : {}),
+			...(filter.search !== undefined && filter.search.length > 0
+				? {
+						OR: [
+							{ title: { contains: filter.search, mode: "insensitive" as const } },
+							{ docPath: { contains: filter.search, mode: "insensitive" as const } },
+						],
+					}
+				: {}),
 		};
 		const [total, items] = await Promise.all([
 			client.suggestion.count({ where }),
