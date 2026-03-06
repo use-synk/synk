@@ -238,6 +238,7 @@ export function createProjectsRoutes({
 				page: openApiZ.coerce.number().int().min(1).optional(),
 				pageSize: openApiZ.coerce.number().int().min(1).max(100).optional(),
 				status: openApiZ.array(suggestionStatusSchema).optional(),
+				search: openApiZ.string().max(200).optional(),
 			}),
 		},
 		responses: {
@@ -541,7 +542,7 @@ export function createProjectsRoutes({
 		if (!queryResult.success) {
 			throw new HTTPException(400, { message: z.prettifyError(queryResult.error) });
 		}
-		const { page = 1, pageSize = 10, status } = queryResult.data;
+		const { page = 1, pageSize = 10, status, search } = queryResult.data;
 		const listInput: ListProjectSuggestionsInput = {
 			userId,
 			projectId,
@@ -549,6 +550,7 @@ export function createProjectsRoutes({
 				page,
 				pageSize,
 				...(status === undefined ? {} : { status }),
+				...(search === undefined ? {} : { search }),
 			},
 		};
 		const result = await projectService.listProjectSuggestions(listInput);

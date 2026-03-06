@@ -6,6 +6,7 @@ export type SuggestionListFilter = {
 	page: number;
 	pageSize: number;
 	status?: SuggestionStatus[];
+	search?: string;
 };
 
 export type SuggestionDecider = {
