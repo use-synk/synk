@@ -1,3 +1,4 @@
+import type { GitHubAppCredentials } from "@synk-ai/github";
 import type {
 	CreateSuggestionsPrResult,
 	PaginatedResult,
@@ -8,13 +9,13 @@ import type {
 	SuggestionDecision,
 	SuggestionDetail,
 	SuggestionListFilter,
+	SuggestionStats,
 	SuggestionSummary,
 } from "../models";
 import type { Project, ProjectDetail } from "../models/project";
 import type { AuthorizationRepository, OrganizationRepository, ProjectRepository } from "../ports";
 import type { DashboardRepository } from "../ports/dashboard-repository";
 import type { ProjectPatch } from "../ports/project-repository";
-import type { GitHubAppCredentials } from "@synk-ai/github";
 
 export type ProjectServiceDependencies = {
 	authorizationRepository: AuthorizationRepository;
@@ -86,6 +87,11 @@ export type GetProjectSuggestionInput = {
 	suggestionId: string;
 };
 
+export type GetProjectSuggestionStatsInput = {
+	userId: string;
+	projectId: string;
+};
+
 export type DecideProjectSuggestionInput = {
 	userId: string;
 	projectId: string;
@@ -115,13 +121,18 @@ export interface ProjectServiceContract {
 		input: ListOrganizationRepositoriesInput,
 	): Promise<PaginatedResult<RepositoryListItem>>;
 	listProjectRuns(input: ListProjectRunsInput): Promise<PaginatedResult<RunListItem>>;
-	listProjectSuggestions(input: ListProjectSuggestionsInput): Promise<PaginatedResult<SuggestionSummary>>;
+	listProjectSuggestions(
+		input: ListProjectSuggestionsInput,
+	): Promise<PaginatedResult<SuggestionSummary>>;
+	getProjectSuggestionStats(input: GetProjectSuggestionStatsInput): Promise<SuggestionStats>;
 	getProjectSuggestion(input: GetProjectSuggestionInput): Promise<SuggestionDetail>;
 	decideProjectSuggestion(input: DecideProjectSuggestionInput): Promise<SuggestionDetail>;
 	bulkDecideProjectSuggestions(
 		input: BulkDecideProjectSuggestionsInput,
 	): Promise<SuggestionDetail[]>;
-	createProjectSuggestionsPr(input: CreateProjectSuggestionsPrInput): Promise<CreateSuggestionsPrResult>;
+	createProjectSuggestionsPr(
+		input: CreateProjectSuggestionsPrInput,
+	): Promise<CreateSuggestionsPrResult>;
 	createProject(input: CreateProjectInput): Promise<Project>;
 	updateProject(input: UpdateProjectInput): Promise<Project>;
 	deleteProject(input: DeleteProjectInput): Promise<void>;

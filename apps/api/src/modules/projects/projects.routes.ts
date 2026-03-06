@@ -6,8 +6,9 @@ import type {
 	CreateProjectSuggestionsPrInput,
 	DecideProjectSuggestionInput,
 	GetProjectSuggestionInput,
-	ListProjectSuggestionsInput,
+	GetProjectSuggestionStatsInput,
 	ListProjectRunsInput,
+	ListProjectSuggestionsInput,
 	ProjectServiceContract,
 } from "../../domain/services/project-service";
 import { createRequireAuthMiddleware } from "../../middleware/auth";
@@ -110,6 +111,11 @@ export function createProjectsRoutes({
 		beforeContent: openApiZ.string().nullable(),
 		proposedContent: openApiZ.string(),
 		appliedInBatchId: openApiZ.string().nullable(),
+	});
+
+	const suggestionStatsSchema = openApiZ.object({
+		pending: openApiZ.number().int().min(0),
+		accepted: openApiZ.number().int().min(0),
 	});
 
 	const getProjectRoute = createRoute({
@@ -288,6 +294,33 @@ export function createProjectsRoutes({
 		},
 	});
 
+	const getProjectSuggestionStatsRoute = createRoute({
+		method: "get",
+		path: "/{projectId}/suggestions/stats",
+		tags: ["projects", "suggestions"],
+		operationId: "getProjectSuggestionStats",
+		security: [{ cookieAuth: [] }],
+		request: {
+			params: openApiZ.object({
+				projectId: openApiZ.string(),
+			}),
+		},
+		responses: {
+			200: {
+				description: "Project suggestion stats",
+				content: {
+					"application/json": {
+						schema: openApiZ.object({
+							data: suggestionStatsSchema,
+						}),
+					},
+				},
+			},
+			401: { description: "Unauthorized" },
+			403: { description: "Forbidden" },
+		},
+	});
+
 	const decideProjectSuggestionRoute = createRoute({
 		method: "patch",
 		path: "/{projectId}/suggestions/{suggestionId}/decision",
@@ -399,11 +432,7 @@ export function createProjectsRoutes({
 									openApiZ.object({
 										suggestionId: openApiZ.string(),
 										docPath: openApiZ.string(),
-										reason: openApiZ.enum([
-											"file-missing",
-											"base-sha-mismatch",
-											"already-applied",
-										]),
+										reason: openApiZ.enum(["file-missing", "base-sha-mismatch", "already-applied"]),
 									}),
 								),
 							}),
@@ -567,6 +596,19 @@ export function createProjectsRoutes({
 				total: result.total,
 				totalPages: Math.ceil(result.total / pageSize),
 			},
+		});
+	});
+
+	router.openapi(getProjectSuggestionStatsRoute, async (ctx) => {
+		const userId = ctx.get("user").id;
+		const projectId = ctx.req.param("projectId");
+		const input: GetProjectSuggestionStatsInput = {
+			userId,
+			projectId,
+		};
+		const result = await projectService.getProjectSuggestionStats(input);
+		return ctx.json({
+			data: result,
 		});
 	});
 

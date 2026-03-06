@@ -3,9 +3,10 @@ import type { Project, ProjectDetail } from "../models/project";
 import type {
 	CreateSuggestionsPrExcludedItem,
 	ProjectSuggestionTarget,
+	SuggestionCreatePrCandidate,
 	SuggestionDetail,
 	SuggestionListFilter,
-	SuggestionCreatePrCandidate,
+	SuggestionStats,
 	SuggestionSummary,
 } from "../models/suggestion";
 
@@ -62,6 +63,7 @@ export interface ProjectRepository {
 		projectId: string,
 		filter: SuggestionListFilter,
 	): Promise<PaginatedResult<SuggestionSummary>>;
+	countProjectSuggestionStats(projectId: string): Promise<SuggestionStats>;
 	findProjectSuggestion(projectId: string, suggestionId: string): Promise<SuggestionDetail | null>;
 	findProjectSuggestionsByIds(
 		projectId: string,

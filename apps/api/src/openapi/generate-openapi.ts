@@ -41,6 +41,7 @@ const createPlaceholderDependencies = (): AppDependencies => ({
 		getProjectDetail: unreachable,
 		listProjectRuns: unreachable,
 		listProjectSuggestions: unreachable,
+		getProjectSuggestionStats: unreachable,
 		getProjectSuggestion: unreachable,
 		decideProjectSuggestion: unreachable,
 		bulkDecideProjectSuggestions: unreachable,

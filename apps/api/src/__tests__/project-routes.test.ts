@@ -154,6 +154,7 @@ const createProjectServiceMock = () => {
 	const getProjectDetail = mock(async () => PROJECT_DETAIL);
 	const listProjectRuns = mock(async () => ({ items: [], total: 0 }));
 	const listProjectSuggestions = mock(async () => ({ items: [], total: 0 }));
+	const getProjectSuggestionStats = mock(async () => ({ pending: 1, accepted: 0 }));
 	const getProjectSuggestion = mock(async () => SUGGESTION_DETAIL_ITEM);
 	const decideProjectSuggestion = mock(async () => SUGGESTION_DETAIL_ITEM);
 	const bulkDecideProjectSuggestions = mock(async () => [SUGGESTION_DETAIL_ITEM]);
@@ -178,6 +179,7 @@ const createProjectServiceMock = () => {
 		getProjectDetail,
 		listProjectRuns,
 		listProjectSuggestions,
+		getProjectSuggestionStats,
 		getProjectSuggestion,
 		decideProjectSuggestion,
 		bulkDecideProjectSuggestions,
@@ -923,6 +925,30 @@ describe("project routes — suggestion inbox endpoints", () => {
 			projectId: PROJECT_ID,
 			filter: { page: 1, pageSize: 10 },
 		});
+	});
+
+	it("returns suggestion stats for GET /projects/:projectId/suggestions/stats", async () => {
+		const projectService = createProjectServiceMock();
+		projectService.getProjectSuggestionStats.mockResolvedValueOnce({
+			pending: 11,
+			accepted: 4,
+		});
+		const app = createTestApp(projectService);
+
+		const response = await app.request(`/api/v1/projects/${PROJECT_ID}/suggestions/stats`, {
+			headers: authHeaders(),
+		});
+
+		expect(response.status).toBe(200);
+		expect(projectService.getProjectSuggestionStats).toHaveBeenCalledWith({
+			userId: USER_ID,
+			projectId: PROJECT_ID,
+		});
+
+		const body = (await response.json()) as {
+			data: { pending: number; accepted: number };
+		};
+		expect(body.data).toEqual({ pending: 11, accepted: 4 });
 	});
 
 	it("returns suggestion detail for GET /projects/:projectId/suggestions/:suggestionId", async () => {
