@@ -14,9 +14,9 @@ import {
 } from "@/components/ui/pagination";
 import { cn } from "@/lib/utils";
 import {
+	type PaginationState,
 	createColumnHelper,
 	getCoreRowModel,
-	type PaginationState,
 	useReactTable,
 } from "@tanstack/react-table";
 import { formatDistanceToNow } from "date-fns";
@@ -36,10 +36,10 @@ import {
 	parseAsInteger,
 	parseAsString,
 	parseAsStringLiteral,
-	useQueryState,
+	useQueryStates,
 } from "nuqs";
 import type React from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type z from "zod";
 
 type SuggestionSummary = z.infer<typeof suggestionSummarySchema>;
@@ -64,9 +64,7 @@ const STATUS_LABELS: Record<SuggestionStatus, string> = {
 };
 
 const pageParser = parseAsInteger.withDefault(1);
-const statusParser = parseAsArrayOf(
-	parseAsStringLiteral(SUGGESTION_STATUSES),
-).withDefault([]);
+const statusParser = parseAsArrayOf(parseAsStringLiteral(SUGGESTION_STATUSES)).withDefault([]);
 const searchParser = parseAsString;
 
 const PAGE_SIZE = 10;
@@ -76,10 +74,15 @@ const columns = [columnHelper.display({ id: "suggestion" })];
 
 /* ----- Public component ----------------------------------------------------- */
 
+const queryParsers = {
+	sPage: pageParser,
+	sStatus: statusParser,
+	sSearch: searchParser,
+};
+
 export function SuggestionsList({ projectId }: { projectId: string }) {
-	const [page, setPage] = useQueryState("sPage", pageParser);
-	const [statusFilter, setStatusFilter] = useQueryState("sStatus", statusParser);
-	const [searchQuery, setSearchQuery] = useQueryState("sSearch", searchParser);
+	const [{ sPage: page, sStatus: statusFilter, sSearch: searchQuery }, setQueryState] =
+		useQueryStates(queryParsers);
 
 	// Local input value updates immediately; the URL param is debounced.
 	const [searchInput, setSearchInput] = useState(searchQuery ?? "");
@@ -91,16 +94,11 @@ export function SuggestionsList({ projectId }: { projectId: string }) {
 		if (debounceRef.current !== null) {
 			clearTimeout(debounceRef.current);
 		}
+		// Batch sSearch + sPage into one atomic URL update to prevent race conditions.
 		debounceRef.current = setTimeout(() => {
-			setSearchQuery(value.length > 0 ? value : null);
-			setPage(1);
+			setQueryState({ sSearch: value.length > 0 ? value : null, sPage: 1 });
 		}, 300);
 	};
-
-	// Sync input when URL param is cleared externally (e.g. browser back).
-	useEffect(() => {
-		setSearchInput(searchQuery ?? "");
-	}, [searchQuery]);
 
 	const { data, isLoading } = useApiQuery(
 		listProjectSuggestions({
@@ -124,7 +122,7 @@ export function SuggestionsList({ projectId }: { projectId: string }) {
 		state: { pagination },
 		onPaginationChange: (updater) => {
 			const next = typeof updater === "function" ? updater(pagination) : updater;
-			setPage(next.pageIndex + 1);
+			setQueryState({ sPage: next.pageIndex + 1 });
 		},
 		manualPagination: true,
 		getCoreRowModel: getCoreRowModel(),
@@ -132,11 +130,8 @@ export function SuggestionsList({ projectId }: { projectId: string }) {
 
 	const handleStatusToggle = (status: SuggestionStatus) => {
 		const isActive = statusFilter.includes(status);
-		const next = isActive
-			? statusFilter.filter((s) => s !== status)
-			: [...statusFilter, status];
-		setStatusFilter(next);
-		setPage(1);
+		const next = isActive ? statusFilter.filter((s) => s !== status) : [...statusFilter, status];
+		setQueryState({ sStatus: next, sPage: 1 });
 	};
 
 	const rows = table.getRowModel().rows;
@@ -148,7 +143,7 @@ export function SuggestionsList({ projectId }: { projectId: string }) {
 					<SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-stone-400 pointer-events-none" />
 					<Input
 						type="search"
-						placeholder="Search suggestions…"
+						placeholder="Search suggestions…"	
 						value={searchInput}
 						onChange={handleSearchChange}
 						className="pl-8 h-7 text-sm"
@@ -221,9 +216,7 @@ export function SuggestionsList({ projectId }: { projectId: string }) {
 									onClick={() => table.nextPage()}
 									aria-disabled={!table.getCanNextPage()}
 									className={
-										!table.getCanNextPage()
-											? "pointer-events-none opacity-50"
-											: "cursor-pointer"
+										!table.getCanNextPage() ? "pointer-events-none opacity-50" : "cursor-pointer"
 									}
 								/>
 							</PaginationItem>
@@ -254,12 +247,8 @@ function SuggestionRow({ suggestion }: { suggestion: SuggestionSummary }) {
 				{suggestion.docPath}
 			</Badge>
 			<div className="flex justify-center items-center gap-1 ml-2">
-				<span className="text-xs text-green-500 font-medium">
-					+{suggestion.diffAdditions}
-				</span>
-				<span className="text-xs text-red-500 font-medium">
-					-{suggestion.diffDeletions}
-				</span>
+				<span className="text-xs text-green-500 font-medium">+{suggestion.diffAdditions}</span>
+				<span className="text-xs text-red-500 font-medium">-{suggestion.diffDeletions}</span>
 			</div>
 			<p className="text-sm text-stone-500 ml-auto">
 				{formatDistanceToNow(new Date(suggestion.createdAt), { addSuffix: true })}
@@ -268,9 +257,7 @@ function SuggestionRow({ suggestion }: { suggestion: SuggestionSummary }) {
 				{suggestion.decidedByUser !== null ? (
 					<Avatar className="shrink-0 size-4">
 						<AvatarImage src={suggestion.decidedByUser.image ?? ""} />
-						<AvatarFallback>
-							{suggestion.decidedByUser.name.charAt(0)}
-						</AvatarFallback>
+						<AvatarFallback>{suggestion.decidedByUser.name.charAt(0)}</AvatarFallback>
 					</Avatar>
 				) : (
 					<UserCircle2Icon className="size-4 text-stone-500" />
@@ -287,27 +274,17 @@ export function SuggestionStatusIcon({
 }: React.ComponentProps<"svg"> & { status: SuggestionStatus }) {
 	switch (status) {
 		case "accepted":
-			return (
-				<GitPullRequestArrowIcon className={cn("text-green-500", className)} {...props} />
-			);
+			return <GitPullRequestArrowIcon className={cn("text-green-500", className)} {...props} />;
 		case "applied":
-			return (
-				<GitPullRequestIcon className={cn("text-violet-500", className)} {...props} />
-			);
+			return <GitPullRequestIcon className={cn("text-violet-500", className)} {...props} />;
 		case "declined":
-			return (
-				<GitPullRequestClosedIcon className={cn("text-red-500", className)} {...props} />
-			);
+			return <GitPullRequestClosedIcon className={cn("text-red-500", className)} {...props} />;
 		case "pending":
-			return (
-				<GitPullRequestDraftIcon className={cn("text-gray-500", className)} {...props} />
-			);
+			return <GitPullRequestDraftIcon className={cn("text-gray-500", className)} {...props} />;
 		case "stale":
 			return <GitMergeIcon className={cn("text-gray-500", className)} {...props} />;
 		case "superseded":
-			return (
-				<GitMergeConflictIcon className={cn("text-red-500", className)} {...props} />
-			);
+			return <GitMergeConflictIcon className={cn("text-red-500", className)} {...props} />;
 		default:
 			return <XIcon className={cn("text-gray-500", className)} {...props} />;
 	}
@@ -317,8 +294,8 @@ function SuggestionsLoadingSkeleton() {
 	return (
 		<>
 			{Array.from({ length: 5 }).map((_, i) => (
-				// biome-ignore lint/suspicious/noArrayIndexKey: skeleton positions are stable
 				<li
+					// biome-ignore lint/suspicious/noArrayIndexKey: skeleton positions are stable
 					key={i}
 					className="border border-stone-200 rounded-md h-11 animate-pulse bg-stone-100"
 				/>
