@@ -31,6 +31,8 @@ import {
 	UserCircle2Icon,
 	XIcon,
 } from "lucide-react";
+import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
 	parseAsArrayOf,
 	parseAsInteger,
@@ -83,6 +85,8 @@ const queryParsers = {
 export function SuggestionsList({ projectId }: { projectId: string }) {
 	const [{ sPage: page, sStatus: statusFilter, sSearch: searchQuery }, setQueryState] =
 		useQueryStates(queryParsers, { shallow: false });
+	const pathname = usePathname();
+	const searchParams = useSearchParams();
 
 	// Local input value updates immediately; the URL param is debounced.
 	const [searchInput, setSearchInput] = useState(searchQuery ?? "");
@@ -135,6 +139,11 @@ export function SuggestionsList({ projectId }: { projectId: string }) {
 	};
 
 	const rows = table.getRowModel().rows;
+	const detailBaseQuery = useMemo(() => {
+		const params = new URLSearchParams(searchParams.toString());
+		params.set("tab", "suggestions");
+		return params.toString();
+	}, [searchParams]);
 
 	return (
 		<div className="space-y-4">
@@ -143,7 +152,7 @@ export function SuggestionsList({ projectId }: { projectId: string }) {
 					<SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-stone-400 pointer-events-none" />
 					<Input
 						type="text"
-						placeholder="Search suggestions…"	
+						placeholder="Search suggestions…"
 						value={searchInput}
 						onChange={handleSearchChange}
 						className="pl-8 h-7 text-sm"
@@ -181,7 +190,10 @@ export function SuggestionsList({ projectId }: { projectId: string }) {
 				) : (
 					rows.map((row) => (
 						<li key={row.id} className="border border-stone-200 rounded-md">
-							<SuggestionRow suggestion={row.original} />
+							<SuggestionRow
+								suggestion={row.original}
+								detailHref={`${pathname}/suggestions/${row.original.id}?${detailBaseQuery}`}
+							/>
 						</li>
 					))
 				)}
@@ -230,40 +242,52 @@ export function SuggestionsList({ projectId }: { projectId: string }) {
 
 /* ----- Internal sub-components ---------------------------------------------- */
 
-function SuggestionRow({ suggestion }: { suggestion: SuggestionSummary }) {
+function SuggestionRow({
+	suggestion,
+	detailHref,
+}: {
+	suggestion: SuggestionSummary;
+	detailHref: string;
+}) {
 	return (
-		<div
-			className={cn(
-				"flex justify-start items-center gap-2 h-11 px-4 py-1",
-				suggestion.status === "superseded" && "opacity-60",
-			)}
+		<Link
+			href={detailHref}
+			scroll={false}
+			className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-500 rounded-md"
 		>
-			<SuggestionStatusIcon status={suggestion.status} className="size-4" />
-			<p className="text-sm font-medium text-stone-800 ml-2">
-				<span className="text-sm text-stone-500">#{suggestion.readableId}:</span>{" "}
-				{suggestion.title ?? "Untitled suggestion"}
-			</p>
-			<Badge variant="outline" className="font-normal text-stone-500 ml-2">
-				{suggestion.docPath}
-			</Badge>
-			<div className="flex justify-center items-center gap-1 ml-2">
-				<span className="text-xs text-green-500 font-medium">+{suggestion.diffAdditions}</span>
-				<span className="text-xs text-red-500 font-medium">-{suggestion.diffDeletions}</span>
-			</div>
-			<p className="text-sm text-stone-500 ml-auto">
-				{formatDistanceToNow(new Date(suggestion.createdAt), { addSuffix: true })}
-			</p>
-			<div className="ml-2">
-				{suggestion.decidedByUser !== null ? (
-					<Avatar className="shrink-0 size-4">
-						<AvatarImage src={suggestion.decidedByUser.image ?? ""} />
-						<AvatarFallback>{suggestion.decidedByUser.name.charAt(0)}</AvatarFallback>
-					</Avatar>
-				) : (
-					<UserCircle2Icon className="size-4 text-stone-500" />
+			<div
+				className={cn(
+					"flex justify-start items-center gap-2 h-11 px-4 py-1 hover:bg-stone-50 transition-colors",
+					suggestion.status === "superseded" && "opacity-60",
 				)}
+			>
+				<SuggestionStatusIcon status={suggestion.status} className="size-4" />
+				<p className="text-sm font-medium text-stone-800 ml-2">
+					<span className="text-sm text-stone-500">#{suggestion.readableId}:</span>{" "}
+					{suggestion.title ?? "Untitled suggestion"}
+				</p>
+				<Badge variant="outline" className="font-normal text-stone-500 ml-2">
+					{suggestion.docPath}
+				</Badge>
+				<div className="flex justify-center items-center gap-1 ml-2">
+					<span className="text-xs text-green-500 font-medium">+{suggestion.diffAdditions}</span>
+					<span className="text-xs text-red-500 font-medium">-{suggestion.diffDeletions}</span>
+				</div>
+				<p className="text-sm text-stone-500 ml-auto">
+					{formatDistanceToNow(new Date(suggestion.createdAt), { addSuffix: true })}
+				</p>
+				<div className="ml-2">
+					{suggestion.decidedByUser !== null ? (
+						<Avatar className="shrink-0 size-4">
+							<AvatarImage src={suggestion.decidedByUser.image ?? ""} />
+							<AvatarFallback>{suggestion.decidedByUser.name.charAt(0)}</AvatarFallback>
+						</Avatar>
+					) : (
+						<UserCircle2Icon className="size-4 text-stone-500" />
+					)}
+				</div>
 			</div>
-		</div>
+		</Link>
 	);
 }
 

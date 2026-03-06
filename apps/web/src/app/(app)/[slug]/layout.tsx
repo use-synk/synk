@@ -20,7 +20,7 @@ async function resolveActiveOrganization(slug: string) {
 export default async function ServerLayout(
 	props: LayoutProps<"/[slug]">,
 ): Promise<React.ReactNode> {
-	const { children, params, breadcrumb } = props;
+	const { children, params, breadcrumb, sheet } = props;
 	const { slug } = await params;
 
 	let organization: Awaited<ReturnType<typeof resolveActiveOrganization>>;
@@ -55,6 +55,7 @@ export default async function ServerLayout(
 			<div className="flex-1">
 				<SiteNav breadcrumb={breadcrumb} />
 				<main>{children}</main>
+				{sheet}
 			</div>
 		</SidebarProvider>
 	);
