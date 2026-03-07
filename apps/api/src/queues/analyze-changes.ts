@@ -18,6 +18,7 @@ export { ANALYZE_CHANGES_QUEUE_NAME };
 const REMOVE_COMPLETED_JOBS = { count: 1000 } as const;
 const REMOVE_FAILED_JOBS = { age: 24 * 60 * 60 } as const;
 const ACTIVE_JOB_START_DELAY_MS = ANALYZE_CHANGES_COALESCE_WINDOW_MS;
+const toBullMqSafeJobId = (value: string): string => value.replaceAll(":", "__");
 
 export type AnalyzeChangesEnqueuer = (payload: AnalyzeChangesJobPayload) => Promise<void>;
 type AnalyzeChangesQueueDatabase = {
@@ -105,7 +106,7 @@ export const createAnalyzeChangesEnqueuer = (
 			return;
 		}
 
-		const activeJobId = buildAnalyzeChangesActiveJobId(payload.repositoryId);
+		const activeJobId = toBullMqSafeJobId(buildAnalyzeChangesActiveJobId(payload.repositoryId));
 		const activeJob = await getRepositoryActiveJob(queue, payload.repositoryId);
 		if (activeJob !== null) {
 			await setPendingPayload(queue, payload);

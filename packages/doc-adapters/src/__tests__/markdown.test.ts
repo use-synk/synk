@@ -41,6 +41,7 @@ describe("markdownAdapter.getDocPaths", () => {
 		const paths = markdownAdapter.getDocPaths({ path: "content/docs" });
 		expect(paths).toContain("content/docs/**/*.md");
 		expect(paths).toContain("content/docs/**/*.mdx");
+		expect(paths).not.toContain("README.md");
 	});
 });
 

@@ -349,11 +349,31 @@ export class GitHubWebhookService {
 			{
 				event: "push",
 				repositoryId: repo.id,
+				installationId: repo.installationId,
 				commitSha,
 				ref,
 				defaultBranch: repo.defaultBranch,
 			},
-			"github webhook push matched default branch (no enqueue for push event)",
+			"github webhook push matched enqueue conditions",
+		);
+		await this.options.enqueueAnalyzeChanges({
+			installationId: repo.installationId,
+			repositoryId: repo.id,
+			trigger: {
+				type: "push",
+				ref,
+				commitSha,
+			},
+		});
+		this.logInfo(
+			{
+				event: "push",
+				repositoryId: repo.id,
+				installationId: repo.installationId,
+				commitSha,
+				ref,
+			},
+			"github webhook push enqueued analyze-changes",
 		);
 
 		return { ok: true };

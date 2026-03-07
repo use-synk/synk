@@ -87,6 +87,9 @@ type TriageResult = {
 	needsUpdate: boolean;
 	affectedDocFiles: string[];
 	reasoning: string;
+	confidence?: number;
+	skippedByConfidence?: boolean;
+	rawAffectedDocFiles?: string[];
 	tokenUsage: TokenUsage;
 };
 
@@ -170,6 +173,8 @@ export type AnalyzeChangesServices = {
 		docFile: DocFile;
 		adapter: DocAdapter;
 		docsConfig: DocsConfig;
+		triageReasoning?: string;
+		mustApplyCodeChanges?: boolean;
 	}) => Promise<GenerationResult>;
 	createPullRequest: (input: {
 		octokit: ReturnType<typeof createInstallationOctokit>;
@@ -290,10 +295,15 @@ const resolveErrorCode = (
 	error: unknown,
 	classification: "retryable" | "non-retryable",
 ): string => {
-	if (typeof error === "object" && error !== null && "status" in error) {
-		const statusCandidate = (error as Record<string, unknown>).status;
-		if (typeof statusCandidate === "number" && Number.isInteger(statusCandidate)) {
-			return `http_${statusCandidate}`;
+	if (typeof error === "object" && error !== null) {
+		const record = error as Record<string, unknown>;
+		const status = record.status;
+		if (typeof status === "number" && Number.isInteger(status)) {
+			return `http_${status}`;
+		}
+		const statusCode = record.statusCode;
+		if (typeof statusCode === "number" && Number.isInteger(statusCode)) {
+			return `http_${statusCode}`;
 		}
 	}
 	if (classification === "non-retryable") {
@@ -660,6 +670,7 @@ const collectDocFiles = async (
 	tree: readonly RepoTreeFile[];
 	docFiles: readonly DocFile[];
 	docShaByPath: ReadonlyMap<string, string>;
+	inferredDocsPath?: string;
 }> => {
 	const { docsConfig, location } = options;
 	const tree =
@@ -670,12 +681,51 @@ const collectDocFiles = async (
 			ref: location.ref,
 		}));
 	const globs = adapter.getDocPaths(docsConfig);
-	const docPaths = tree
+	const matchedDocPaths = tree
 		.map((entry) => entry.path)
-		.filter((path) => pathMatchesAnyGlob(path, globs))
-		.slice(0, 500);
+		.filter((path) => pathMatchesAnyGlob(path, globs));
+	const docsDirectoryCandidates = matchedDocPaths.filter((path) => path.startsWith("docs/"));
+	const docsMarkdownPathsInTree = tree
+		.map((entry) => entry.path)
+		.filter((path) => {
+			if (!path.startsWith("docs/")) {
+				return false;
+			}
+			const lowerPath = path.toLowerCase();
+			return lowerPath.endsWith(".md") || lowerPath.endsWith(".mdx");
+		});
+	const hasDocsMarkdownFileInTree = docsMarkdownPathsInTree.length > 0;
+	let docPaths =
+		options.docsConfig.path === undefined &&
+		adapter.frameworkId === "markdown" &&
+		docsDirectoryCandidates.length > 0
+			? docsDirectoryCandidates
+			: matchedDocPaths;
+	const inferredDocsPath =
+		options.docsConfig.path === undefined &&
+		adapter.frameworkId === "markdown" &&
+		(docsDirectoryCandidates.length > 0 || hasDocsMarkdownFileInTree)
+			? "docs"
+			: undefined;
+	if (
+		options.docsConfig.path === undefined &&
+		adapter.frameworkId === "markdown" &&
+		(docsDirectoryCandidates.length > 0 || hasDocsMarkdownFileInTree) &&
+		docPaths.includes("README.md")
+	) {
+		docPaths = docPaths.filter((path) => path !== "README.md");
+	}
+	if (
+		options.docsConfig.path === undefined &&
+		adapter.frameworkId === "markdown" &&
+		docPaths.length === 0 &&
+		hasDocsMarkdownFileInTree
+	) {
+		docPaths = docsMarkdownPathsInTree;
+	}
+	docPaths = docPaths.slice(0, 500);
 	if (docPaths.length === 0) {
-		return { tree, docFiles: [], docShaByPath: new Map<string, string>() };
+		return { tree, docFiles: [], docShaByPath: new Map<string, string>(), inferredDocsPath };
 	}
 
 	const files = await fetchMultipleFiles(octokit, {
@@ -689,6 +739,7 @@ const collectDocFiles = async (
 		tree,
 		docFiles: files.map((file) => ({ path: file.path, content: file.content })),
 		docShaByPath,
+		inferredDocsPath,
 	};
 };
 
@@ -949,6 +1000,9 @@ const defaultRunTriage: AnalyzeChangesServices["runTriage"] = async (input) => {
 			affectedDocFiles: [],
 			reasoning:
 				"Fallback triage did not find direct markdown documentation file changes in the filtered diff.",
+			confidence: 1,
+			skippedByConfidence: false,
+			rawAffectedDocFiles: [],
 			tokenUsage: normalizeTokenUsage(undefined),
 		};
 	}
@@ -957,6 +1011,9 @@ const defaultRunTriage: AnalyzeChangesServices["runTriage"] = async (input) => {
 		needsUpdate: true,
 		affectedDocFiles,
 		reasoning: "Fallback triage found documentation files touched by the commit diff.",
+		confidence: 1,
+		skippedByConfidence: false,
+		rawAffectedDocFiles: affectedDocFiles,
 		tokenUsage: normalizeTokenUsage(undefined),
 	};
 };
@@ -1194,13 +1251,6 @@ export const processAnalyzeChangesJob = async (
 		},
 		"analyze-changes flow started",
 	);
-	if (job.data.trigger.type === "push") {
-		jobLogger.info(
-			{ repositoryId: job.data.repositoryId, triggerType: job.data.trigger.type },
-			"skipping analyze-changes job for push trigger",
-		);
-		return;
-	}
 
 	const repository = await loadRepository(job.data);
 	// Credential parsing must succeed before we create the run record. A failure
@@ -1316,30 +1366,12 @@ export const processAnalyzeChangesJob = async (
 			resolvedConfig.docs.framework === undefined || resolvedConfig.docs.framework === "auto"
 				? parseFramework(adapterResolution.adapter.frameworkId)
 				: resolvedConfig.docs.framework;
-		const docsConfig = createDocsConfig({
+		let docsConfig = createDocsConfig({
 			framework: resolvedFramework,
 			path: resolvedConfig.docs.path,
 			repo: resolvedConfig.docs.repo,
 			branch: resolvedConfig.docs.branch,
 		});
-
-		await storeResolvedDocsConfig(
-			repository.projectId,
-			docsConfig,
-			resolvedConfig.ignorePaths,
-			repository.projectConfig,
-		);
-		jobLogger.info(
-			{
-				runId,
-				resolvedDocsFramework: docsConfig.framework,
-				docsPath: docsConfig.path ?? null,
-				docsRepo: docsConfig.repo ?? null,
-				docsBranch: docsConfig.branch ?? null,
-				ignorePathsCount: resolvedConfig.ignorePaths.length,
-			},
-			"resolved docs configuration",
-		);
 
 		// Re-use the tree fetched during auto-detection when the docs repository
 		// is the same as the source repository to avoid a duplicate GitHub API call.
@@ -1357,6 +1389,35 @@ export const processAnalyzeChangesJob = async (
 				}),
 		);
 		timings.fetchDocTreeAndFiles = fetchDocsDurationMs;
+		if (docsConfig.path === undefined && docData.inferredDocsPath !== undefined) {
+			docsConfig = createDocsConfig({
+				framework: docsConfig.framework,
+				path: docData.inferredDocsPath,
+				repo: docsConfig.repo,
+				branch: docsConfig.branch,
+			});
+			jobLogger.info(
+				{ runId, inferredDocsPath: docData.inferredDocsPath },
+				"inferred docs path from repository structure",
+			);
+		}
+		await storeResolvedDocsConfig(
+			repository.projectId,
+			docsConfig,
+			resolvedConfig.ignorePaths,
+			repository.projectConfig,
+		);
+		jobLogger.info(
+			{
+				runId,
+				resolvedDocsFramework: docsConfig.framework,
+				docsPath: docsConfig.path ?? null,
+				docsRepo: docsConfig.repo ?? null,
+				docsBranch: docsConfig.branch ?? null,
+				ignorePathsCount: resolvedConfig.ignorePaths.length,
+			},
+			"resolved docs configuration",
+		);
 
 		const docTree = adapterResolution.adapter.parseStructure([...docData.docFiles]);
 		const { value: triageResult, durationMs: triageDurationMs } = await measureStep(
@@ -1378,7 +1439,12 @@ export const processAnalyzeChangesJob = async (
 			{
 				runId,
 				needsUpdate: triageResult.needsUpdate,
+				confidence: triageResult.confidence ?? null,
+				skippedByConfidence: triageResult.skippedByConfidence ?? null,
 				affectedDocFileCount: triageResult.affectedDocFiles.length,
+				affectedDocFiles: triageResult.affectedDocFiles,
+				rawAffectedDocFiles: triageResult.rawAffectedDocFiles ?? triageResult.affectedDocFiles,
+				reasoning: triageResult.reasoning,
 			},
 			"triage step finished",
 		);
@@ -1413,6 +1479,8 @@ export const processAnalyzeChangesJob = async (
 				docFile,
 				adapter: adapterResolution.adapter,
 				docsConfig,
+				triageReasoning: triageResult.reasoning,
+				mustApplyCodeChanges: true,
 			});
 			generationOutputs.push(generationResult);
 			generationUsage.push(normalizeTokenUsage(generationResult.tokenUsage));
@@ -1422,6 +1490,10 @@ export const processAnalyzeChangesJob = async (
 			{
 				runId,
 				generationOutputCount: generationOutputs.length,
+				generationOutputs: generationOutputs.map((output) => ({
+					path: output.path,
+					reasoning: output.reasoning,
+				})),
 			},
 			"generation step finished",
 		);

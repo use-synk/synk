@@ -32,7 +32,7 @@ export type AnalyzeChangesJobPayload = {
 };
 
 export const buildAnalyzeChangesActiveJobId = (repositoryId: string): string =>
-	`${ANALYZE_CHANGES_QUEUE_NAME}:repo:${repositoryId}:active`;
+	`${ANALYZE_CHANGES_QUEUE_NAME}__repo__${repositoryId}__active`;
 
 export const buildAnalyzeChangesPendingPayloadKey = (repositoryId: string): string =>
 	`${ANALYZE_CHANGES_QUEUE_NAME}:repo:${repositoryId}:pending`;

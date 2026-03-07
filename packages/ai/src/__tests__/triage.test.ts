@@ -116,6 +116,29 @@ describe("createDocTriage", () => {
 		expect(result.skipped).toBe(false);
 	});
 
+	it("clamps confidence into [0, 1] before threshold evaluation", async () => {
+		const generateObjectFn = vi.fn(async () => ({
+			object: {
+				needsUpdate: true,
+				confidence: 1.4,
+				affectedDocFiles: [],
+				reasoning: "Overconfident model output.",
+			},
+			usage: undefined,
+		}));
+
+		const triage = createDocTriage({
+			apiKey: "sk-test",
+			providerFactory: () => () => "model",
+			generateObjectFn,
+		});
+
+		const result = await triage.triage({ diff: "change", docFileTree: [] });
+
+		expect(result.output.confidence).toBe(1);
+		expect(result.skipped).toBe(false);
+	});
+
 	it("applies default confidence threshold of 0.7", async () => {
 		const generateObjectFn = vi.fn(async () => ({
 			object: {
