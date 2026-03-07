@@ -21,7 +21,7 @@ import { roles } from "./ac/org";
  * export const authClient = createClient();
  * ```
  */
-export function createClient(options?: { baseURL?: string }) {
+export function createClient(options?: Pick<BetterAuthClientOptions, "baseURL" | "basePath">) {
 	const baseClientOptions = {
 		plugins: [
 			organizationClient({
@@ -32,7 +32,7 @@ export function createClient(options?: { baseURL?: string }) {
 
 	return createAuthClient({
 		...baseClientOptions,
-		...(options?.baseURL !== undefined ? { baseURL: options.baseURL } : {}),
+		...(options ?? {}),
 	});
 }
 
