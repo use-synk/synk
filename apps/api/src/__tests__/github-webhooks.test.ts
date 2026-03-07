@@ -232,7 +232,15 @@ describe("POST /api/v1/webhooks/github", () => {
 		});
 
 		expect(response.status).toBe(200);
-		expect(enqueueMock).not.toHaveBeenCalled();
+		expect(enqueueMock).toHaveBeenCalledWith({
+			installationId: "installation-1",
+			repositoryId: "repo-1",
+			trigger: {
+				type: "push",
+				ref: "refs/heads/main",
+				commitSha: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+			},
+		});
 	});
 
 	it("marks delivery log as failed for invalid signatures", async () => {
@@ -318,13 +326,21 @@ describe("POST /api/v1/webhooks/github", () => {
 		expect(enqueueMock).not.toHaveBeenCalled();
 	});
 
-	it("does not enqueue for push events on active repository default branch", async () => {
+	it("enqueues for push events on active repository default branch", async () => {
 		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
 		const response = await dispatchWebhook(app, "push", readFixture("push-main.json"));
 
 		expect(response.status).toBe(200);
 		expect(mockDb.providerRepository.findFirst).toHaveBeenCalledOnce();
-		expect(enqueueMock).not.toHaveBeenCalled();
+		expect(enqueueMock).toHaveBeenCalledWith({
+			installationId: "installation-1",
+			repositoryId: "repo-1",
+			trigger: {
+				type: "push",
+				ref: "refs/heads/main",
+				commitSha: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+			},
+		});
 	});
 
 	it("does not enqueue push events for non-default branches", async () => {

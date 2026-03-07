@@ -223,6 +223,40 @@ describe("filterDiff", () => {
 		]);
 	});
 
+	it("treats '**/' as zero-or-more directories for markdown globs", () => {
+		const result = filterDiff(
+			[
+				{
+					filename: "docs/math.md",
+					status: "modified",
+					additions: 1,
+					deletions: 0,
+					patch: "@@ -1 +1 @@",
+					previousFilename: null,
+				},
+				{
+					filename: "docs/api/math.md",
+					status: "modified",
+					additions: 1,
+					deletions: 0,
+					patch: "@@ -1 +1 @@",
+					previousFilename: null,
+				},
+				{
+					filename: "docs/math.txt",
+					status: "modified",
+					additions: 1,
+					deletions: 0,
+					patch: "@@ -1 +1 @@",
+					previousFilename: null,
+				},
+			],
+			["docs/**/*.md"],
+		);
+
+		expect(result.map((file) => file.filename)).toEqual(["docs/math.txt"]);
+	});
+
 	it("keeps a renamed file when only the previous filename matches ignore patterns", () => {
 		const result = filterDiff([
 			{

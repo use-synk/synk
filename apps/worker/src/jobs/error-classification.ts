@@ -24,11 +24,16 @@ const getHttpStatus = (error: unknown): number | null => {
 	if (typeof error !== "object" || error === null) {
 		return null;
 	}
-	const candidate = (error as Record<string, unknown>).status;
-	if (typeof candidate !== "number" || !Number.isInteger(candidate)) {
-		return null;
+	const record = error as Record<string, unknown>;
+	const status = record.status;
+	if (typeof status === "number" && Number.isInteger(status)) {
+		return status;
 	}
-	return candidate;
+	const statusCode = record.statusCode;
+	if (typeof statusCode === "number" && Number.isInteger(statusCode)) {
+		return statusCode;
+	}
+	return null;
 };
 
 export const classifyError = (error: unknown): JobErrorClassification => {

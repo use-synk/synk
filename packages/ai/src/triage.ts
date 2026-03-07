@@ -11,7 +11,7 @@ import { type AiTokenUsage, type UsageLike, normalizeTokenUsage, toUsageLike } f
 
 export const triageOutputSchema = z.object({
 	needsUpdate: z.boolean(),
-	confidence: z.number().min(0).max(1),
+	confidence: z.number(),
 	affectedDocFiles: z.array(z.string()),
 	reasoning: z.string(),
 });
@@ -32,6 +32,8 @@ export type DocTriageResult = {
 };
 
 const DEFAULT_CONFIDENCE_THRESHOLD = 0.7;
+const MIN_CONFIDENCE = 0;
+const MAX_CONFIDENCE = 1;
 
 type GenerateObjectArguments = Parameters<typeof sdkGenerateObject>[0];
 type GenerateObjectModel = GenerateObjectArguments["model"];
@@ -50,6 +52,9 @@ type GenerateObjectOutcome = {
 
 type GenerateObjectFn = (input: GenerateObjectInput) => Promise<GenerateObjectOutcome>;
 type ProviderFactory = (options: { apiKey: string }) => (modelId: string) => GenerateObjectModel;
+
+const clampConfidence = (value: number): number =>
+	Math.min(MAX_CONFIDENCE, Math.max(MIN_CONFIDENCE, value));
 
 export type DocTriageOptions = {
 	apiKey: string;
@@ -117,18 +122,23 @@ export const createDocTriage = (options: DocTriageOptions): DocTriage => {
 				});
 
 				const tokenUsage = normalizeTokenUsage(result.usage, contextTokenEstimate);
-				const skipped = result.object.confidence < confidenceThreshold;
+				const boundedConfidence = clampConfidence(result.object.confidence);
+				const output: TriageOutput = {
+					...result.object,
+					confidence: boundedConfidence,
+				};
+				const skipped = output.confidence < confidenceThreshold;
 
 				logger.info("ai.triage.response", {
 					modelId,
-					needsUpdate: result.object.needsUpdate,
-					confidence: result.object.confidence,
+					needsUpdate: output.needsUpdate,
+					confidence: output.confidence,
 					skipped,
 					tokenUsage,
 				});
 
 				return {
-					output: result.object,
+					output,
 					tokenUsage,
 					skipped,
 				};

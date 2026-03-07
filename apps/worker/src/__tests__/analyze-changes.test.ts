@@ -533,7 +533,9 @@ describe("processAnalyzeChangesJob", () => {
 		);
 	});
 
-	it("skips push-triggered jobs without creating a run", async () => {
+	it("processes push-triggered jobs through the normal pipeline", async () => {
+		mockFilterDiff.mockReturnValue([{ filename: "src/index.ts" }]);
+
 		await processAnalyzeChangesJob(
 			makeJob({
 				trigger: {
@@ -545,8 +547,12 @@ describe("processAnalyzeChangesJob", () => {
 			makeLogger(),
 		);
 
-		expect(mockUpsertAnalysisRun).not.toHaveBeenCalled();
-		expect(mockUpdateAnalysisRun).not.toHaveBeenCalled();
+		expect(mockUpsertAnalysisRun).toHaveBeenCalledOnce();
+		expect(mockUpdateAnalysisRun).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({ status: "completed", docsAffected: false }),
+			}),
+		);
 	});
 
 	it("marks run as skipped when project-ignore-filtered diff is empty", async () => {
@@ -687,6 +693,138 @@ describe("processAnalyzeChangesJob", () => {
 						triggers: expect.objectContaining({ ignore_paths: expect.any(Array) }),
 					}),
 				}),
+			}),
+		);
+	});
+
+	it("infers and persists docs.path='docs' for markdown repositories", async () => {
+		mockFilterDiff
+			.mockReturnValueOnce([{ filename: "src/math.ts" }])
+			.mockReturnValueOnce([{ filename: "src/math.ts" }])
+			.mockReturnValue([]);
+
+		mockFetchRepoTree.mockResolvedValue([
+			{ path: "README.md", sha: "r1", size: 100 },
+			{ path: "docs/math.md", sha: "d1", size: 100 },
+		]);
+		mockFetchMultipleFiles.mockResolvedValue([{ path: "docs/math.md", content: "# Math", sha: "d1", size: 5 }]);
+
+		const adapter = makeAdapter();
+		adapter.frameworkId = "markdown";
+		adapter.getDocPaths.mockReturnValue(["docs/**/*.md", "docs/**/*.mdx", "README.md"]);
+		mockDetectAdapter.mockResolvedValue(adapter);
+		mockGetAdapter.mockReturnValue(adapter);
+
+		const mockServices = {
+			runTriage: mock().mockResolvedValue({
+				needsUpdate: false,
+				affectedDocFiles: [],
+				reasoning: "no change",
+				tokenUsage: { prompt: 1, completion: 1, total: 2 },
+			}),
+			runGeneration: mock(),
+			createPullRequest: mock(),
+		};
+
+		await processAnalyzeChangesJob(makeJob(), makeLogger(), mockServices);
+
+		expect(mockUpdateProject).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: { id: "project-1" },
+				data: expect.objectContaining({
+					config: expect.objectContaining({
+						docs: expect.objectContaining({
+							framework: "markdown",
+							path: "docs",
+						}),
+					}),
+				}),
+			}),
+		);
+	});
+
+	it("prioritizes docs directory files over README when selecting markdown doc candidates", async () => {
+		mockFilterDiff
+			.mockReturnValueOnce([{ filename: "src/math.ts" }])
+			.mockReturnValueOnce([{ filename: "src/math.ts" }])
+			.mockReturnValue([]);
+
+		mockFetchRepoTree.mockResolvedValue([
+			{ path: "README.md", sha: "r1", size: 100 },
+			{ path: "docs/math.md", sha: "d1", size: 100 },
+		]);
+		mockFetchMultipleFiles.mockResolvedValue([{ path: "docs/math.md", content: "# Math", sha: "d1", size: 5 }]);
+
+		const adapter = makeAdapter();
+		adapter.frameworkId = "markdown";
+		adapter.getDocPaths.mockReturnValue(["docs/**/*.md", "docs/**/*.mdx", "README.md"]);
+		mockDetectAdapter.mockResolvedValue(adapter);
+		mockGetAdapter.mockReturnValue(adapter);
+
+		const mockServices = {
+			runTriage: mock().mockResolvedValue({
+				needsUpdate: false,
+				affectedDocFiles: [],
+				reasoning: "no change",
+				tokenUsage: { prompt: 1, completion: 1, total: 2 },
+			}),
+			runGeneration: mock(),
+			createPullRequest: mock(),
+		};
+
+		await processAnalyzeChangesJob(makeJob(), makeLogger(), mockServices);
+
+		expect(mockFetchMultipleFiles).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining({
+				paths: ["docs/math.md"],
+			}),
+		);
+	});
+
+	it("falls back to docs markdown files when glob matching misses docs files", async () => {
+		mockFilterDiff.mockImplementation((files) => {
+			const candidate = files[0] as { filename?: string } | undefined;
+			if (files.length === 1 && candidate?.filename === "README.md") {
+				return [];
+			}
+			if (files.length === 1 && candidate?.filename === "docs/math.md") {
+				return files;
+			}
+			return files;
+		});
+
+		mockFetchRepoTree.mockResolvedValue([
+			{ path: "README.md", sha: "r1", size: 100 },
+			{ path: "docs/math.md", sha: "d1", size: 100 },
+		]);
+		mockFetchMultipleFiles.mockResolvedValue([
+			{ path: "docs/math.md", content: "# Math", sha: "d1", size: 5 },
+		]);
+
+		const adapter = makeAdapter();
+		adapter.frameworkId = "markdown";
+		adapter.getDocPaths.mockReturnValue(["docs/**/*.md", "docs/**/*.mdx", "README.md"]);
+		mockDetectAdapter.mockResolvedValue(adapter);
+		mockGetAdapter.mockReturnValue(adapter);
+
+		const mockServices = {
+			runTriage: mock().mockResolvedValue({
+				needsUpdate: false,
+				affectedDocFiles: [],
+				reasoning: "no change",
+				tokenUsage: { prompt: 1, completion: 1, total: 2 },
+			}),
+			runGeneration: mock(),
+			createPullRequest: mock(),
+		};
+
+		await processAnalyzeChangesJob(makeJob(), makeLogger(), mockServices);
+
+		expect(mockFetchMultipleFiles).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining({
+				paths: ["docs/math.md"],
 			}),
 		);
 	});

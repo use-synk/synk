@@ -1,4 +1,4 @@
-import { createSuggestionTitle } from "@synk-ai/ai";
+import { createDocGeneration, createDocTriage, createSuggestionTitle } from "@synk-ai/ai";
 import { db } from "@synk-ai/db";
 import {
 	ANALYZE_CHANGES_COALESCE_WINDOW_MS,
@@ -27,6 +27,7 @@ import {
 
 const SHUTDOWN_TIMEOUT_MS = 30_000;
 const PENDING_PAYLOAD_TTL_MS = ANALYZE_CHANGES_COALESCE_WINDOW_MS * 20;
+const toBullMqSafeJobId = (value: string): string => value.replaceAll(":", "__");
 
 const resolveRedisHostForLogging = (redisUrl: string): string => {
 	try {
@@ -57,6 +58,129 @@ const createAiLoggerAdapter = (logger: Logger) => ({
 		logger.error({ aiEvent: message, ...fields }, "ai event");
 	},
 });
+
+type SerializableDiffFile = {
+	filename: string;
+	status: string;
+	additions: number;
+	deletions: number;
+	patch: string | null;
+	previousFilename: string | null;
+};
+
+const MAX_PATCH_CHARS = 8_000;
+
+const truncatePatch = (patch: string): string =>
+	patch.length <= MAX_PATCH_CHARS
+		? patch
+		: `${patch.slice(0, MAX_PATCH_CHARS)}\n\n[patch truncated to ${MAX_PATCH_CHARS} chars]`;
+
+const renderDiffFile = (file: SerializableDiffFile): string => {
+	const headerLines = [
+		`file: ${file.filename}`,
+		`status: ${file.status}`,
+		`additions: ${file.additions}`,
+		`deletions: ${file.deletions}`,
+	];
+	if (file.previousFilename !== null) {
+		headerLines.push(`previous: ${file.previousFilename}`);
+	}
+	const patchText = file.patch === null ? "[binary or patch omitted]" : truncatePatch(file.patch);
+	return `${headerLines.join("\n")}\npatch:\n${patchText}`;
+};
+
+const serializeDiffForAi = (files: readonly SerializableDiffFile[]): string =>
+	files.map((file) => renderDiffFile(file)).join("\n\n---\n\n");
+
+const createAnalyzeChangesAiServices = (
+	apiKey: string,
+	logger: Logger,
+): Partial<AnalyzeChangesServices> => {
+	const aiLogger = createAiLoggerAdapter(logger);
+	const triage = createDocTriage({
+		apiKey,
+		logger: aiLogger,
+	});
+	const generation = createDocGeneration({
+		apiKey,
+		logger: aiLogger,
+	});
+	const title = createSuggestionTitle({
+		apiKey,
+		logger: aiLogger,
+	});
+
+	return {
+		runTriage: async (input) => {
+			const docPaths = [...new Set(input.docFiles.map((file) => file.path))];
+			const docPathSet = new Set(docPaths);
+			const result = await triage.triage({
+				diff: serializeDiffForAi(input.filteredDiff),
+				docFileTree: docPaths.sort((a, b) => a.localeCompare(b)),
+			});
+			const rawAffectedDocFiles = [...result.output.affectedDocFiles];
+			const affectedDocFiles = rawAffectedDocFiles.filter((path) => docPathSet.has(path));
+			const unknownAffectedDocFiles = rawAffectedDocFiles.filter((path) => !docPathSet.has(path));
+			if (unknownAffectedDocFiles.length > 0) {
+				logger.warn(
+					{
+						aiEvent: "ai.triage.unknown_doc_paths",
+						unknownAffectedDocFiles,
+						knownDocFileCount: docPaths.length,
+					},
+					"ai event",
+				);
+			}
+
+			return {
+				needsUpdate: result.output.needsUpdate && !result.skipped,
+				affectedDocFiles,
+				reasoning: result.output.reasoning,
+				confidence: result.output.confidence,
+				skippedByConfidence: result.skipped,
+				rawAffectedDocFiles,
+				tokenUsage: result.tokenUsage,
+			};
+		},
+		runGeneration: async (input) => {
+			const baseInstructions = [
+				"Triage determined this file likely needs documentation updates based on the code diff.",
+				input.triageReasoning ? `Triage reasoning: ${input.triageReasoning}` : null,
+			]
+				.filter((value): value is string => value !== null)
+				.join("\n");
+			const request = {
+				diff: serializeDiffForAi(input.filteredDiff),
+				docFile: {
+					path: input.docFile.path,
+					content: input.docFile.content,
+				},
+				customInstructions: baseInstructions,
+			};
+			let result = await generation.generate(request);
+			if (input.mustApplyCodeChanges === true && result.skipped) {
+				logger.warn(
+					{
+						aiEvent: "ai.generate.retry_for_meaningful_change",
+						filePath: input.docFile.path,
+					},
+					"ai event",
+				);
+				result = await generation.generate({
+					...request,
+					customInstructions: `${baseInstructions}\nPrevious attempt returned unchanged content. Apply at least one concrete documentation edit that reflects the code diff for this file.`,
+				});
+			}
+			return {
+				path: result.filePath,
+				content: result.updatedContent,
+				reasoning: result.changeDescription,
+				tokenUsage: result.tokenUsage,
+			};
+		},
+		generateSuggestionTitle: async (input) => title.generate(input).then((result) => result.title),
+	};
+};
 
 const getPendingPayload = async (
 	queue: ReturnType<typeof createAnalyzeChangesQueue>,
@@ -173,7 +297,7 @@ const enqueuePendingPayloadForRepository = async (
 		return;
 	}
 
-	const activeJobId = buildAnalyzeChangesActiveJobId(job.data.repositoryId);
+	const activeJobId = toBullMqSafeJobId(buildAnalyzeChangesActiveJobId(job.data.repositoryId));
 	const jobOptions: JobsOptions = {
 		jobId: activeJobId,
 		delay: delayMs,
@@ -288,20 +412,9 @@ const startWorker = async (): Promise<void> => {
 		"suggestion inbox rollout flags",
 	);
 
-	const titleGenerator =
-		env.OPENROUTER_API_KEY !== undefined
-			? createSuggestionTitle({
-					apiKey: env.OPENROUTER_API_KEY,
-					logger: createAiLoggerAdapter(logger),
-				})
-			: null;
-
 	const servicesOverride: Partial<AnalyzeChangesServices> | undefined =
-		titleGenerator !== null
-			? {
-					generateSuggestionTitle: (input) =>
-						titleGenerator.generate(input).then((r) => r.title).catch(() => null),
-				}
+		env.OPENROUTER_API_KEY !== undefined
+			? createAnalyzeChangesAiServices(env.OPENROUTER_API_KEY, logger)
 			: undefined;
 
 	const worker = createAnalyzeChangesWorker({

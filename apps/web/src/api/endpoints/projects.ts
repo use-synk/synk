@@ -62,6 +62,9 @@ const suggestionStatusSchema = z.enum([
 	"stale",
 	"applied",
 ]);
+const suggestionStatusFilterSchema = z
+	.union([suggestionStatusSchema, z.array(suggestionStatusSchema)])
+	.transform((value) => (Array.isArray(value) ? value : [value]));
 
 const suggestionDecisionSchema = z.enum(["accept", "decline", "reset"]);
 
@@ -110,7 +113,7 @@ const listProjectSuggestionsPropsSchema = z.object({
 	projectId: z.string().min(1),
 	page: z.number().int().min(1).default(1),
 	pageSize: z.number().int().min(1).default(10),
-	status: z.array(suggestionStatusSchema).optional(),
+	status: suggestionStatusFilterSchema.optional(),
 	search: z.string().max(200).optional(),
 });
 

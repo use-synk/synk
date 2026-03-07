@@ -243,7 +243,9 @@ export function createProjectsRoutes({
 			query: openApiZ.object({
 				page: openApiZ.coerce.number().int().min(1).optional(),
 				pageSize: openApiZ.coerce.number().int().min(1).max(100).optional(),
-				status: openApiZ.array(suggestionStatusSchema).optional(),
+				status: openApiZ
+					.union([suggestionStatusSchema, openApiZ.array(suggestionStatusSchema)])
+					.optional(),
 				search: openApiZ.string().max(200).optional(),
 			}),
 		},

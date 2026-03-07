@@ -927,6 +927,29 @@ describe("project routes — suggestion inbox endpoints", () => {
 		});
 	});
 
+	it("accepts a single suggestion status query value", async () => {
+		const projectService = createProjectServiceMock();
+		projectService.listProjectSuggestions.mockResolvedValueOnce({
+			items: [SUGGESTION_SUMMARY_ITEM],
+			total: 1,
+		});
+		const app = createTestApp(projectService);
+
+		const response = await app.request(
+			`/api/v1/projects/${PROJECT_ID}/suggestions?status=accepted`,
+			{
+				headers: authHeaders(),
+			},
+		);
+
+		expect(response.status).toBe(200);
+		expect(projectService.listProjectSuggestions).toHaveBeenCalledWith({
+			userId: USER_ID,
+			projectId: PROJECT_ID,
+			filter: { page: 1, pageSize: 10, status: ["accepted"] },
+		});
+	});
+
 	it("returns suggestion stats for GET /projects/:projectId/suggestions/stats", async () => {
 		const projectService = createProjectServiceMock();
 		projectService.getProjectSuggestionStats.mockResolvedValueOnce({
