@@ -1,21 +1,14 @@
-import { getErrorMessage } from "@/api/errors";
+import { listUserOrganizations } from "@/api/endpoints";
+import { getErrorMessage, RequestError } from "@/api/errors";
+import { fetchQuery } from "@/api/server";
 import { FlashErrorToast } from "@/components/flash-error-toast";
 import { AppSidebar } from "@/components/sidebar/app-sidebar";
 import { SiteNav } from "@/components/site-nav";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { SidebarProvider } from "@/components/ui/sidebar";
-import { auth } from "@/server/better-auth";
-import { headers } from "next/headers";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
-
-async function resolveActiveOrganization(slug: string) {
-	return auth.api.setActiveOrganization({
-		body: { organizationSlug: slug },
-		headers: await headers(),
-	});
-}
 
 export default async function ServerLayout(
 	props: LayoutProps<"/[slug]">,
@@ -23,10 +16,15 @@ export default async function ServerLayout(
 	const { children, params, breadcrumb, sheet } = props;
 	const { slug } = await params;
 
-	let organization: Awaited<ReturnType<typeof resolveActiveOrganization>>;
+	let organizations: Array<{ slug: string }>;
 	try {
-		organization = await resolveActiveOrganization(slug);
+		const result = await fetchQuery(listUserOrganizations());
+		organizations = result.data;
 	} catch (error) {
+		if (error instanceof RequestError && error.status === 401) {
+			redirect("/auth");
+		}
+
 		return (
 			<main className="flex min-h-svh flex-1 items-center justify-center p-8">
 				<Empty>
@@ -42,7 +40,7 @@ export default async function ServerLayout(
 		);
 	}
 
-	if (!organization) {
+	if (!organizations.some((organization) => organization.slug === slug)) {
 		notFound();
 	}
 

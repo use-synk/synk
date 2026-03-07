@@ -3,7 +3,6 @@
 import { clientFetch } from "@/api/client";
 import { initiateGithubInstallation } from "@/api/endpoints";
 import { getErrorMessage } from "@/api/errors";
-import { authClient } from "@/server/better-auth/client";
 import { useRouter } from "next/navigation";
 import type React from "react";
 import { useCallback, useState } from "react";
@@ -11,27 +10,27 @@ import { toast } from "sonner";
 import { Button } from "./ui/button";
 
 export function InstallGitHubButton({
+	organizationId,
+	organizationSlug,
 	children,
 	disabled,
 	...props
-}: Omit<React.ComponentProps<typeof Button>, "onClick">) {
-	const { data: organization, isPending } = authClient.useActiveOrganization();
+}: Omit<React.ComponentProps<typeof Button>, "onClick"> & {
+	organizationId: string;
+	organizationSlug: string;
+}) {
 	const [isLoading, setIsLoading] = useState(false);
 	const router = useRouter();
 
 	const onClick = useCallback(async () => {
 		setIsLoading(true);
 		try {
-			if (!organization?.id || !organization.slug) {
-				throw new Error("Organization not found");
-			}
-
-			const query = initiateGithubInstallation({ organizationId: organization.id });
+			const query = initiateGithubInstallation({ organizationId });
 			const { data } = await clientFetch(query.url, query.init, query.response);
 
 			// Persist the org slug in a short-lived cookie so the server-side
 			// callback page can redirect back here if an error occurs.
-			document.cookie = `pending_install_slug=${encodeURIComponent(organization.slug)}; path=/; max-age=900; SameSite=Lax`;
+			document.cookie = `pending_install_slug=${encodeURIComponent(organizationSlug)}; path=/; max-age=900; SameSite=Lax`;
 
 			router.push(data.data.redirectUrl);
 		} catch (error) {
@@ -41,12 +40,12 @@ export function InstallGitHubButton({
 		} finally {
 			setIsLoading(false);
 		}
-	}, [organization, router]);
+	}, [organizationId, organizationSlug, router]);
 
 	return (
 		<Button
 			onClick={onClick}
-			disabled={isPending || !organization || disabled || isLoading}
+			disabled={disabled || isLoading}
 			{...props}
 		>
 			{children}
