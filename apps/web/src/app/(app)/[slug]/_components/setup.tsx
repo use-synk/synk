@@ -10,10 +10,12 @@ import Link from "next/link";
 
 export async function OrganizationSetup({
 	organizationSlug,
+	organizationId,
 	setupStatus,
 }: {
 	setupStatus: OrganizationSetupStatus;
 	organizationSlug: string;
+	organizationId: string;
 }) {
 	return (
 		<main className="pb-24">
@@ -39,7 +41,12 @@ export async function OrganizationSetup({
 									the button below to connect your account using OAuth.
 								</p>
 								<div className="mt-8">
-									<InstallGitHubButton variant={"outline"} disabled={setupStatus.hasInstallations}>
+									<InstallGitHubButton
+										variant={"outline"}
+										organizationId={organizationId}
+										organizationSlug={organizationSlug}
+										disabled={setupStatus.hasInstallations}
+									>
 										<GithubLight />
 										Connect GitHub
 									</InstallGitHubButton>

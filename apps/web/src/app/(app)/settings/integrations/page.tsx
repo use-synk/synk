@@ -1,10 +1,10 @@
+import { getRequiredSession } from "@/api/auth";
 import { completeGithubInstallation } from "@/api/endpoints";
 import { getErrorMessage } from "@/api/errors";
 import { fetchQuery } from "@/api/server";
 import { FLASH_MESSAGE_PARAM } from "@/components/flash-error-toast";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { auth } from "@/server/better-auth";
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -28,10 +28,7 @@ function firstValue(value: string | string[] | undefined): string | undefined {
 export default async function Page(
 	props: PageProps<"/settings/integrations">,
 ): Promise<React.ReactNode> {
-	const session = await auth.api.getSession({ headers: await headers() });
-	if (!session) {
-		redirect("/auth");
-	}
+	await getRequiredSession();
 
 	const searchParams = await props.searchParams;
 	const callbackQuery = callbackQuerySchema.safeParse({

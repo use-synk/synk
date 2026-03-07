@@ -10,7 +10,14 @@ import { toast } from "sonner";
 export function LoginForm({ className, ...props }: React.ComponentProps<"form">) {
 	return (
 		<form id="login-form" className={cn("w-full grid grid-cols-1 gap-2", className)} {...props}>
-			<SocialProviderButton action={() => authClient.signIn.social({ provider: "github" })}>
+			<SocialProviderButton
+				action={() =>
+					authClient.signIn.social({
+						provider: "github",
+						callbackURL: `${window.location.origin}/`,
+					})
+				}
+			>
 				Sign in with GitHub
 			</SocialProviderButton>
 		</form>

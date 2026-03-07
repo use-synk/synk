@@ -9,12 +9,16 @@ import { roles } from "./ac/org";
 export function createAuth({
 	secret,
 	github,
+	basePath,
+	trustedOrigins,
 }: {
 	secret: string;
 	github: {
 		clientId: string;
 		clientSecret: string;
 	};
+	basePath?: string;
+	trustedOrigins?: string[];
 }) {
 	const baseAuthOptions = {
 		database: prismaAdapter(db, {
@@ -45,6 +49,8 @@ export function createAuth({
 	return betterAuth({
 		...baseAuthOptions,
 		secret,
+		...(basePath !== undefined ? { basePath } : {}),
+		...(trustedOrigins !== undefined ? { trustedOrigins } : {}),
 	});
 }
 
