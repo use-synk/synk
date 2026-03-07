@@ -15,6 +15,7 @@ export function createAuthService() {
 			clientSecret: getRequiredEnvironmentVariable("BETTER_AUTH_GITHUB_CLIENT_SECRET"),
 		},
 		secret: getRequiredEnvironmentVariable("BETTER_AUTH_SECRET"),
+		basePath: "/api/v1/auth",
 	});
 
 	return {
