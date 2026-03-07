@@ -14,6 +14,7 @@
 		"test": "bun --env-file=../../.env --env-file=.env test src/__tests__ --coverage"
 	},
 	"dependencies": {
+		"@logtail/pino": "^0.5.8",
 		"@synk-ai/ai": "workspace:*",
 		"@synk-ai/db": "workspace:*",
 		"@synk-ai/doc-adapters": "workspace:*",

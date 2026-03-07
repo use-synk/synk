@@ -16,6 +16,7 @@
 	},
 	"dependencies": {
 		"@hono/zod-openapi": "^1.2.2",
+		"@logtail/pino": "^0.5.8",
 		"@synk-ai/auth": "workspace:*",
 		"@synk-ai/db": "workspace:*",
 		"@synk-ai/github": "workspace:*",

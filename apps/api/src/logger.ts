@@ -12,5 +12,13 @@ export const createLogger = (level: pino.LevelWithSilent, isDevelopment: boolean
 		};
 	}
 
+	options.transport = {
+		target: "@logtail/pino",
+		options: {
+			sourceToken: process.env.LOGTAIL_SOURCE_TOKEN,
+			options: { endpoint: process.env.LOGTAIL_ENDPOINT },
+		},
+	};
+
 	return pino(options);
 };
