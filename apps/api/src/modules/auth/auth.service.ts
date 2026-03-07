@@ -9,6 +9,11 @@ const getRequiredEnvironmentVariable = (name: string): string => {
 };
 
 export function createAuthService() {
+	const trustedOrigins = (process.env.CORS_ORIGIN ?? "http://localhost:3000")
+		.split(",")
+		.map((value) => value.trim())
+		.filter((value) => value.length > 0);
+
 	const auth = createAuth({
 		github: {
 			clientId: getRequiredEnvironmentVariable("BETTER_AUTH_GITHUB_CLIENT_ID"),
@@ -16,6 +21,7 @@ export function createAuthService() {
 		},
 		secret: getRequiredEnvironmentVariable("BETTER_AUTH_SECRET"),
 		basePath: "/api/v1/auth",
+		trustedOrigins,
 	});
 
 	return {

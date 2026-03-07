@@ -10,6 +10,7 @@ export function createAuth({
 	secret,
 	github,
 	basePath,
+	trustedOrigins,
 }: {
 	secret: string;
 	github: {
@@ -17,6 +18,7 @@ export function createAuth({
 		clientSecret: string;
 	};
 	basePath?: string;
+	trustedOrigins?: string[];
 }) {
 	const baseAuthOptions = {
 		database: prismaAdapter(db, {
@@ -48,6 +50,7 @@ export function createAuth({
 		...baseAuthOptions,
 		secret,
 		...(basePath !== undefined ? { basePath } : {}),
+		...(trustedOrigins !== undefined ? { trustedOrigins } : {}),
 	});
 }
 
