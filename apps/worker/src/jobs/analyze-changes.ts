@@ -1171,12 +1171,29 @@ export const processAnalyzeChangesJob = async (
 	options: AnalyzeChangesOptions = defaultOptions,
 ): Promise<void> => {
 	const services: AnalyzeChangesServices = { ...defaultServices, ...servicesOverride };
+	const usesFallbackTriage = services.runTriage === defaultRunTriage;
+	const usesFallbackGeneration = services.runGeneration === defaultRunGeneration;
+	const usesAiTitleGeneration = services.generateSuggestionTitle !== defaultServices.generateSuggestionTitle;
 	const jobLogger = logger.child({
 		jobId: job.id ?? "unknown",
 		attemptNumber: job.attemptsMade + 1,
 		queue: job.queueName,
 	});
 	jobLogger.info({ payload: job.data }, "processing analyze changes job");
+	jobLogger.info(
+		{
+			repositoryId: job.data.repositoryId,
+			installationId: job.data.installationId,
+			triggerType: job.data.trigger.type,
+			commitSha: job.data.trigger.commitSha,
+			ref: job.data.trigger.ref,
+			prNumber: job.data.trigger.type === "merge" ? job.data.trigger.prNumber : null,
+			usesFallbackTriage,
+			usesFallbackGeneration,
+			usesAiTitleGeneration,
+		},
+		"analyze-changes flow started",
+	);
 	if (job.data.trigger.type === "push") {
 		jobLogger.info(
 			{ repositoryId: job.data.repositoryId, triggerType: job.data.trigger.type },
@@ -1191,6 +1208,15 @@ export const processAnalyzeChangesJob = async (
 	// and we should not produce a "failed" run entry for it.
 	const credentials = parseCredentialsOrFail();
 	const runId = await upsertInitialRun(job, repository);
+	jobLogger.info(
+		{
+			runId,
+			projectId: repository.projectId,
+			sourceRepositoryId: repository.sourceRepositoryId,
+			docsRepositoryId: repository.docsRepositoryId,
+		},
+		"analysis run record created",
+	);
 	const timings: Record<string, number> = {};
 	let triageUsage = normalizeTokenUsage(undefined);
 	const generationUsage: TokenUsage[] = [];
@@ -1222,6 +1248,10 @@ export const processAnalyzeChangesJob = async (
 		);
 		timings.filterDiff = filterDiffDurationMs;
 		if (filteredDiff.length === 0) {
+			jobLogger.info(
+				{ runId, reason: "filtered diff empty after default ignore paths" },
+				"analyze-changes flow completed without docs impact",
+			);
 			await updateRunStatus(runId, RUN_STATUS_SKIPPED, {
 				docsAffected: false,
 				suggestionsCount: 0,
@@ -1254,6 +1284,10 @@ export const processAnalyzeChangesJob = async (
 		timings.resolvePrConfig = resolvePrConfigDurationMs;
 		const filteredDiffWithProjectIgnores = filterDiff(filteredDiff, resolvedConfig.ignorePaths);
 		if (filteredDiffWithProjectIgnores.length === 0) {
+			jobLogger.info(
+				{ runId, reason: "filtered diff empty after project ignore paths" },
+				"analyze-changes flow completed without docs impact",
+			);
 			await updateRunStatus(runId, RUN_STATUS_SKIPPED, {
 				docsAffected: false,
 				suggestionsCount: 0,
@@ -1295,6 +1329,17 @@ export const processAnalyzeChangesJob = async (
 			resolvedConfig.ignorePaths,
 			repository.projectConfig,
 		);
+		jobLogger.info(
+			{
+				runId,
+				resolvedDocsFramework: docsConfig.framework,
+				docsPath: docsConfig.path ?? null,
+				docsRepo: docsConfig.repo ?? null,
+				docsBranch: docsConfig.branch ?? null,
+				ignorePathsCount: resolvedConfig.ignorePaths.length,
+			},
+			"resolved docs configuration",
+		);
 
 		// Re-use the tree fetched during auto-detection when the docs repository
 		// is the same as the source repository to avoid a duplicate GitHub API call.
@@ -1329,7 +1374,19 @@ export const processAnalyzeChangesJob = async (
 		);
 		timings.runAiTriage = triageDurationMs;
 		triageUsage = normalizeTokenUsage(triageResult.tokenUsage);
+		jobLogger.info(
+			{
+				runId,
+				needsUpdate: triageResult.needsUpdate,
+				affectedDocFileCount: triageResult.affectedDocFiles.length,
+			},
+			"triage step finished",
+		);
 		if (!triageResult.needsUpdate) {
+			jobLogger.info(
+				{ runId, reason: "triage decided no docs update needed" },
+				"analyze-changes flow completed",
+			);
 			await updateRunStatus(runId, RUN_STATUS_COMPLETED, {
 				docsAffected: false,
 				suggestionsCount: 0,
@@ -1361,6 +1418,13 @@ export const processAnalyzeChangesJob = async (
 			generationUsage.push(normalizeTokenUsage(generationResult.tokenUsage));
 		}
 		timings.runAiGeneration = Date.now() - generationStartedAt;
+		jobLogger.info(
+			{
+				runId,
+				generationOutputCount: generationOutputs.length,
+			},
+			"generation step finished",
+		);
 
 		const meaningfulChanges: SuggestionDraft[] = [];
 		for (const output of generationOutputs) {
@@ -1394,6 +1458,13 @@ export const processAnalyzeChangesJob = async (
 				diffDeletions: deletions,
 			});
 		}
+		jobLogger.info(
+			{
+				runId,
+				meaningfulChangeCount: meaningfulChanges.length,
+			},
+			"post-generation diff analysis finished",
+		);
 
 		const { value: titledChanges, durationMs: titleDurationMs } = await measureStep(
 			jobLogger,
@@ -1415,6 +1486,10 @@ export const processAnalyzeChangesJob = async (
 		);
 		timings.generateSuggestionTitles = titleDurationMs;
 		if (titledChanges.length === 0) {
+			jobLogger.info(
+				{ runId, reason: "no meaningful documentation changes after generation" },
+				"analyze-changes flow completed",
+			);
 			await updateRunStatus(runId, RUN_STATUS_COMPLETED, {
 				docsAffected: false,
 				suggestionsCount: 0,
@@ -1457,6 +1532,14 @@ export const processAnalyzeChangesJob = async (
 					}),
 				);
 			timings.persistSuggestions = persistSuggestionsDurationMs;
+			jobLogger.info(
+				{
+					runId,
+					persistedSuggestions: suggestionPersistence.persisted.length,
+					skippedSuggestions: suggestionPersistence.skipped.length,
+				},
+				"suggestions persisted",
+			);
 
 			await updateRunStatus(runId, RUN_STATUS_COMPLETED, {
 				docsAffected: true,
@@ -1499,6 +1582,15 @@ export const processAnalyzeChangesJob = async (
 				}),
 		);
 		timings.createPr = createPrDurationMs;
+		jobLogger.info(
+			{
+				runId,
+				docPrNumber: prResult.prNumber,
+				docPrUrl: prResult.prUrl,
+				suggestionCount: titledChanges.length,
+			},
+			"documentation pull request created",
+		);
 
 		await updateRunStatus(runId, RUN_STATUS_COMPLETED, {
 			docsAffected: true,
@@ -1508,6 +1600,13 @@ export const processAnalyzeChangesJob = async (
 			tokenUsage: aggregateTokenUsage(triageUsage, generationUsage),
 			result: runResultBase,
 		});
+		jobLogger.info(
+			{
+				runId,
+				suggestionCount: titledChanges.length,
+			},
+			"analyze-changes flow completed successfully",
+		);
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : "Unknown analyze-changes failure";
 		const classification = classifyError(error);

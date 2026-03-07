@@ -15,7 +15,7 @@ import {
 import { type Job, type JobsOptions, UnrecoverableError } from "bullmq";
 import { parseWorkerEnvironment } from "./env";
 import { type AnalyzeChangesServices, processAnalyzeChangesJob } from "./jobs/analyze-changes";
-import { createLogger } from "./logger";
+import { createLogger, type Logger } from "./logger";
 import {
 	type AnalyzeChangesDlqPayload,
 	createAnalyzeChangesDlqQueue,
@@ -27,6 +27,36 @@ import {
 
 const SHUTDOWN_TIMEOUT_MS = 30_000;
 const PENDING_PAYLOAD_TTL_MS = ANALYZE_CHANGES_COALESCE_WINDOW_MS * 20;
+
+const resolveRedisHostForLogging = (redisUrl: string): string => {
+	try {
+		return new URL(redisUrl).host;
+	} catch {
+		return "unknown";
+	}
+};
+
+const buildJobLogContext = (job: Job<AnalyzeChangesJobPayload>) => ({
+	jobId: job.id ?? "unknown",
+	queueName: job.queueName,
+	attemptNumber: job.attemptsMade + 1,
+	maxAttempts: job.opts.attempts ?? 1,
+	repositoryId: job.data.repositoryId,
+	triggerType: job.data.trigger.type,
+	commitSha: job.data.trigger.commitSha,
+});
+
+const createAiLoggerAdapter = (logger: Logger) => ({
+	info: (message: string, fields: Record<string, unknown>) => {
+		logger.info({ aiEvent: message, ...fields }, "ai event");
+	},
+	warn: (message: string, fields: Record<string, unknown>) => {
+		logger.warn({ aiEvent: message, ...fields }, "ai event");
+	},
+	error: (message: string, fields: Record<string, unknown>) => {
+		logger.error({ aiEvent: message, ...fields }, "ai event");
+	},
+});
 
 const getPendingPayload = async (
 	queue: ReturnType<typeof createAnalyzeChangesQueue>,
@@ -49,20 +79,44 @@ const clearPendingPayload = async (
 const updatePayloadFromPending = async (
 	queue: ReturnType<typeof createAnalyzeChangesQueue>,
 	job: Job<AnalyzeChangesJobPayload>,
+	logger: Logger,
 ): Promise<void> => {
 	const pending = await getPendingPayload(queue, job);
 	if (pending === null) {
 		return;
 	}
 	if (pending.payload.repositoryId !== job.data.repositoryId) {
+		logger.warn(
+			{
+				...buildJobLogContext(job),
+				pendingRepositoryId: pending.payload.repositoryId,
+			},
+			"pending payload repository mismatch, skipping replacement",
+		);
 		return;
 	}
 	if (pending.payload.trigger.commitSha === job.data.trigger.commitSha) {
 		await clearPendingPayload(queue, job);
+		logger.debug(
+			{
+				...buildJobLogContext(job),
+			},
+			"pending payload matched active commit, pending payload cleared",
+		);
 		return;
 	}
+
+	const previousCommitSha = job.data.trigger.commitSha;
 	await job.updateData(pending.payload);
 	await clearPendingPayload(queue, job);
+	logger.info(
+		{
+			...buildJobLogContext(job),
+			previousCommitSha,
+			replacedCommitSha: pending.payload.trigger.commitSha,
+		},
+		"active job payload replaced with latest pending payload",
+	);
 };
 
 const hasExistingRunForCommit = async (payload: AnalyzeChangesJobPayload): Promise<boolean> => {
@@ -81,6 +135,7 @@ const hasExistingRunForCommit = async (payload: AnalyzeChangesJobPayload): Promi
 const enqueuePendingPayloadForRepository = async (
 	queue: ReturnType<typeof createAnalyzeChangesQueue>,
 	job: Job<AnalyzeChangesJobPayload>,
+	logger: Logger,
 ): Promise<void> => {
 	const pending = await getPendingPayload(queue, job);
 	if (pending === null) {
@@ -89,6 +144,13 @@ const enqueuePendingPayloadForRepository = async (
 
 	if (await hasExistingRunForCommit(pending.payload)) {
 		await clearPendingPayload(queue, job);
+		logger.info(
+			{
+				...buildJobLogContext(job),
+				pendingCommitSha: pending.payload.trigger.commitSha,
+			},
+			"pending payload dropped because run already exists for commit",
+		);
 		return;
 	}
 
@@ -99,6 +161,15 @@ const enqueuePendingPayloadForRepository = async (
 		const redisClient = await queue.client;
 		const key = buildAnalyzeChangesPendingPayloadKey(job.data.repositoryId);
 		await redisClient.pexpire(key, PENDING_PAYLOAD_TTL_MS);
+		logger.debug(
+			{
+				...buildJobLogContext(job),
+				activeJobId: buildAnalyzeChangesActiveJobId(job.data.repositoryId),
+				pendingCommitSha: pending.payload.trigger.commitSha,
+				pendingPayloadTtlMs: PENDING_PAYLOAD_TTL_MS,
+			},
+			"active repository job still running, extended pending payload TTL",
+		);
 		return;
 	}
 
@@ -122,6 +193,15 @@ const enqueuePendingPayloadForRepository = async (
 	try {
 		await queue.add(job.name, pending.payload, jobOptions);
 		await clearPendingPayload(queue, job);
+		logger.info(
+			{
+				...buildJobLogContext(job),
+				enqueuedJobId: activeJobId,
+				delayMs,
+				pendingCommitSha: pending.payload.trigger.commitSha,
+			},
+			"enqueued pending payload for repository",
+		);
 	} catch (error) {
 		if (!isAlreadyExistingJobError(error)) {
 			throw error;
@@ -132,6 +212,15 @@ const enqueuePendingPayloadForRepository = async (
 			try {
 				await queue.add(job.name, pending.payload, jobOptions);
 				await clearPendingPayload(queue, job);
+				logger.info(
+					{
+						...buildJobLogContext(job),
+						enqueuedJobId: activeJobId,
+						delayMs,
+						pendingCommitSha: pending.payload.trigger.commitSha,
+					},
+					"enqueued pending payload after job-id conflict retry",
+				);
 				return;
 			} catch (retryError) {
 				if (!isAlreadyExistingJobError(retryError)) {
@@ -143,6 +232,14 @@ const enqueuePendingPayloadForRepository = async (
 		const redisClient = await queue.client;
 		const key = buildAnalyzeChangesPendingPayloadKey(job.data.repositoryId);
 		await redisClient.pexpire(key, PENDING_PAYLOAD_TTL_MS);
+		logger.warn(
+			{
+				...buildJobLogContext(job),
+				pendingCommitSha: pending.payload.trigger.commitSha,
+				pendingPayloadTtlMs: PENDING_PAYLOAD_TTL_MS,
+			},
+			"pending payload enqueue skipped due to existing active job id",
+		);
 	}
 };
 
@@ -174,6 +271,15 @@ const startWorker = async (): Promise<void> => {
 	const analyzeChangesQueue = createAnalyzeChangesQueue(connection);
 	logger.info(
 		{
+			logLevel: env.LOG_LEVEL,
+			redisUrlHost: resolveRedisHostForLogging(env.REDIS_URL),
+			workerConcurrency: env.WORKER_CONCURRENCY,
+			openRouterEnabled: env.OPENROUTER_API_KEY !== undefined,
+		},
+		"worker runtime configuration",
+	);
+	logger.info(
+		{
 			suggestionInboxEnabled: suggestionInboxRollout.suggestionInboxEnabled,
 			autoPrEnabled: suggestionInboxRollout.autoPrEnabled,
 			autoPrDisabledByFlag: suggestionInboxRollout.autoPrDisabledByFlag,
@@ -184,7 +290,10 @@ const startWorker = async (): Promise<void> => {
 
 	const titleGenerator =
 		env.OPENROUTER_API_KEY !== undefined
-			? createSuggestionTitle({ apiKey: env.OPENROUTER_API_KEY })
+			? createSuggestionTitle({
+					apiKey: env.OPENROUTER_API_KEY,
+					logger: createAiLoggerAdapter(logger),
+				})
 			: null;
 
 	const servicesOverride: Partial<AnalyzeChangesServices> | undefined =
@@ -199,7 +308,7 @@ const startWorker = async (): Promise<void> => {
 		connection,
 		concurrency: env.WORKER_CONCURRENCY,
 		processor: async (job: Job<AnalyzeChangesJobPayload>) => {
-			await updatePayloadFromPending(analyzeChangesQueue, job);
+			await updatePayloadFromPending(analyzeChangesQueue, job, logger);
 			await processAnalyzeChangesJob(job, logger, servicesOverride, {
 				autoPrEnabled: suggestionInboxRollout.autoPrEnabled,
 				decisionMemoryEnabled: suggestionInboxRollout.decisionMemoryEnabled,
@@ -212,9 +321,30 @@ const startWorker = async (): Promise<void> => {
 	worker.on("error", (error) => {
 		logger.error({ err: error }, "worker error");
 	});
+	worker.on("active", (job, prev) => {
+		logger.info(
+			{
+				...buildJobLogContext(job),
+				previousState: prev,
+			},
+			"job started",
+		);
+	});
 
 	queueEvents.on("error", (error) => {
 		logger.error({ err: error }, "queue events error");
+	});
+	queueEvents.on("active", ({ jobId, prev }) => {
+		logger.debug({ jobId, prev }, "queue event active");
+	});
+	queueEvents.on("waiting", ({ jobId }) => {
+		logger.debug({ jobId }, "queue event waiting");
+	});
+	queueEvents.on("completed", ({ jobId, prev }) => {
+		logger.debug({ jobId, prev }, "queue event completed");
+	});
+	queueEvents.on("stalled", ({ jobId }) => {
+		logger.warn({ jobId }, "queue event stalled");
 	});
 
 	dlqQueue.on("error", (error) => {
@@ -231,11 +361,8 @@ const startWorker = async (): Promise<void> => {
 
 		const logMetadata = {
 			err: error,
-			jobId: job.id ?? "unknown",
-			queueName: job.queueName,
+			...buildJobLogContext(job),
 			attemptsMade: job.attemptsMade,
-			maxAttempts: job.opts.attempts ?? 1,
-			repositoryId: job.data.repositoryId,
 			isPermanentlyFailed: permanently,
 		};
 
@@ -243,13 +370,19 @@ const startWorker = async (): Promise<void> => {
 			logger.error(logMetadata, "job permanently failed — moving to dead-letter queue");
 			void moveToDlq(job, error, dlqQueue).catch((dlqError) => {
 				logger.error(
-					{ err: dlqError, jobId: job.id },
+					{
+						err: dlqError,
+						...buildJobLogContext(job),
+					},
 					"failed to add permanently failed job to dead-letter queue",
 				);
 			});
-			void enqueuePendingPayloadForRepository(analyzeChangesQueue, job).catch((enqueueError) => {
+			void enqueuePendingPayloadForRepository(analyzeChangesQueue, job, logger).catch((enqueueError) => {
 				logger.error(
-					{ err: enqueueError, jobId: job.id, repositoryId: job.data.repositoryId },
+					{
+						err: enqueueError,
+						...buildJobLogContext(job),
+					},
 					"failed to enqueue pending repository payload after permanent failure",
 				);
 			});
@@ -259,9 +392,27 @@ const startWorker = async (): Promise<void> => {
 	});
 
 	worker.on("completed", (job) => {
-		void enqueuePendingPayloadForRepository(analyzeChangesQueue, job).catch((enqueueError) => {
+		const startedAt = job.processedOn ?? null;
+		const finishedAt = job.finishedOn ?? null;
+		const durationMs =
+			startedAt !== null && finishedAt !== null && finishedAt >= startedAt
+				? finishedAt - startedAt
+				: null;
+		logger.info(
+			{
+				...buildJobLogContext(job),
+				startedAt,
+				finishedAt,
+				durationMs,
+			},
+			"job completed",
+		);
+		void enqueuePendingPayloadForRepository(analyzeChangesQueue, job, logger).catch((enqueueError) => {
 			logger.error(
-				{ err: enqueueError, jobId: job.id, repositoryId: job.data.repositoryId },
+				{
+					err: enqueueError,
+					...buildJobLogContext(job),
+				},
 				"failed to enqueue pending repository payload after completion",
 			);
 		});
