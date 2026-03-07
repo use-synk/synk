@@ -11,6 +11,7 @@ import {
 	isAlreadyExistingJobError,
 } from "@synk-ai/shared";
 import { Queue } from "bullmq";
+import type { Logger } from "../logger";
 
 export { ANALYZE_CHANGES_QUEUE_NAME };
 
@@ -86,9 +87,21 @@ export const createAnalyzeChangesQueue = (redisUrl: string): Queue<AnalyzeChange
 export const createAnalyzeChangesEnqueuer = (
 	queue: Queue<AnalyzeChangesJobPayload>,
 	db: AnalyzeChangesQueueDatabase,
+	logger?: Logger,
 ): AnalyzeChangesEnqueuer => {
 	return async (payload) => {
+		const logContext = {
+			repositoryId: payload.repositoryId,
+			installationId: payload.installationId,
+			triggerType: payload.trigger.type,
+			commitSha: payload.trigger.commitSha,
+			ref: payload.trigger.ref,
+			prNumber: payload.trigger.type === "merge" ? payload.trigger.prNumber : undefined,
+		};
+		logger?.info(logContext, "analyze-changes enqueue requested");
+
 		if (await hasExistingRunForCommit(db, payload)) {
+			logger?.info(logContext, "analyze-changes enqueue skipped: run for commit already exists");
 			return;
 		}
 
@@ -96,10 +109,25 @@ export const createAnalyzeChangesEnqueuer = (
 		const activeJob = await getRepositoryActiveJob(queue, payload.repositoryId);
 		if (activeJob !== null) {
 			await setPendingPayload(queue, payload);
+			logger?.info(
+				{
+					...logContext,
+					activeJobId,
+				},
+				"analyze-changes enqueue coalesced into pending payload (active job exists)",
+			);
 			return;
 		}
 
 		await setPendingPayload(queue, payload);
+		logger?.debug(
+			{
+				...logContext,
+				activeJobId,
+				delayMs: ACTIVE_JOB_START_DELAY_MS,
+			},
+			"analyze-changes pending payload stored",
+		);
 
 		try {
 			await queue.add(ANALYZE_CHANGES_QUEUE_NAME, payload, {
@@ -108,13 +136,36 @@ export const createAnalyzeChangesEnqueuer = (
 				removeOnComplete: true,
 				removeOnFail: true,
 			});
+			logger?.info(
+				{
+					...logContext,
+					jobId: activeJobId,
+					delayMs: ACTIVE_JOB_START_DELAY_MS,
+				},
+				"analyze-changes job enqueued",
+			);
 		} catch (error) {
 			if (!isAlreadyExistingJobError(error)) {
+				logger?.error({ err: error, ...logContext, jobId: activeJobId }, "enqueue failed unexpectedly");
 				throw error;
 			}
+			logger?.warn(
+				{
+					...logContext,
+					jobId: activeJobId,
+				},
+				"enqueue conflict: active job id already exists, checking active state",
+			);
 
 			const jobAfterConflict = await getRepositoryActiveJob(queue, payload.repositoryId);
 			if (jobAfterConflict !== null) {
+				logger?.info(
+					{
+						...logContext,
+						jobId: activeJobId,
+					},
+					"enqueue conflict resolved: active job still exists, payload left pending",
+				);
 				return;
 			}
 
@@ -125,10 +176,33 @@ export const createAnalyzeChangesEnqueuer = (
 					removeOnComplete: true,
 					removeOnFail: true,
 				});
+				logger?.info(
+					{
+						...logContext,
+						jobId: activeJobId,
+						delayMs: ACTIVE_JOB_START_DELAY_MS,
+					},
+					"analyze-changes job enqueued after conflict retry",
+				);
 			} catch (retryError) {
 				if (!isAlreadyExistingJobError(retryError)) {
+					logger?.error(
+						{
+							err: retryError,
+							...logContext,
+							jobId: activeJobId,
+						},
+						"enqueue retry failed unexpectedly",
+					);
 					throw retryError;
 				}
+				logger?.warn(
+					{
+						...logContext,
+						jobId: activeJobId,
+					},
+					"enqueue retry skipped: job id still exists",
+				);
 			}
 		}
 	};

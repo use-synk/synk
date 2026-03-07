@@ -120,6 +120,7 @@ export const createApp = (options: AppOptions): OpenAPIHono<AppEnv> => {
 			listInstallationRepositories,
 			webhookRepository: webhookRepositories.webhookRepository,
 			webhookEventLogRepository: webhookRepositories.webhookEventLogRepository,
+			logger,
 		}),
 	);
 

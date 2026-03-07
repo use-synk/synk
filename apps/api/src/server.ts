@@ -13,7 +13,17 @@ const startServer = (): void => {
 	const logger = createLogger(env.LOG_LEVEL, env.NODE_ENV === "development");
 	const suggestionInboxRollout = resolveSuggestionInboxRolloutMode(env);
 	const analyzeChangesQueue = createAnalyzeChangesQueue(env.REDIS_URL);
-	const enqueueAnalyzeChanges = createAnalyzeChangesEnqueuer(analyzeChangesQueue, db);
+	const enqueueAnalyzeChanges = createAnalyzeChangesEnqueuer(analyzeChangesQueue, db, logger);
+	logger.info(
+		{
+			logLevel: env.LOG_LEVEL,
+			host: env.HOST,
+			port: env.PORT,
+			redisUrlConfigured: env.REDIS_URL.length > 0,
+			corsOrigin: env.CORS_ORIGIN,
+		},
+		"api runtime configuration",
+	);
 
 	const dependencies = buildAppDependencies({ env, enqueueAnalyzeChanges });
 

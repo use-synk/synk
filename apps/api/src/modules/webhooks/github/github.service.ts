@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type z from "zod";
 import type { WebhookEventLogRepository, WebhookRepository } from "../../../domain/ports/index";
+import type { Logger } from "../../../logger";
 import type { AnalyzeChangesEnqueuer } from "../../../queues/analyze-changes";
 import { INSTALLATION_ACTIVE, INSTALLATION_SUSPENDED, PROVIDER_GITHUB } from "./constants";
 import {
@@ -28,6 +29,7 @@ export type GitHubWebhookServiceOptions = {
 	listInstallationRepositories: ListInstallationRepositories;
 	webhookRepository: WebhookRepository;
 	webhookEventLogRepository?: WebhookEventLogRepository;
+	logger?: Logger;
 };
 
 export class GitHubWebhookService {
@@ -35,6 +37,14 @@ export class GitHubWebhookService {
 	private readonly SIGN_ALGORITHM = "sha256";
 
 	constructor(private readonly options: GitHubWebhookServiceOptions) {}
+
+	private logInfo(context: Record<string, unknown>, message: string): void {
+		this.options.logger?.info(context, message);
+	}
+
+	private logWarn(context: Record<string, unknown>, message: string): void {
+		this.options.logger?.warn(context, message);
+	}
 
 	/**
 	 * Validates the signature of a webhook payload.
@@ -68,6 +78,7 @@ export class GitHubWebhookService {
 	}
 
 	async handleEvent(event: string, payload: unknown): Promise<EventHandleResult> {
+		this.logInfo({ event }, "github webhook event dispatch");
 		switch (event) {
 			case "installation":
 				return this.handleInstallationEvent(payload);
@@ -78,6 +89,7 @@ export class GitHubWebhookService {
 			case "pull_request":
 				return this.handlePullRequestEvent(payload);
 			default:
+				this.logInfo({ event }, "github webhook event ignored: unsupported event");
 				return { ok: false, message: `Unsupported event: ${event}` };
 		}
 	}
@@ -89,20 +101,34 @@ export class GitHubWebhookService {
 	private async handleInstallationEvent(payload: unknown): Promise<EventHandleResult> {
 		const parseRes = installationEventSchema.safeParse(payload);
 		if (!parseRes.success) {
+			this.logWarn({ event: "installation" }, "github webhook invalid installation payload");
 			return { ok: false, message: "Invalid payload for installation event." };
 		}
 
 		const { action, installation } = parseRes.data;
 		const providerInstallationId = this.getProviderInstallationId(installation);
 		if (providerInstallationId === null) {
+			this.logWarn({ event: "installation", action }, "github webhook missing installation id");
 			return { ok: false, message: "Installation ID is required." };
 		}
+		this.logInfo(
+			{ event: "installation", action, providerInstallationId },
+			"github webhook installation event received",
+		);
 
 		if (action === "deleted") {
 			try {
 				await this.handleDeleteInstallation(providerInstallationId);
+				this.logInfo(
+					{ event: "installation", action, providerInstallationId },
+					"github webhook installation marked deleted",
+				);
 				return { ok: true };
 			} catch {
+				this.logWarn(
+					{ event: "installation", action, providerInstallationId },
+					"github webhook installation delete handling failed",
+				);
 				return { ok: false, message: "Failed to handle delete installation." };
 			}
 		}
@@ -114,11 +140,19 @@ export class GitHubWebhookService {
 
 		const organizationId = existing?.organizationId;
 		if (organizationId === undefined) {
+			this.logInfo(
+				{ event: "installation", action, providerInstallationId },
+				"github webhook installation ignored: no linked organization",
+			);
 			return { ok: true };
 		}
 
 		const identity = this.installationIdentityFromPayload(parseRes.data, providerInstallationId);
 		if (identity === null) {
+			this.logWarn(
+				{ event: "installation", action, providerInstallationId, organizationId },
+				"github webhook installation payload missing identity",
+			);
 			return { ok: false, message: "Invalid payload for installation event." };
 		}
 
@@ -136,8 +170,16 @@ export class GitHubWebhookService {
 				deletedAt: null,
 			});
 		} catch {
+			this.logWarn(
+				{ event: "installation", action, providerInstallationId, organizationId },
+				"github webhook installation upsert failed",
+			);
 			return { ok: false, message: "Failed to upsert installation: organization not found." };
 		}
+		this.logInfo(
+			{ event: "installation", action, providerInstallationId, organizationId },
+			"github webhook installation upserted",
+		);
 
 		if (action !== "created" || installation?.id === undefined) {
 			return { ok: true };
@@ -149,6 +191,10 @@ export class GitHubWebhookService {
 			upserted.id,
 			installation.id,
 		);
+		this.logInfo(
+			{ event: "installation", action, providerInstallationId, organizationId },
+			"github webhook installation repositories synced",
+		);
 
 		return { ok: true };
 	}
@@ -156,20 +202,36 @@ export class GitHubWebhookService {
 	private async handleInstallationRepositoriesEvent(payload: unknown): Promise<EventHandleResult> {
 		const parseRes = installationRepositoriesEventSchema.safeParse(payload);
 		if (!parseRes.success) {
+			this.logWarn(
+				{ event: "installation_repositories" },
+				"github webhook invalid installation_repositories payload",
+			);
 			return { ok: false, message: "Invalid payload for installation_repositories event." };
 		}
 
 		const { action, installation } = parseRes.data;
 		const providerInstallationId = this.getProviderInstallationId(installation);
 		if (providerInstallationId === null) {
+			this.logWarn(
+				{ event: "installation_repositories", action },
+				"github webhook missing installation id for installation_repositories event",
+			);
 			return { ok: false, message: "Installation ID is required." };
 		}
+		this.logInfo(
+			{ event: "installation_repositories", action, providerInstallationId },
+			"github webhook installation_repositories event received",
+		);
 
 		const databaseInstallation = await this.options.webhookRepository.findInstallation({
 			provider: PROVIDER_GITHUB,
 			providerInstallationId,
 		});
 		if (databaseInstallation === null) {
+			this.logInfo(
+				{ event: "installation_repositories", action, providerInstallationId },
+				"github webhook installation_repositories ignored: installation not found in db",
+			);
 			return { ok: true };
 		}
 
@@ -187,17 +249,44 @@ export class GitHubWebhookService {
 				);
 			}
 			if (hydrated.missingProviderRepositoryIds.length > 0) {
+				this.logWarn(
+					{
+						event: "installation_repositories",
+						action,
+						providerInstallationId,
+						missingProviderRepositoryIds: hydrated.missingProviderRepositoryIds,
+					},
+					"github webhook installation_repositories added handling incomplete",
+				);
 				return {
 					ok: false,
 					message: `Missing repository details for installation_repositories.added: ${hydrated.missingProviderRepositoryIds.join(",")}`,
 				};
 			}
+			this.logInfo(
+				{
+					event: "installation_repositories",
+					action,
+					providerInstallationId,
+					addedCount: hydrated.complete.length,
+				},
+				"github webhook installation_repositories added handled",
+			);
 			return { ok: true };
 		}
 
 		if (action === "removed") {
 			const ids = getRepositoryIds(parseRes.data.repositories_removed ?? []);
 			await markRepositoriesAsRemoved(this.options.webhookRepository, providerInstallationId, ids);
+			this.logInfo(
+				{
+					event: "installation_repositories",
+					action,
+					providerInstallationId,
+					removedCount: ids.length,
+				},
+				"github webhook installation_repositories removed handled",
+			);
 		}
 
 		return { ok: true };
@@ -206,6 +295,7 @@ export class GitHubWebhookService {
 	private async handlePushEvent(payload: unknown): Promise<EventHandleResult> {
 		const parseRes = pushEventSchema.safeParse(payload);
 		if (!parseRes.success) {
+			this.logWarn({ event: "push" }, "github webhook invalid push payload");
 			return { ok: false, message: "Invalid payload for push event." };
 		}
 
@@ -220,6 +310,7 @@ export class GitHubWebhookService {
 			commitSha === undefined ||
 			commitSha === GITHUB_DELETED_REF_SHA
 		) {
+			this.logInfo({ event: "push" }, "github webhook push ignored: missing required fields or deleted ref");
 			return { ok: true };
 		}
 
@@ -228,8 +319,42 @@ export class GitHubWebhookService {
 			providerInstallationId,
 			providerRepositoryId,
 		});
-		if (repo === null) return { ok: true };
-		if (ref !== `refs/heads/${repo.defaultBranch}`) return { ok: true };
+		if (repo === null) {
+			this.logInfo(
+				{
+					event: "push",
+					providerInstallationId,
+					providerRepositoryId,
+					commitSha,
+					ref,
+				},
+				"github webhook push ignored: repository not active",
+			);
+			return { ok: true };
+		}
+		if (ref !== `refs/heads/${repo.defaultBranch}`) {
+			this.logInfo(
+				{
+					event: "push",
+					repositoryId: repo.id,
+					commitSha,
+					ref,
+					defaultBranch: repo.defaultBranch,
+				},
+				"github webhook push ignored: non-default branch",
+			);
+			return { ok: true };
+		}
+		this.logInfo(
+			{
+				event: "push",
+				repositoryId: repo.id,
+				commitSha,
+				ref,
+				defaultBranch: repo.defaultBranch,
+			},
+			"github webhook push matched default branch (no enqueue for push event)",
+		);
 
 		return { ok: true };
 	}
@@ -237,11 +362,23 @@ export class GitHubWebhookService {
 	private async handlePullRequestEvent(payload: unknown): Promise<EventHandleResult> {
 		const parseRes = pullRequestEventSchema.safeParse(payload);
 		if (!parseRes.success) {
+			this.logWarn({ event: "pull_request" }, "github webhook invalid pull_request payload");
 			return { ok: false, message: "Invalid payload for pull_request event." };
 		}
 
 		const { action, number: prNumber, installation, repository, pull_request } = parseRes.data;
-		if (action !== "closed" || pull_request?.merged !== true) return { ok: true };
+		if (action !== "closed" || pull_request?.merged !== true) {
+			this.logInfo(
+				{
+					event: "pull_request",
+					action,
+					prNumber,
+					merged: pull_request?.merged ?? false,
+				},
+				"github webhook pull_request ignored: not a merged close event",
+			);
+			return { ok: true };
+		}
 
 		const providerInstallationId = this.getProviderInstallationId(installation);
 		const providerRepositoryId = this.getProviderRepositoryId(repository);
@@ -262,6 +399,14 @@ export class GitHubWebhookService {
 			commitSha === undefined ||
 			prAuthorUsername === undefined
 		) {
+			this.logWarn(
+				{
+					event: "pull_request",
+					action,
+					prNumber,
+				},
+				"github webhook pull_request ignored: missing required fields",
+			);
 			return { ok: true };
 		}
 
@@ -270,8 +415,48 @@ export class GitHubWebhookService {
 			providerInstallationId,
 			providerRepositoryId,
 		});
-		if (repo === null) return { ok: true };
-		if (baseRef !== repo.defaultBranch) return { ok: true };
+		if (repo === null) {
+			this.logInfo(
+				{
+					event: "pull_request",
+					action,
+					prNumber,
+					providerInstallationId,
+					providerRepositoryId,
+					commitSha,
+				},
+				"github webhook pull_request ignored: repository not active",
+			);
+			return { ok: true };
+		}
+		if (baseRef !== repo.defaultBranch) {
+			this.logInfo(
+				{
+					event: "pull_request",
+					action,
+					prNumber,
+					repositoryId: repo.id,
+					baseRef,
+					defaultBranch: repo.defaultBranch,
+					commitSha,
+				},
+				"github webhook pull_request ignored: merged into non-default branch",
+			);
+			return { ok: true };
+		}
+		this.logInfo(
+			{
+				event: "pull_request",
+				action,
+				prNumber,
+				repositoryId: repo.id,
+				installationId: repo.installationId,
+				baseRef,
+				headRef,
+				commitSha,
+			},
+			"github webhook pull_request matched enqueue conditions",
+		);
 
 		await this.options.enqueueAnalyzeChanges({
 			installationId: repo.installationId,
@@ -289,6 +474,17 @@ export class GitHubWebhookService {
 				prAuthorAvatarUrl,
 			},
 		});
+		this.logInfo(
+			{
+				event: "pull_request",
+				action,
+				prNumber,
+				repositoryId: repo.id,
+				installationId: repo.installationId,
+				commitSha,
+			},
+			"github webhook pull_request enqueued analyze-changes",
+		);
 
 		return { ok: true };
 	}
