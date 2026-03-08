@@ -707,7 +707,9 @@ describe("processAnalyzeChangesJob", () => {
 			{ path: "README.md", sha: "r1", size: 100 },
 			{ path: "docs/math.md", sha: "d1", size: 100 },
 		]);
-		mockFetchMultipleFiles.mockResolvedValue([{ path: "docs/math.md", content: "# Math", sha: "d1", size: 5 }]);
+		mockFetchMultipleFiles.mockResolvedValue([
+			{ path: "docs/math.md", content: "# Math", sha: "d1", size: 5 },
+		]);
 
 		const adapter = makeAdapter();
 		adapter.frameworkId = "markdown";
@@ -753,7 +755,9 @@ describe("processAnalyzeChangesJob", () => {
 			{ path: "README.md", sha: "r1", size: 100 },
 			{ path: "docs/math.md", sha: "d1", size: 100 },
 		]);
-		mockFetchMultipleFiles.mockResolvedValue([{ path: "docs/math.md", content: "# Math", sha: "d1", size: 5 }]);
+		mockFetchMultipleFiles.mockResolvedValue([
+			{ path: "docs/math.md", content: "# Math", sha: "d1", size: 5 },
+		]);
 
 		const adapter = makeAdapter();
 		adapter.frameworkId = "markdown";
@@ -1176,9 +1180,7 @@ describe("processAnalyzeChangesJob", () => {
 				data: expect.objectContaining({
 					suggestionsCount: 0,
 					result: expect.objectContaining({
-						skippedSuggestions: [
-							expect.objectContaining({ reason: "duplicate-run-fingerprint" }),
-						],
+						skippedSuggestions: [expect.objectContaining({ reason: "duplicate-run-fingerprint" })],
 					}),
 				}),
 			}),
@@ -1236,9 +1238,7 @@ describe("processAnalyzeChangesJob", () => {
 				data: expect.objectContaining({
 					suggestionsCount: 0,
 					result: expect.objectContaining({
-						skippedSuggestions: [
-							expect.objectContaining({ reason: "declined-decision-memory" }),
-						],
+						skippedSuggestions: [expect.objectContaining({ reason: "declined-decision-memory" })],
 					}),
 				}),
 			}),

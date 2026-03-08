@@ -40,9 +40,7 @@ const buildUserContent = (params: TitlePromptParams): string => {
 	return lines.join("\n\n");
 };
 
-export const buildTitlePrompt = (
-	params: TitlePromptParams,
-): [PromptMessage, PromptMessage] => [
+export const buildTitlePrompt = (params: TitlePromptParams): [PromptMessage, PromptMessage] => [
 	{ role: "system", content: SYSTEM_CONTENT },
 	{ role: "user", content: buildUserContent(params) },
 ];

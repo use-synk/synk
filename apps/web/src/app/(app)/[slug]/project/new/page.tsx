@@ -2,13 +2,13 @@ import { listOrganizationRepositories } from "@/api/endpoints";
 import { prefetchQuery } from "@/api/server";
 import { PageDescription, PageTitle } from "@/components/typography";
 import { Separator } from "@/components/ui/separator";
+import { CreateProjectForm } from "@/modules/projects/components/";
 import { HydrationBoundary, dehydrate } from "@tanstack/react-query";
 import { ArrowLeftIcon, BookOpenIcon, Building2Icon, UserIcon } from "lucide-react";
 import Link from "next/link";
 import { Suspense } from "react";
-import { CreateProjectForm } from "./_components/create-project-form";
 
-export default async function ServerPage(props: PageProps<"/[slug]/projects/new">) {
+export default async function ServerPage(props: PageProps<"/[slug]/project/new">) {
 	const { slug } = await props.params;
 
 	const { client } = await prefetchQuery(

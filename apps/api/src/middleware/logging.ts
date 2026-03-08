@@ -7,7 +7,10 @@ type LoggingOptions = {
 	logger: Logger;
 };
 
-const pickClientIp = (forwardedForHeader: string | undefined, realIpHeader: string | undefined): string => {
+const pickClientIp = (
+	forwardedForHeader: string | undefined,
+	realIpHeader: string | undefined,
+): string => {
 	if (forwardedForHeader !== undefined) {
 		const firstForwardedIp = forwardedForHeader.split(",")[0]?.trim();
 		if (firstForwardedIp) {
@@ -71,14 +74,13 @@ export const createLoggingMiddleware = (options: LoggingOptions): MiddlewareHand
 				durationMs,
 				dashboardUserId: c.get("dashboardAuth")?.userId ?? null,
 			};
+
 			if (status >= 500) {
 				childLogger.error(logPayload, "request completed");
-				return;
-			}
-			if (status >= 400) {
+			} else if (status >= 400) {
 				childLogger.warn(logPayload, "request completed");
-				return;
+			} else {
+				childLogger.info(logPayload, "request completed");
 			}
-			childLogger.info(logPayload, "request completed");
 		}
 	});

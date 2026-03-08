@@ -73,11 +73,21 @@ export function buildDiffLines(oldContent: string, newContent: string): DiffLine
 
 		if (change.added) {
 			for (const content of parts) {
-				lines.push({ type: "added", content, oldLineNumber: undefined, newLineNumber: newLineNum++ });
+				lines.push({
+					type: "added",
+					content,
+					oldLineNumber: undefined,
+					newLineNumber: newLineNum++,
+				});
 			}
 		} else if (change.removed) {
 			for (const content of parts) {
-				lines.push({ type: "removed", content, oldLineNumber: oldLineNum++, newLineNumber: undefined });
+				lines.push({
+					type: "removed",
+					content,
+					oldLineNumber: oldLineNum++,
+					newLineNumber: undefined,
+				});
 			}
 		} else {
 			for (const content of parts) {
@@ -190,7 +200,10 @@ export function computeWordHighlights(
  * Splits shiki tokens at word-highlight boundaries, yielding spans that
  * carry both a syntax color and an optional background highlight type.
  */
-export function applyWordHighlights(tokens: ThemedToken[], highlights: WordHighlight[]): RenderedSpan[] {
+export function applyWordHighlights(
+	tokens: ThemedToken[],
+	highlights: WordHighlight[],
+): RenderedSpan[] {
 	if (tokens.length === 0) return [{ content: "", color: FALLBACK_COLOR, highlight: undefined }];
 
 	type CharMeta = { color: string; highlight: "added" | "removed" | undefined };
@@ -292,7 +305,12 @@ function buildRenderedLines(lines: DiffLine[], ctx: TokenContext): RenderedLine[
 function buildSingleRenderedLine(line: DiffLine, ctx: TokenContext): RenderedLine {
 	if (line.type === "added") {
 		const tokens = ctx.newTokens[(line.newLineNumber ?? 1) - 1] ?? [];
-		return { type: "added", oldLineNumber: undefined, newLineNumber: line.newLineNumber, spans: applyWordHighlights(tokens, []) };
+		return {
+			type: "added",
+			oldLineNumber: undefined,
+			newLineNumber: line.newLineNumber,
+			spans: applyWordHighlights(tokens, []),
+		};
 	}
 	const tokens = ctx.oldTokens[(line.oldLineNumber ?? 1) - 1] ?? [];
 	return {
@@ -303,7 +321,11 @@ function buildSingleRenderedLine(line: DiffLine, ctx: TokenContext): RenderedLin
 	};
 }
 
-function buildRenderedBlock(removed: DiffLine[], added: DiffLine[], ctx: TokenContext): RenderedLine[] {
+function buildRenderedBlock(
+	removed: DiffLine[],
+	added: DiffLine[],
+	ctx: TokenContext,
+): RenderedLine[] {
 	const result: RenderedLine[] = [];
 	const pairCount = Math.min(removed.length, added.length);
 

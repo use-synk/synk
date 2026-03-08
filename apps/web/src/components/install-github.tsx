@@ -43,11 +43,7 @@ export function InstallGitHubButton({
 	}, [organizationId, organizationSlug, router]);
 
 	return (
-		<Button
-			onClick={onClick}
-			disabled={disabled || isLoading}
-			{...props}
-		>
+		<Button onClick={onClick} disabled={disabled || isLoading} {...props}>
 			{children}
 		</Button>
 	);

@@ -15,7 +15,7 @@ import {
 import { type Job, type JobsOptions, UnrecoverableError } from "bullmq";
 import { parseWorkerEnvironment } from "./env";
 import { type AnalyzeChangesServices, processAnalyzeChangesJob } from "./jobs/analyze-changes";
-import { createLogger, type Logger } from "./logger";
+import { type Logger, createLogger } from "./logger";
 import {
 	type AnalyzeChangesDlqPayload,
 	createAnalyzeChangesDlqQueue,
@@ -490,15 +490,17 @@ const startWorker = async (): Promise<void> => {
 					"failed to add permanently failed job to dead-letter queue",
 				);
 			});
-			void enqueuePendingPayloadForRepository(analyzeChangesQueue, job, logger).catch((enqueueError) => {
-				logger.error(
-					{
-						err: enqueueError,
-						...buildJobLogContext(job),
-					},
-					"failed to enqueue pending repository payload after permanent failure",
-				);
-			});
+			void enqueuePendingPayloadForRepository(analyzeChangesQueue, job, logger).catch(
+				(enqueueError) => {
+					logger.error(
+						{
+							err: enqueueError,
+							...buildJobLogContext(job),
+						},
+						"failed to enqueue pending repository payload after permanent failure",
+					);
+				},
+			);
 		} else {
 			logger.warn(logMetadata, "job failed, will be retried");
 		}
@@ -520,15 +522,17 @@ const startWorker = async (): Promise<void> => {
 			},
 			"job completed",
 		);
-		void enqueuePendingPayloadForRepository(analyzeChangesQueue, job, logger).catch((enqueueError) => {
-			logger.error(
-				{
-					err: enqueueError,
-					...buildJobLogContext(job),
-				},
-				"failed to enqueue pending repository payload after completion",
-			);
-		});
+		void enqueuePendingPayloadForRepository(analyzeChangesQueue, job, logger).catch(
+			(enqueueError) => {
+				logger.error(
+					{
+						err: enqueueError,
+						...buildJobLogContext(job),
+					},
+					"failed to enqueue pending repository payload after completion",
+				);
+			},
+		);
 	});
 
 	let isShuttingDown = false;

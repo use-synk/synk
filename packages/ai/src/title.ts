@@ -69,7 +69,11 @@ const truncateExcerpt = (content: string): string =>
 	content.length <= EXCERPT_MAX_CHARS ? content : `${content.slice(0, EXCERPT_MAX_CHARS)}…`;
 
 const normalizeTitle = (raw: string): string => {
-	const trimmed = raw.trim().replace(/^["']|["']$/g, "").trimEnd().replace(/[.!]$/u, "");
+	const trimmed = raw
+		.trim()
+		.replace(/^["']|["']$/g, "")
+		.trimEnd()
+		.replace(/[.!]$/u, "");
 	return trimmed.slice(0, MAX_TITLE_LENGTH);
 };
 

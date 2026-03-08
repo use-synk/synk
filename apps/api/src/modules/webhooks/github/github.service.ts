@@ -310,7 +310,10 @@ export class GitHubWebhookService {
 			commitSha === undefined ||
 			commitSha === GITHUB_DELETED_REF_SHA
 		) {
-			this.logInfo({ event: "push" }, "github webhook push ignored: missing required fields or deleted ref");
+			this.logInfo(
+				{ event: "push" },
+				"github webhook push ignored: missing required fields or deleted ref",
+			);
 			return { ok: true };
 		}
 
