@@ -30,7 +30,7 @@ function SuggestionSidebar({
 						) : (
 							<>
 								<UserCircle2Icon className="size-3.5 text-stone-500" />
-								<p>chris23lngr</p>
+								<p>Unassigned</p>
 							</>
 						)}
 					</SidebarItemValue>
