@@ -22,9 +22,7 @@ export async function AppSidebar({
 }: React.ComponentProps<typeof Sidebar> & {
 	activeOrganizationSlug: string;
 }) {
-	const { client } = await prefetchQuery(
-		listUserProjectsByOrganization(),
-	);
+	const { client } = await prefetchQuery(listUserProjectsByOrganization());
 
 	return (
 		<Sidebar {...props}>

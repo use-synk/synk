@@ -29,8 +29,7 @@ export const resolveSuggestionInboxRolloutMode = (
 	const autoPrDisabledByFlag = flags.SYNK_AUTOPR_DISABLED;
 	return {
 		suggestionInboxEnabled,
-		decisionMemoryEnabled:
-			suggestionInboxEnabled && flags.SYNK_SUGGESTION_DECISION_MEMORY_ENABLED,
+		decisionMemoryEnabled: suggestionInboxEnabled && flags.SYNK_SUGGESTION_DECISION_MEMORY_ENABLED,
 		autoPrEnabled: !(suggestionInboxEnabled && autoPrDisabledByFlag),
 		autoPrDisabledByFlag,
 	};

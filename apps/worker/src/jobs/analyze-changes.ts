@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import { diffLines } from "diff";
 import { type Prisma, db } from "@synk-ai/db";
 import {
 	type DocAdapter,
@@ -29,6 +28,7 @@ import {
 	parseSynkAiConfigFromYaml,
 } from "@synk-ai/shared";
 import { type Job, UnrecoverableError } from "bullmq";
+import { diffLines } from "diff";
 import type { Logger } from "../logger";
 import { classifyError } from "./error-classification";
 
@@ -1230,7 +1230,8 @@ export const processAnalyzeChangesJob = async (
 	const services: AnalyzeChangesServices = { ...defaultServices, ...servicesOverride };
 	const usesFallbackTriage = services.runTriage === defaultRunTriage;
 	const usesFallbackGeneration = services.runGeneration === defaultRunGeneration;
-	const usesAiTitleGeneration = services.generateSuggestionTitle !== defaultServices.generateSuggestionTitle;
+	const usesAiTitleGeneration =
+		services.generateSuggestionTitle !== defaultServices.generateSuggestionTitle;
 	const jobLogger = logger.child({
 		jobId: job.id ?? "unknown",
 		attemptNumber: job.attemptsMade + 1,
@@ -1515,10 +1516,7 @@ export const processAnalyzeChangesJob = async (
 				);
 				continue;
 			}
-			const { additions, deletions } = computeDiffStats(
-				currentFile.content,
-				output.content,
-			);
+			const { additions, deletions } = computeDiffStats(currentFile.content, output.content);
 			meaningfulChanges.push({
 				docPath: output.path,
 				baseDocSha,
@@ -1545,12 +1543,14 @@ export const processAnalyzeChangesJob = async (
 			async () => {
 				const results: SuggestionDraft[] = [];
 				for (const change of meaningfulChanges) {
-					const title = await services.generateSuggestionTitle({
-						docPath: change.docPath,
-						reasoning: change.reasoning,
-						beforeContent: change.beforeContent,
-						afterContent: change.proposedContent,
-					}).catch(() => null);
+					const title = await services
+						.generateSuggestionTitle({
+							docPath: change.docPath,
+							reasoning: change.reasoning,
+							beforeContent: change.beforeContent,
+							afterContent: change.proposedContent,
+						})
+						.catch(() => null);
 					results.push({ ...change, title });
 				}
 				return results;

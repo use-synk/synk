@@ -147,7 +147,10 @@ export const createAnalyzeChangesEnqueuer = (
 			);
 		} catch (error) {
 			if (!isAlreadyExistingJobError(error)) {
-				logger?.error({ err: error, ...logContext, jobId: activeJobId }, "enqueue failed unexpectedly");
+				logger?.error(
+					{ err: error, ...logContext, jobId: activeJobId },
+					"enqueue failed unexpectedly",
+				);
 				throw error;
 			}
 			logger?.warn(

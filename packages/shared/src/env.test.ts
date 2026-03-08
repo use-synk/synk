@@ -1,8 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import {
-	resolveSuggestionInboxRolloutMode,
-	suggestionInboxFeatureFlagsSchema,
-} from "./env";
+import { resolveSuggestionInboxRolloutMode, suggestionInboxFeatureFlagsSchema } from "./env";
 
 describe("suggestionInboxFeatureFlagsSchema", () => {
 	it("defaults all flags to false", () => {
