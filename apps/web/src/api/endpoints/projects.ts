@@ -98,7 +98,7 @@ export const suggestionSummarySchema = z.object({
 	updatedAt: z.string(),
 });
 
-const suggestionDetailSchema = suggestionSummarySchema.extend({
+export const suggestionDetailSchema = suggestionSummarySchema.extend({
 	beforeContent: z.string().nullable(),
 	proposedContent: z.string(),
 	appliedInBatchId: z.string().nullable(),
