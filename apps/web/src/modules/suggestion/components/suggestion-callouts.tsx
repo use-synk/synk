@@ -16,7 +16,7 @@ function SuggestionCallouts({
 	className,
 	...props
 }: React.ComponentProps<"div"> & { suggestion: z.infer<typeof suggestionDetailSchema> }) {
-	if (status === "pending") {
+	if (status !== "superseded" && status !== "applied") {
 		return null;
 	}
 

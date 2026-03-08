@@ -83,12 +83,12 @@ function SuggestionActions({
 	);
 
 	return (
-		<div className={cn("flex items-center gap-2 min-w-48 justify-end", className)} {...props}>
+		<div className={cn("flex items-center gap-2 min-w-50 justify-end", className)} {...props}>
 			{status === "pending" ? (
 				<>
 					<button
 						type="button"
-						disabled={disabledByStatus || decline.isPending}
+						disabled={disabledByStatus || decline.isPending || accept.isPending}
 						onClick={() => decline.mutate("decline")}
 						className="text-sm font-medium px-2.5 py-1.5 h-7 rounded-sm ring-1 ring-stone-700/10 shadow-sm text-stone-800 bg-linear-to-b from-background to-stone-50 flex justify-center items-center gap-2 transition-all duration-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
 					>
@@ -97,7 +97,7 @@ function SuggestionActions({
 					</button>
 					<button
 						type="button"
-						disabled={disabledByStatus || accept.isPending}
+						disabled={disabledByStatus || accept.isPending || decline.isPending}
 						onClick={() => accept.mutate("accept")}
 						className="text-sm font-medium px-2.5 py-1.5 h-7 rounded-sm ring-1 ring-stone-700/10 shadow-sm text-stone-800 bg-linear-to-b from-background to-stone-50 flex justify-center items-center gap-2 transition-all duration-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
 					>
