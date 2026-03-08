@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { useMutation } from "@tanstack/react-query";
 import { BookOpenIcon, GitBranchIcon } from "lucide-react";
 import { toast } from "sonner";
-import { CreateProjectFormPrimitive } from "./create-project-form-primitive";
+import { CreateProjectFormPrimitive } from "./project-create-form-primitive";
 
 export function CreateProjectForm({
 	className,
