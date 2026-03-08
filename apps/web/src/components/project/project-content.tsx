@@ -1,7 +1,7 @@
 import type { projectDetailSchema, runSummarySchema } from "@/api/endpoints";
 import { SuggestionStatsHeader } from "@/components/suggestions/suggestion-stats-header";
-import { SuggestionsList } from "@/components/suggestions/suggestions-list";
 import { cn } from "@/lib/utils";
+import { SuggestionsContent } from "@/modules/suggestions/components/suggestions-content";
 import type { runStatusSchema } from "@synk-ai/shared";
 import { format } from "date-fns";
 import {
@@ -105,7 +105,7 @@ function SuggestionsTab({ projectId }: { projectId: string }) {
 			</section>
 			<section>
 				<div className="max-w-7xl w-full mx-auto px-8">
-					<SuggestionsList projectId={projectId} />
+					<SuggestionsContent projectId={projectId} />
 				</div>
 			</section>
 		</PageTabPanel>
