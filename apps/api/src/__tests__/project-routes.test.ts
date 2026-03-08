@@ -210,6 +210,9 @@ const createTestApp = (projectService: ProjectServiceContract) => {
 			listUserOrganizations: mock(async () => {
 				throw new Error("dashboardService should not be called in project tests");
 			}),
+			listUserProjectsByOrganization: mock(async () => {
+				throw new Error("dashboardService should not be called in project tests");
+			}),
 		},
 		projectService,
 		integrationService: {

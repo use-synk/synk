@@ -180,6 +180,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/organizations/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listUserProjectsByOrganization"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organizations/{slugOrId}/setup": {
         parameters: {
             query?: never;
@@ -602,7 +618,7 @@ export interface operations {
             query?: {
                 page?: number;
                 pageSize?: number;
-                status?: ("pending" | "accepted" | "declined" | "superseded" | "stale" | "applied")[];
+                status?: ("pending" | "accepted" | "declined" | "superseded" | "stale" | "applied") | ("pending" | "accepted" | "declined" | "superseded" | "stale" | "applied")[];
                 search?: string;
             };
             header?: never;
@@ -1079,6 +1095,46 @@ export interface operations {
                             name: string;
                             slug: string;
                             logo: string | null;
+                        }[];
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listUserProjectsByOrganization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Projects grouped by organization for the authenticated user */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            organization: {
+                                id: string;
+                                name: string;
+                                slug: string;
+                                image: string | null;
+                            };
+                            projects: {
+                                id: string;
+                                name: string;
+                            }[];
                         }[];
                     };
                 };

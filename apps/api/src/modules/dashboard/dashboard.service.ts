@@ -135,4 +135,19 @@ export class DashboardService implements DashboardServiceContract {
 	async listUserOrganizations(userId: string) {
 		return this.deps.organizationRepository.listOrganizationsForUser(userId);
 	}
+
+	async listUserProjectsByOrganization(userId: string) {
+		const groups =
+			await this.deps.organizationRepository.listOrganizationsWithProjectsForUser(userId);
+
+		return groups.map((group) => ({
+			organization: {
+				id: group.id,
+				name: group.name,
+				slug: group.slug,
+				image: group.logo,
+			},
+			projects: group.projects,
+		}));
+	}
 }

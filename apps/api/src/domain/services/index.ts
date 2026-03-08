@@ -6,6 +6,7 @@ export type {
 	PatchRepositoryInput,
 	TriggerManualRunInput,
 	TriggerManualRunResult,
+	UserProjectsByOrganization,
 } from "./dashboard-service";
 export type {
 	GitHubIntegrationServiceContract,

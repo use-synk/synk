@@ -68,6 +68,11 @@ const createNoopDependencies = (): AppDependencies => ({
 				"dashboardService.listUserOrganizations should not be called in webhook tests",
 			);
 		}),
+		listUserProjectsByOrganization: mock(async () => {
+			throw new Error(
+				"dashboardService.listUserProjectsByOrganization should not be called in webhook tests",
+			);
+		}),
 	},
 	integrationService: {
 		initiateInstallation: mock(async () => {

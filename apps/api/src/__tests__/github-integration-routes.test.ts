@@ -64,6 +64,9 @@ const createNoopDashboardService = (): DashboardServiceContract => ({
 	listUserOrganizations: mock(async () => {
 		throw new Error("dashboardService.listUserOrganizations should not be called");
 	}),
+	listUserProjectsByOrganization: mock(async () => {
+		throw new Error("dashboardService.listUserProjectsByOrganization should not be called");
+	}),
 });
 
 const createTestApp = (integrationService: GitHubIntegrationServiceContract) => {

@@ -58,6 +58,7 @@ const createDependencies = (): DashboardServiceDependencies => {
 		findOrganizationBySlug: mock(async () => null),
 		findOrganizationSlug: mock(async () => "acme"),
 		listOrganizationsForUser: mock(async () => []),
+		listOrganizationsWithProjectsForUser: mock(async () => []),
 	};
 
 	return {
@@ -152,5 +153,36 @@ describe("DashboardService", () => {
 
 		expect(deps.organizationRepository.listOrganizationsForUser).toHaveBeenCalledWith(USER_ID);
 		expect(result).toEqual(organizations);
+	});
+
+	it("listUserProjectsByOrganization maps logo to organization image", async () => {
+		const deps = createDependencies();
+		const service = new DashboardService(deps);
+		deps.organizationRepository.listOrganizationsWithProjectsForUser = mock(async () => [
+			{
+				id: "org-1",
+				name: "Acme",
+				slug: "acme",
+				logo: "https://example.com/logo.png",
+				projects: [{ id: "project-1", name: "API" }],
+			},
+		]);
+
+		const result = await service.listUserProjectsByOrganization(USER_ID);
+
+		expect(deps.organizationRepository.listOrganizationsWithProjectsForUser).toHaveBeenCalledWith(
+			USER_ID,
+		);
+		expect(result).toEqual([
+			{
+				organization: {
+					id: "org-1",
+					name: "Acme",
+					slug: "acme",
+					image: "https://example.com/logo.png",
+				},
+				projects: [{ id: "project-1", name: "API" }],
+			},
+		]);
 	});
 });

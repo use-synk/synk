@@ -64,6 +64,7 @@ const createDependencies = (): {
 				findOrganizationSlug,
 				findOrganizationBySlug: mock(async () => null),
 				listOrganizationsForUser: mock(async () => []),
+				listOrganizationsWithProjectsForUser: mock(async () => []),
 				getHasInstallations: mock(async () => true),
 				getHasRepositories: mock(async () => true),
 				getHasProjects: mock(async () => true),

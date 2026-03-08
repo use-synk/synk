@@ -16,6 +16,19 @@ export type UserOrganization = {
 	logo: string | null;
 };
 
+export type UserProjectsByOrganization = {
+	organization: {
+		id: string;
+		name: string;
+		slug: string;
+		image: string | null;
+	};
+	projects: Array<{
+		id: string;
+		name: string;
+	}>;
+};
+
 export function listUserOrganizations() {
 	return {
 		url: "/organizations",
@@ -33,6 +46,34 @@ export function listUserOrganizations() {
 			),
 		}),
 		key: ["organizations", "me"],
+	} satisfies ApiQuery;
+}
+
+export function listUserProjectsByOrganization() {
+	return {
+		url: "/organizations/projects",
+		init: {
+			method: "GET",
+		},
+		response: z.object({
+			data: z.array(
+				z.object({
+					organization: z.object({
+						id: z.string(),
+						name: z.string(),
+						slug: z.string(),
+						image: z.string().nullable(),
+					}),
+					projects: z.array(
+						z.object({
+							id: z.string(),
+							name: z.string(),
+						}),
+					),
+				}),
+			),
+		}),
+		key: ["organizations", "projects", "grouped"],
 	} satisfies ApiQuery;
 }
 

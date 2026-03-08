@@ -46,6 +46,35 @@ export const createPrismaOrganizationRepository = (
 			},
 		});
 	},
+	listOrganizationsWithProjectsForUser: async (userId) => {
+		return await client.organization.findMany({
+			where: {
+				members: {
+					some: {
+						userId,
+					},
+				},
+			},
+			orderBy: {
+				name: "asc",
+			},
+			select: {
+				id: true,
+				name: true,
+				slug: true,
+				logo: true,
+				projects: {
+					orderBy: {
+						name: "asc",
+					},
+					select: {
+						id: true,
+						name: true,
+					},
+				},
+			},
+		});
+	},
 	getHasInstallations: async (organizationId) => {
 		return (
 			(await client.providerInstallation.count({
