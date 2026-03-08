@@ -1,19 +1,14 @@
 import { listUserOrganizations } from "@/api/endpoints";
-import { getErrorMessage, RequestError } from "@/api/errors";
+import { RequestError, getErrorMessage } from "@/api/errors";
 import { fetchQuery } from "@/api/server";
-import { FlashErrorToast } from "@/components/flash-error-toast";
-import { AppSidebar } from "@/components/sidebar/app-sidebar";
-import { SiteNav } from "@/components/site-nav";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { SidebarProvider } from "@/components/ui/sidebar";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { Suspense } from "react";
 
 export default async function ServerLayout(
 	props: LayoutProps<"/[slug]">,
 ): Promise<React.ReactNode> {
-	const { children, params, breadcrumb, sheet } = props;
+	const { children, params } = props;
 	const { slug } = await params;
 
 	let organizations: Array<{ slug: string }>;
@@ -44,17 +39,19 @@ export default async function ServerLayout(
 		notFound();
 	}
 
-	return (
-		<SidebarProvider>
-			<Suspense fallback={null}>
-				<FlashErrorToast />
-			</Suspense>
-			<AppSidebar activeOrganizationSlug={slug} />
-			<div className="flex-1">
-				<SiteNav breadcrumb={breadcrumb} />
-				<main>{children}</main>
-				{sheet}
-			</div>
-		</SidebarProvider>
-	);
+	return children;
+
+	// return (
+	// 	<SidebarProvider>
+	// 		<Suspense fallback={null}>
+	// 			<FlashErrorToast />
+	// 		</Suspense>
+	// 		{/* <AppSidebar activeOrganizationSlug={slug} /> */}
+	// 		<div className="flex-1">
+	// 			{/* <SiteNav breadcrumb={breadcrumb} /> */}
+	// 			<main>{children}</main>
+	// 			{sheet}
+	// 		</div>
+	// 	</SidebarProvider>
+	// );
 }

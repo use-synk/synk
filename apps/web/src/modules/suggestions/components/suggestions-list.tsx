@@ -180,7 +180,7 @@ function SuggestionsList({ projectId }: { projectId: string }) {
 						<li key={row.id} className="border border-stone-200 rounded-md">
 							<SuggestionsRow
 								suggestion={row.original}
-								detailHref={`${pathname}/suggestions/${row.original.id}?${detailBaseQuery}`}
+								detailHref={`${pathname}/${row.original.id}?${detailBaseQuery}`}
 							/>
 						</li>
 					))
