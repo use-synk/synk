@@ -1,0 +1,3 @@
+function ProjectsSwitcher() {}
+
+export { ProjectsSwitcher };

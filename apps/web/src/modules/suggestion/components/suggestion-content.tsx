@@ -23,25 +23,23 @@ function SuggestionContent({
 		<Fragment>
 			<SuggestionNavbar projectId={suggestion.projectId} />
 			<main className={cn("py-page-vertical", className)} {...props}>
-				<div className="flex-1">
-					<section>
-						<div className="max-w-7xl w-full px-8 mx-auto">
-							<div className="mb-10">
-								<Link
-									className="text-sm font-medium text-stone-700 flex justify-center items-center w-fit gap-1.5"
-									href={"#"}
-								>
-									<ArrowLeftIcon className="size-3.5 text-stone-500" />
-									<span>Back to suggestions</span>
-								</Link>
-							</div>
-							<SuggestionHeader suggestion={suggestion} />
-							<Separator className={"mt-10"} />
+				<section>
+					<div className="max-w-7xl w-full px-8 mx-auto">
+						<div className="mb-10">
+							<Link
+								className="text-sm font-medium text-stone-700 flex justify-center items-center w-fit gap-1.5"
+								href={"#"}
+							>
+								<ArrowLeftIcon className="size-3.5 text-stone-500" />
+								<span>Back to suggestions</span>
+							</Link>
 						</div>
-					</section>
-				</div>
+						<SuggestionHeader suggestion={suggestion} />
+						<Separator className={"mt-10"} />
+					</div>
+				</section>
 				<div className="flex max-w-7xl w-full mx-auto px-8 gap-12 mt-12">
-					<div className="flex-1">
+					<section className="flex-1">
 						{/* Safe to set the margin since callouts wrapper will only be rendered if any callout is present */}
 						<SuggestionCallouts suggestion={suggestion} className="mb-12" />
 						<SuggestionReasoning suggestion={suggestion} className="mb-8" />
@@ -55,7 +53,7 @@ function SuggestionContent({
 							</p>
 							<SuggestionNavigation />
 						</div>
-					</div>
+					</section>
 					<SuggestionSidebar suggestion={suggestion} />
 				</div>
 			</main>
