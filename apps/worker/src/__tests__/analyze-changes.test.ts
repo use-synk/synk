@@ -13,6 +13,12 @@ const mockUpdateProject = mock();
 const mockUpdateProviderRepository = mock().mockResolvedValue({});
 const mockUpsertAnalysisRun = mock();
 const mockUpdateAnalysisRun = mock();
+const mockCreateSuggestion = mock();
+const mockAggregateSuggestion = mock();
+const mockDbTransaction = mock();
+const mockFindFirstSuggestion = mock();
+const mockFindManySuggestions = mock();
+const mockUpdateManySuggestions = mock();
 const mockParseGitHubCredentialsEnvironment = mock();
 const mockCredentialsFromEnvironment = mock();
 const mockCreateInstallationOctokit = mock();
@@ -39,6 +45,14 @@ mock.module("@synk-ai/db", () => ({
 			upsert: mockUpsertAnalysisRun,
 			update: mockUpdateAnalysisRun,
 		},
+		suggestion: {
+			create: mockCreateSuggestion,
+			aggregate: mockAggregateSuggestion,
+			findFirst: mockFindFirstSuggestion,
+			findMany: mockFindManySuggestions,
+			updateMany: mockUpdateManySuggestions,
+		},
+		$transaction: mockDbTransaction,
 	},
 }));
 
@@ -114,7 +128,7 @@ const makeJob = (
 			repositoryId: overrides.repositoryId ?? "repo-1",
 			installationId: overrides.installationId ?? "install-1",
 			trigger: overrides.trigger ?? {
-				type: "push" as const,
+				type: "manual" as const,
 				ref: "refs/heads/main",
 				commitSha: "abc123",
 			},
@@ -444,6 +458,11 @@ describe("processAnalyzeChangesJob", () => {
 		mockUpdateProviderRepository.mockClear();
 		mockUpsertAnalysisRun.mockClear();
 		mockUpdateAnalysisRun.mockClear();
+		mockCreateSuggestion.mockClear();
+		mockDbTransaction.mockClear();
+		mockFindFirstSuggestion.mockClear();
+		mockFindManySuggestions.mockClear();
+		mockUpdateManySuggestions.mockClear();
 		mockParseGitHubCredentialsEnvironment.mockClear();
 		mockCredentialsFromEnvironment.mockClear();
 		mockCreateInstallationOctokit.mockClear();
@@ -468,10 +487,32 @@ describe("processAnalyzeChangesJob", () => {
 		mockFindFirstProject.mockResolvedValue({
 			id: "project-1",
 			config: {},
+			sourceRepositoryId: "repo-1",
+			docsRepositoryId: null,
 		});
 		mockUpdateProject.mockResolvedValue({});
 		mockUpsertAnalysisRun.mockResolvedValue({ id: "run-1" });
 		mockUpdateAnalysisRun.mockResolvedValue({});
+		mockFindFirstSuggestion.mockResolvedValue(null);
+		mockFindManySuggestions.mockResolvedValue([]);
+		mockUpdateManySuggestions.mockResolvedValue({ count: 0 });
+		mockAggregateSuggestion.mockResolvedValue({ _max: { readableId: null } });
+		mockCreateSuggestion.mockImplementation(async ({ data }) => ({
+			id: `suggestion-${data.docPath}`,
+			docPath: data.docPath,
+			fingerprint: data.fingerprint,
+		}));
+		mockDbTransaction.mockImplementation(async (handler) =>
+			handler({
+				suggestion: {
+					create: mockCreateSuggestion,
+					aggregate: mockAggregateSuggestion,
+					findFirst: mockFindFirstSuggestion,
+					findMany: mockFindManySuggestions,
+					updateMany: mockUpdateManySuggestions,
+				},
+			}),
+		);
 
 		const defaultAdapter = makeAdapter();
 		mockDetectAdapter.mockResolvedValue(defaultAdapter);
@@ -488,6 +529,28 @@ describe("processAnalyzeChangesJob", () => {
 		expect(mockUpdateAnalysisRun).toHaveBeenCalledWith(
 			expect.objectContaining({
 				data: expect.objectContaining({ status: "skipped" }),
+			}),
+		);
+	});
+
+	it("processes push-triggered jobs through the normal pipeline", async () => {
+		mockFilterDiff.mockReturnValue([{ filename: "src/index.ts" }]);
+
+		await processAnalyzeChangesJob(
+			makeJob({
+				trigger: {
+					type: "push",
+					ref: "refs/heads/main",
+					commitSha: "abc123",
+				},
+			}),
+			makeLogger(),
+		);
+
+		expect(mockUpsertAnalysisRun).toHaveBeenCalledOnce();
+		expect(mockUpdateAnalysisRun).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({ status: "completed", docsAffected: false }),
 			}),
 		);
 	});
@@ -634,6 +697,138 @@ describe("processAnalyzeChangesJob", () => {
 		);
 	});
 
+	it("infers and persists docs.path='docs' for markdown repositories", async () => {
+		mockFilterDiff
+			.mockReturnValueOnce([{ filename: "src/math.ts" }])
+			.mockReturnValueOnce([{ filename: "src/math.ts" }])
+			.mockReturnValue([]);
+
+		mockFetchRepoTree.mockResolvedValue([
+			{ path: "README.md", sha: "r1", size: 100 },
+			{ path: "docs/math.md", sha: "d1", size: 100 },
+		]);
+		mockFetchMultipleFiles.mockResolvedValue([{ path: "docs/math.md", content: "# Math", sha: "d1", size: 5 }]);
+
+		const adapter = makeAdapter();
+		adapter.frameworkId = "markdown";
+		adapter.getDocPaths.mockReturnValue(["docs/**/*.md", "docs/**/*.mdx", "README.md"]);
+		mockDetectAdapter.mockResolvedValue(adapter);
+		mockGetAdapter.mockReturnValue(adapter);
+
+		const mockServices = {
+			runTriage: mock().mockResolvedValue({
+				needsUpdate: false,
+				affectedDocFiles: [],
+				reasoning: "no change",
+				tokenUsage: { prompt: 1, completion: 1, total: 2 },
+			}),
+			runGeneration: mock(),
+			createPullRequest: mock(),
+		};
+
+		await processAnalyzeChangesJob(makeJob(), makeLogger(), mockServices);
+
+		expect(mockUpdateProject).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: { id: "project-1" },
+				data: expect.objectContaining({
+					config: expect.objectContaining({
+						docs: expect.objectContaining({
+							framework: "markdown",
+							path: "docs",
+						}),
+					}),
+				}),
+			}),
+		);
+	});
+
+	it("prioritizes docs directory files over README when selecting markdown doc candidates", async () => {
+		mockFilterDiff
+			.mockReturnValueOnce([{ filename: "src/math.ts" }])
+			.mockReturnValueOnce([{ filename: "src/math.ts" }])
+			.mockReturnValue([]);
+
+		mockFetchRepoTree.mockResolvedValue([
+			{ path: "README.md", sha: "r1", size: 100 },
+			{ path: "docs/math.md", sha: "d1", size: 100 },
+		]);
+		mockFetchMultipleFiles.mockResolvedValue([{ path: "docs/math.md", content: "# Math", sha: "d1", size: 5 }]);
+
+		const adapter = makeAdapter();
+		adapter.frameworkId = "markdown";
+		adapter.getDocPaths.mockReturnValue(["docs/**/*.md", "docs/**/*.mdx", "README.md"]);
+		mockDetectAdapter.mockResolvedValue(adapter);
+		mockGetAdapter.mockReturnValue(adapter);
+
+		const mockServices = {
+			runTriage: mock().mockResolvedValue({
+				needsUpdate: false,
+				affectedDocFiles: [],
+				reasoning: "no change",
+				tokenUsage: { prompt: 1, completion: 1, total: 2 },
+			}),
+			runGeneration: mock(),
+			createPullRequest: mock(),
+		};
+
+		await processAnalyzeChangesJob(makeJob(), makeLogger(), mockServices);
+
+		expect(mockFetchMultipleFiles).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining({
+				paths: ["docs/math.md"],
+			}),
+		);
+	});
+
+	it("falls back to docs markdown files when glob matching misses docs files", async () => {
+		mockFilterDiff.mockImplementation((files) => {
+			const candidate = files[0] as { filename?: string } | undefined;
+			if (files.length === 1 && candidate?.filename === "README.md") {
+				return [];
+			}
+			if (files.length === 1 && candidate?.filename === "docs/math.md") {
+				return files;
+			}
+			return files;
+		});
+
+		mockFetchRepoTree.mockResolvedValue([
+			{ path: "README.md", sha: "r1", size: 100 },
+			{ path: "docs/math.md", sha: "d1", size: 100 },
+		]);
+		mockFetchMultipleFiles.mockResolvedValue([
+			{ path: "docs/math.md", content: "# Math", sha: "d1", size: 5 },
+		]);
+
+		const adapter = makeAdapter();
+		adapter.frameworkId = "markdown";
+		adapter.getDocPaths.mockReturnValue(["docs/**/*.md", "docs/**/*.mdx", "README.md"]);
+		mockDetectAdapter.mockResolvedValue(adapter);
+		mockGetAdapter.mockReturnValue(adapter);
+
+		const mockServices = {
+			runTriage: mock().mockResolvedValue({
+				needsUpdate: false,
+				affectedDocFiles: [],
+				reasoning: "no change",
+				tokenUsage: { prompt: 1, completion: 1, total: 2 },
+			}),
+			runGeneration: mock(),
+			createPullRequest: mock(),
+		};
+
+		await processAnalyzeChangesJob(makeJob(), makeLogger(), mockServices);
+
+		expect(mockFetchMultipleFiles).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining({
+				paths: ["docs/math.md"],
+			}),
+		);
+	});
+
 	it("preserves existing pr and trigger settings when caching resolved docs config", async () => {
 		mockFilterDiff
 			.mockReturnValueOnce([{ filename: "src/index.ts" }])
@@ -642,6 +837,8 @@ describe("processAnalyzeChangesJob", () => {
 
 		mockFindFirstProject.mockResolvedValueOnce({
 			id: "project-1",
+			sourceRepositoryId: "repo-1",
+			docsRepositoryId: null,
 			config: {
 				docs: { framework: "nextra" },
 				triggers: { branches: ["main", "release"], ignore_paths: ["db-ignore/**"] },
@@ -811,8 +1008,305 @@ describe("processAnalyzeChangesJob", () => {
 				data: expect.objectContaining({
 					status: "completed",
 					docsAffected: true,
+					suggestionsCount: 1,
 					docPrNumber: 42,
 					docPrUrl: "https://github.com/pr/42",
+				}),
+			}),
+		);
+	});
+
+	it("persists suggestions instead of creating a PR when auto PR is disabled", async () => {
+		mockFilterDiff
+			.mockReturnValueOnce([{ filename: "src/index.ts" }])
+			.mockReturnValueOnce([{ filename: "src/index.ts" }])
+			.mockReturnValue([]);
+
+		mockFetchRepoTree.mockResolvedValue([{ path: "docs/index.md", sha: "s1", size: 100 }]);
+		mockFetchMultipleFiles.mockResolvedValue([
+			{ path: "docs/index.md", content: "# Old", sha: "s1", size: 5 },
+		]);
+
+		const adapter = makeAdapter();
+		adapter.getDocPaths.mockReturnValue(["**/*.md"]);
+		mockDetectAdapter.mockResolvedValue(adapter);
+		mockGetAdapter.mockReturnValue(adapter);
+
+		const mockServices = {
+			runTriage: mock().mockResolvedValue({
+				needsUpdate: true,
+				affectedDocFiles: ["docs/index.md"],
+				reasoning: "change detected",
+				tokenUsage: { prompt: 10, completion: 5, total: 15 },
+			}),
+			runGeneration: mock().mockResolvedValue({
+				path: "docs/index.md",
+				content: "# New and improved",
+				reasoning: "updated",
+				tokenUsage: { prompt: 20, completion: 10, total: 30 },
+			}),
+			createPullRequest: mock(),
+		};
+
+		await processAnalyzeChangesJob(makeJob(), makeLogger(), mockServices, {
+			autoPrEnabled: false,
+			decisionMemoryEnabled: true,
+		});
+
+		expect(mockServices.createPullRequest).not.toHaveBeenCalled();
+		expect(mockCreateSuggestion).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({
+					projectId: "project-1",
+					repositoryId: "repo-1",
+					runId: "run-1",
+					docPath: "docs/index.md",
+					baseDocSha: "s1",
+					beforeContent: "# Old",
+					proposedContent: "# New and improved",
+					reasoning: "updated",
+				}),
+			}),
+		);
+		expect(mockUpdateAnalysisRun).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({
+					status: "completed",
+					docsAffected: true,
+					suggestionsCount: 1,
+					docPrNumber: null,
+					docPrUrl: null,
+				}),
+			}),
+		);
+	});
+
+	it("skips creating duplicate pending suggestions with matching fingerprint", async () => {
+		mockFilterDiff
+			.mockReturnValueOnce([{ filename: "src/index.ts" }])
+			.mockReturnValueOnce([{ filename: "src/index.ts" }])
+			.mockReturnValue([]);
+		mockFetchRepoTree.mockResolvedValue([{ path: "docs/index.md", sha: "s1", size: 100 }]);
+		mockFetchMultipleFiles.mockResolvedValue([
+			{ path: "docs/index.md", content: "# Old", sha: "s1", size: 5 },
+		]);
+		mockFindFirstSuggestion.mockResolvedValue({
+			id: "existing-1",
+			status: "pending",
+		});
+
+		const adapter = makeAdapter();
+		adapter.getDocPaths.mockReturnValue(["**/*.md"]);
+		mockDetectAdapter.mockResolvedValue(adapter);
+		mockGetAdapter.mockReturnValue(adapter);
+
+		const mockServices = {
+			runTriage: mock().mockResolvedValue({
+				needsUpdate: true,
+				affectedDocFiles: ["docs/index.md"],
+				reasoning: "change detected",
+				tokenUsage: { prompt: 10, completion: 5, total: 15 },
+			}),
+			runGeneration: mock().mockResolvedValue({
+				path: "docs/index.md",
+				content: "# New and improved",
+				reasoning: "updated",
+				tokenUsage: { prompt: 20, completion: 10, total: 30 },
+			}),
+			createPullRequest: mock(),
+		};
+
+		await processAnalyzeChangesJob(makeJob(), makeLogger(), mockServices, {
+			autoPrEnabled: false,
+			decisionMemoryEnabled: true,
+		});
+
+		expect(mockCreateSuggestion).not.toHaveBeenCalled();
+		expect(mockUpdateAnalysisRun).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({
+					suggestionsCount: 0,
+				}),
+			}),
+		);
+	});
+
+	it("skips creating duplicate suggestions for the same run and fingerprint on retries", async () => {
+		mockFilterDiff
+			.mockReturnValueOnce([{ filename: "src/index.ts" }])
+			.mockReturnValueOnce([{ filename: "src/index.ts" }])
+			.mockReturnValue([]);
+		mockFetchRepoTree.mockResolvedValue([{ path: "docs/index.md", sha: "s1", size: 100 }]);
+		mockFetchMultipleFiles.mockResolvedValue([
+			{ path: "docs/index.md", content: "# Old", sha: "s1", size: 5 },
+		]);
+		mockFindFirstSuggestion
+			.mockResolvedValueOnce({ id: "run-duplicate-1" })
+			.mockResolvedValueOnce(null);
+
+		const adapter = makeAdapter();
+		adapter.getDocPaths.mockReturnValue(["**/*.md"]);
+		mockDetectAdapter.mockResolvedValue(adapter);
+		mockGetAdapter.mockReturnValue(adapter);
+
+		const mockServices = {
+			runTriage: mock().mockResolvedValue({
+				needsUpdate: true,
+				affectedDocFiles: ["docs/index.md"],
+				reasoning: "change detected",
+				tokenUsage: { prompt: 10, completion: 5, total: 15 },
+			}),
+			runGeneration: mock().mockResolvedValue({
+				path: "docs/index.md",
+				content: "# New and improved",
+				reasoning: "updated",
+				tokenUsage: { prompt: 20, completion: 10, total: 30 },
+			}),
+			createPullRequest: mock(),
+		};
+
+		await processAnalyzeChangesJob(makeJob(), makeLogger(), mockServices, {
+			autoPrEnabled: false,
+			decisionMemoryEnabled: true,
+		});
+
+		expect(mockCreateSuggestion).not.toHaveBeenCalled();
+		expect(mockUpdateAnalysisRun).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({
+					suggestionsCount: 0,
+					result: expect.objectContaining({
+						skippedSuggestions: [
+							expect.objectContaining({ reason: "duplicate-run-fingerprint" }),
+						],
+					}),
+				}),
+			}),
+		);
+	});
+
+	it("suppresses declined-equivalent suggestions when decision memory is enabled", async () => {
+		mockFilterDiff
+			.mockReturnValueOnce([{ filename: "src/index.ts" }])
+			.mockReturnValueOnce([{ filename: "src/index.ts" }])
+			.mockReturnValue([]);
+		mockFetchRepoTree.mockResolvedValue([{ path: "docs/index.md", sha: "s1", size: 100 }]);
+		mockFetchMultipleFiles.mockResolvedValue([
+			{ path: "docs/index.md", content: "# Old", sha: "s1", size: 5 },
+		]);
+		mockFindFirstSuggestion.mockImplementation(async ({ where }) => {
+			if ("runId" in where) {
+				return null;
+			}
+			return {
+				id: "declined-1",
+				status: "declined",
+			};
+		});
+
+		const adapter = makeAdapter();
+		adapter.getDocPaths.mockReturnValue(["**/*.md"]);
+		mockDetectAdapter.mockResolvedValue(adapter);
+		mockGetAdapter.mockReturnValue(adapter);
+
+		const mockServices = {
+			runTriage: mock().mockResolvedValue({
+				needsUpdate: true,
+				affectedDocFiles: ["docs/index.md"],
+				reasoning: "change detected",
+				tokenUsage: { prompt: 10, completion: 5, total: 15 },
+			}),
+			runGeneration: mock().mockResolvedValue({
+				path: "docs/index.md",
+				content: "# New and improved",
+				reasoning: "updated",
+				tokenUsage: { prompt: 20, completion: 10, total: 30 },
+			}),
+			createPullRequest: mock(),
+		};
+
+		await processAnalyzeChangesJob(makeJob(), makeLogger(), mockServices, {
+			autoPrEnabled: false,
+			decisionMemoryEnabled: true,
+		});
+
+		expect(mockCreateSuggestion).not.toHaveBeenCalled();
+		expect(mockUpdateAnalysisRun).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({
+					suggestionsCount: 0,
+					result: expect.objectContaining({
+						skippedSuggestions: [
+							expect.objectContaining({ reason: "declined-decision-memory" }),
+						],
+					}),
+				}),
+			}),
+		);
+	});
+
+	it("creates a new suggestion and supersedes prior active suggestions on changed context", async () => {
+		mockFilterDiff
+			.mockReturnValueOnce([{ filename: "src/index.ts" }])
+			.mockReturnValueOnce([{ filename: "src/index.ts" }])
+			.mockReturnValue([]);
+		mockFetchRepoTree.mockResolvedValue([{ path: "docs/index.md", sha: "s2", size: 100 }]);
+		mockFetchMultipleFiles.mockResolvedValue([
+			{ path: "docs/index.md", content: "# Old", sha: "s2", size: 5 },
+		]);
+		mockFindFirstSuggestion.mockImplementation(async ({ where }) => {
+			if ("runId" in where) {
+				return null;
+			}
+			return {
+				id: "declined-1",
+				status: "declined",
+			};
+		});
+		mockFindManySuggestions.mockResolvedValue([{ id: "active-1" }, { id: "active-2" }]);
+
+		const adapter = makeAdapter();
+		adapter.getDocPaths.mockReturnValue(["**/*.md"]);
+		mockDetectAdapter.mockResolvedValue(adapter);
+		mockGetAdapter.mockReturnValue(adapter);
+
+		const mockServices = {
+			runTriage: mock().mockResolvedValue({
+				needsUpdate: true,
+				affectedDocFiles: ["docs/index.md"],
+				reasoning: "change detected",
+				tokenUsage: { prompt: 10, completion: 5, total: 15 },
+			}),
+			runGeneration: mock().mockResolvedValue({
+				path: "docs/index.md",
+				content: "# Reopened with context change",
+				reasoning: "updated",
+				tokenUsage: { prompt: 20, completion: 10, total: 30 },
+			}),
+			createPullRequest: mock(),
+		};
+
+		await processAnalyzeChangesJob(makeJob(), makeLogger(), mockServices, {
+			autoPrEnabled: false,
+			decisionMemoryEnabled: false,
+		});
+
+		expect(mockCreateSuggestion).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({
+					supersedesSuggestionId: "active-1",
+				}),
+			}),
+		);
+		expect(mockUpdateManySuggestions).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: { status: "superseded" },
+			}),
+		);
+		expect(mockUpdateAnalysisRun).toHaveBeenCalledWith(
+			expect.objectContaining({
+				data: expect.objectContaining({
+					suggestionsCount: 1,
 				}),
 			}),
 		);
@@ -839,6 +1333,8 @@ describe("processAnalyzeChangesJob", () => {
 			expect.objectContaining({
 				data: expect.objectContaining({
 					status: "failed",
+					errorCode: "retryable",
+					errorMessage: "GitHub API failure",
 					error: "GitHub API failure",
 				}),
 			}),

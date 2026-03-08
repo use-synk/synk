@@ -71,8 +71,16 @@ const globToRegex = (pattern: string): RegExp => {
 	for (let index = 0; index < normalizedPattern.length; index += 1) {
 		const currentCharacter = normalizedPattern[index];
 		const nextCharacter = normalizedPattern[index + 1];
+		const afterNextCharacter = normalizedPattern[index + 2];
 
 		if (currentCharacter === "*" && nextCharacter === "*") {
+			// `**/` should match zero or more path segments, so patterns like
+			// `docs/**/*.md` match both `docs/math.md` and `docs/api/math.md`.
+			if (afterNextCharacter === "/") {
+				regexText += "(?:.*/)?";
+				index += 2;
+				continue;
+			}
 			regexText += ".*";
 			index += 1;
 			continue;

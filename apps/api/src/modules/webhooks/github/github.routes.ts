@@ -47,15 +47,41 @@ export function createGitHubWebhookRoutes(options: GitHubWebhookRouteOptions): O
 	 * Handles GitHub webhooks.
 	 */
 	route.openapi(webhookRoute, async (ctx) => {
+		const logger = ctx.get("logger");
+		const requestId = ctx.get("requestId");
 		const rawBody = await ctx.req.text();
 		const signatureHeader = ctx.req.header(GITHUB_SIGNATURE_HEADER);
 		const deliveryId = ctx.req.header(GITHUB_DELIVERY_HEADER);
 		const payloadHash = hashPayload(rawBody);
+		logger?.info(
+			{
+				requestId,
+				deliveryId: deliveryId ?? null,
+				bodySize: rawBody.length,
+			},
+			"github webhook request received",
+		);
 
 		const isValidSignature = await service.validateSignature(signatureHeader, rawBody);
+		logger?.info(
+			{
+				requestId,
+				deliveryId: deliveryId ?? null,
+				signaturePresent: signatureHeader !== undefined,
+				signatureValid: isValidSignature,
+			},
+			"github webhook signature validated",
+		);
 
 		const event = ctx.req.header(GITHUB_EVENT_HEADER);
 		if (event === undefined) {
+			logger?.warn(
+				{
+					requestId,
+					deliveryId: deliveryId ?? null,
+				},
+				"github webhook rejected: missing x-github-event header",
+			);
 			return ctx.json(
 				{ error: { code: "BAD_REQUEST", message: "Missing X-GitHub-Event header" } },
 				400,
@@ -71,9 +97,18 @@ export function createGitHubWebhookRoutes(options: GitHubWebhookRouteOptions): O
 				payloadHash,
 				isValidSignature,
 				options,
+				logger: logger ?? undefined,
 			});
 		} catch {
 			// Delivery logging is best-effort and must not block webhook processing.
+			logger?.warn(
+				{
+					requestId,
+					deliveryId: deliveryId ?? null,
+					event,
+				},
+				"github webhook delivery log creation failed (best effort)",
+			);
 		}
 
 		if (!isValidSignature) {
@@ -82,7 +117,16 @@ export function createGitHubWebhookRoutes(options: GitHubWebhookRouteOptions): O
 				options,
 				status: "failed",
 				error: "Invalid webhook signature",
+				logger: logger ?? undefined,
 			});
+			logger?.warn(
+				{
+					requestId,
+					deliveryId: deliveryId ?? null,
+					event,
+				},
+				"github webhook rejected: invalid signature",
+			);
 			return ctx.json(
 				{ error: { code: "UNAUTHORIZED", message: "Invalid webhook signature" } },
 				401,
@@ -95,18 +139,45 @@ export function createGitHubWebhookRoutes(options: GitHubWebhookRouteOptions): O
 				options,
 				status: "failed",
 				error: "Invalid JSON payload",
+				logger: logger ?? undefined,
 			});
+			logger?.warn(
+				{
+					requestId,
+					deliveryId: deliveryId ?? null,
+					event,
+				},
+				"github webhook rejected: invalid json payload",
+			);
 			return ctx.json({ error: { code: "BAD_REQUEST", message: "Invalid JSON payload" } }, 400);
 		}
 
 		try {
+			logger?.info(
+				{
+					requestId,
+					deliveryId: deliveryId ?? null,
+					event,
+				},
+				"github webhook dispatching event handler",
+			);
 			const result = await service.handleEvent(event, payload);
 			await markDelivery({
 				deliveryId,
 				options,
 				status: result.ok ? "processed" : "ignored",
 				...(result.ok ? {} : { error: result.message }),
+				logger: logger ?? undefined,
 			});
+			logger?.info(
+				{
+					requestId,
+					deliveryId: deliveryId ?? null,
+					event,
+					result,
+				},
+				"github webhook handled",
+			);
 			return ctx.json({ status: result }, 200);
 		} catch (error) {
 			try {
@@ -115,10 +186,28 @@ export function createGitHubWebhookRoutes(options: GitHubWebhookRouteOptions): O
 					options,
 					status: "failed",
 					error: error instanceof Error ? error.message : "Unknown error",
+					logger: logger ?? undefined,
 				});
 			} catch {
 				// Preserve the original event handling error if delivery logging fails.
+				logger?.warn(
+					{
+						requestId,
+						deliveryId: deliveryId ?? null,
+						event,
+					},
+					"github webhook delivery mark failed after handler error",
+				);
 			}
+			logger?.error(
+				{
+					err: error,
+					requestId,
+					deliveryId: deliveryId ?? null,
+					event,
+				},
+				"github webhook handler failed",
+			);
 			throw error;
 		}
 	});
@@ -174,6 +263,7 @@ const createDeliveryLog = async ({
 	payloadHash,
 	isValidSignature,
 	options,
+	logger,
 }: {
 	deliveryId: string | undefined;
 	event: string;
@@ -181,6 +271,7 @@ const createDeliveryLog = async ({
 	payloadHash: string;
 	isValidSignature: boolean;
 	options: GitHubWebhookRouteOptions;
+	logger?: AppEnv["Variables"]["logger"];
 }): Promise<void> => {
 	if (deliveryId === undefined || options.webhookEventLogRepository === undefined) {
 		return;
@@ -196,6 +287,13 @@ const createDeliveryLog = async ({
 		receivedAt: new Date(),
 		...ids,
 	});
+	logger?.debug(
+		{
+			deliveryId,
+			event,
+		},
+		"github webhook delivery log created",
+	);
 };
 
 const markDelivery = async ({
@@ -203,11 +301,13 @@ const markDelivery = async ({
 	options,
 	status,
 	error,
+	logger,
 }: {
 	deliveryId: string | undefined;
 	options: GitHubWebhookRouteOptions;
 	status: "processed" | "ignored" | "failed";
 	error?: string;
+	logger?: AppEnv["Variables"]["logger"];
 }): Promise<void> => {
 	if (deliveryId === undefined || options.webhookEventLogRepository === undefined) {
 		return;
@@ -218,4 +318,12 @@ const markDelivery = async ({
 		status,
 		...(error === undefined ? {} : { error }),
 	});
+	logger?.debug(
+		{
+			deliveryId,
+			status,
+			error: error ?? null,
+		},
+		"github webhook delivery marked",
+	);
 };

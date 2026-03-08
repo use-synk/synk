@@ -1,32 +1,25 @@
-import { getErrorMessage } from "@/api/errors";
-import { FlashErrorToast } from "@/components/flash-error-toast";
-import { AppSidebar } from "@/components/sidebar/app-sidebar";
-import { SiteNav } from "@/components/site-nav";
+import { listUserOrganizations } from "@/api/endpoints";
+import { RequestError, getErrorMessage } from "@/api/errors";
+import { fetchQuery } from "@/api/server";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { SidebarProvider } from "@/components/ui/sidebar";
-import { auth } from "@/server/better-auth";
-import { headers } from "next/headers";
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { Suspense } from "react";
-
-async function resolveActiveOrganization(slug: string) {
-	return auth.api.setActiveOrganization({
-		body: { organizationSlug: slug },
-		headers: await headers(),
-	});
-}
+import { notFound, redirect } from "next/navigation";
 
 export default async function ServerLayout(
 	props: LayoutProps<"/[slug]">,
 ): Promise<React.ReactNode> {
-	const { children, params, breadcrumb } = props;
+	const { children, params } = props;
 	const { slug } = await params;
 
-	let organization: Awaited<ReturnType<typeof resolveActiveOrganization>>;
+	let organizations: Array<{ slug: string }>;
 	try {
-		organization = await resolveActiveOrganization(slug);
+		const result = await fetchQuery(listUserOrganizations());
+		organizations = result.data;
 	} catch (error) {
+		if (error instanceof RequestError && error.status === 401) {
+			redirect("/auth");
+		}
+
 		return (
 			<main className="flex min-h-svh flex-1 items-center justify-center p-8">
 				<Empty>
@@ -42,20 +35,23 @@ export default async function ServerLayout(
 		);
 	}
 
-	if (!organization) {
+	if (!organizations.some((organization) => organization.slug === slug)) {
 		notFound();
 	}
 
-	return (
-		<SidebarProvider>
-			<Suspense fallback={null}>
-				<FlashErrorToast />
-			</Suspense>
-			<AppSidebar activeOrganizationSlug={slug} />
-			<div className="flex-1">
-				<SiteNav breadcrumb={breadcrumb} />
-				<main>{children}</main>
-			</div>
-		</SidebarProvider>
-	);
+	return children;
+
+	// return (
+	// 	<SidebarProvider>
+	// 		<Suspense fallback={null}>
+	// 			<FlashErrorToast />
+	// 		</Suspense>
+	// 		{/* <AppSidebar activeOrganizationSlug={slug} /> */}
+	// 		<div className="flex-1">
+	// 			{/* <SiteNav breadcrumb={breadcrumb} /> */}
+	// 			<main>{children}</main>
+	// 			{sheet}
+	// 		</div>
+	// 	</SidebarProvider>
+	// );
 }

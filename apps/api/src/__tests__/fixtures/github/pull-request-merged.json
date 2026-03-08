@@ -12,12 +12,19 @@
 	},
 	"pull_request": {
 		"merged": true,
+		"title": "docs: add API usage notes",
 		"merge_commit_sha": "cccccccccccccccccccccccccccccccccccccccc",
 		"base": {
 			"ref": "main"
 		},
 		"head": {
-			"sha": "dddddddddddddddddddddddddddddddddddddddd"
+			"sha": "dddddddddddddddddddddddddddddddddddddddd",
+			"ref": "feature/docs-updates"
+		},
+		"user": {
+			"login": "octocat",
+			"name": "The Octocat",
+			"avatar_url": "https://avatars.githubusercontent.com/u/583231?v=4"
 		}
 	}
 }

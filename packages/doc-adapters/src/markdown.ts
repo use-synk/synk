@@ -86,7 +86,8 @@ export const markdownAdapter: DocAdapter = {
 
 	getDocPaths(config: DocsConfig): string[] {
 		const base = config.path ?? DOCS_DIR;
-		return [`${base}/**/*${MD_EXT}`, `${base}/**/*${MDX_EXT}`, README];
+		const basePaths = [`${base}/**/*${MD_EXT}`, `${base}/**/*${MDX_EXT}`];
+		return config.path === undefined ? [...basePaths, README] : basePaths;
 	},
 
 	parseStructure(files: DocFile[]): DocTree {

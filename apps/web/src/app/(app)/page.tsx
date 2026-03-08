@@ -1,17 +1,10 @@
+import { getRequiredSession } from "@/api/auth";
 import { CreateOrganizationForm } from "@/components/forms/org/create";
 import { SignOut } from "@/components/sign-out";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { auth } from "@/server/better-auth";
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
 
 export default async function ServerPage() {
-	const session = await auth.api.getSession({ headers: await headers() });
-
-	if (!session) {
-		redirect("/auth");
-	}
-
+	const session = await getRequiredSession();
 	const { user } = session;
 
 	return (

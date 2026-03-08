@@ -23,6 +23,10 @@ describe("classifyError — non-retryable HTTP errors", () => {
 	it("classifies a plain object with status 404 as non-retryable", () => {
 		expect(classifyError({ status: 404 })).toBe("non-retryable");
 	});
+
+	it("classifies a plain object with statusCode 401 as non-retryable", () => {
+		expect(classifyError({ statusCode: 401 })).toBe("non-retryable");
+	});
 });
 
 // ---------------------------------------------------------------------------
@@ -36,6 +40,10 @@ describe("classifyError — retryable HTTP errors", () => {
 
 	it.each([500, 502, 503, 504, 599])("classifies HTTP %i (server error) as retryable", (status) => {
 		expect(classifyError(makeHttpError(status))).toBe("retryable");
+	});
+
+	it.each([429, 500, 503])("classifies statusCode %i as retryable", (statusCode) => {
+		expect(classifyError({ statusCode })).toBe("retryable");
 	});
 });
 

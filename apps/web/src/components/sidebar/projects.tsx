@@ -1,10 +1,11 @@
 "use client";
 
 import { useApiQuery } from "@/api/client";
-import { listOrganizationProjects } from "@/api/endpoints";
+import { listUserProjectsByOrganization } from "@/api/endpoints";
 import { getErrorMessage } from "@/api/errors";
 import { PlusIcon } from "lucide-react";
 import Link from "next/link";
+import { useMemo } from "react";
 import {
 	SidebarGroup,
 	SidebarGroupAction,
@@ -17,9 +18,14 @@ import {
 } from "../ui/sidebar";
 
 export function SidebarProjects({ organizationSlug }: { organizationSlug: string }) {
-	const { data, isLoading, isError, error } = useApiQuery(
-		listOrganizationProjects({ slugOrId: organizationSlug, page: 1, pageSize: 10 }),
-	);
+	const { data, isLoading, isError, error } = useApiQuery(listUserProjectsByOrganization());
+	const projects = useMemo(() => {
+		const activeOrganization = data?.data.find(
+			(item) => item.organization.slug === organizationSlug,
+		);
+
+		return activeOrganization?.projects ?? [];
+	}, [data, organizationSlug]);
 
 	return (
 		<SidebarGroup>
@@ -49,8 +55,7 @@ export function SidebarProjects({ organizationSlug }: { organizationSlug: string
 						</SidebarMenuItem>
 					)}
 					{!isLoading &&
-						data &&
-						data.data.map((project) => (
+						projects.map((project) => (
 							<SidebarMenuItem key={project.id}>
 								<SidebarMenuButton
 									render={
@@ -59,7 +64,7 @@ export function SidebarProjects({ organizationSlug }: { organizationSlug: string
 								/>
 							</SidebarMenuItem>
 						))}
-					{!isLoading && data && data.data.length === 0 && (
+					{!isLoading && projects.length === 0 && (
 						<SidebarMenuItem aria-disabled>
 							<div className="rounded-md border border-dashed p-2 text-sm flex justify-center items-center">
 								No projects found

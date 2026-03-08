@@ -56,9 +56,11 @@ export {
 	TRIAGE_PROMPT_VERSION,
 	GENERATION_PROMPT_VERSION,
 	SUMMARIZATION_PROMPT_VERSION,
+	TITLE_PROMPT_VERSION,
 	buildTriagePrompt,
 	buildGenerationPrompt,
 	buildSummarizationPrompt,
+	buildTitlePrompt,
 	type PromptMessage,
 	type PromptRole,
 	type PromptVersion,
@@ -66,4 +68,12 @@ export {
 	type GenerationPromptParams,
 	type DocumentChange,
 	type SummarizationPromptParams,
+	type TitlePromptParams,
 } from "./prompts/index.js";
+export {
+	createSuggestionTitle,
+	type SuggestionTitle,
+	type SuggestionTitleOptions,
+	type SuggestionTitleRequest,
+	type SuggestionTitleResult,
+} from "./title.js";

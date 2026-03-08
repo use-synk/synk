@@ -58,6 +58,32 @@ const REPO_LIST_ITEM = {
 	updatedAt: NOW,
 };
 
+const SUGGESTION_DETAIL = {
+	id: "suggestion-1",
+	readableId: 1,
+	projectId: PROJECT_ID,
+	repositoryId: DOCS_REPOSITORY_ID,
+	runId: "run-1",
+	docPath: "docs/getting-started.md",
+	baseDocSha: "abc123",
+	title: null,
+	beforeContent: "# Old content",
+	proposedContent: "# New content",
+	reasoning: "Update docs",
+	fingerprint: "fp-1",
+	status: "pending" as const,
+	diffAdditions: 0,
+	diffDeletions: 0,
+	supersedesSuggestionId: null,
+	decidedByUserId: null,
+	decidedByUser: null,
+	decidedAt: null,
+	decisionNote: null,
+	appliedInBatchId: null,
+	createdAt: NOW,
+	updatedAt: NOW,
+};
+
 const createDependencies = (): ProjectServiceDependencies => {
 	const authorizationRepository: ProjectServiceDependencies["authorizationRepository"] = {
 		hasInstallationAccess: mock(async () => true),
@@ -84,6 +110,7 @@ const createDependencies = (): ProjectServiceDependencies => {
 		getHasRepositories: mock(async () => true),
 		getHasProjects: mock(async () => true),
 		listOrganizationsForUser: mock(async () => []),
+		listOrganizationsWithProjectsForUser: mock(async () => []),
 	};
 
 	const projectRepository: ProjectServiceDependencies["projectRepository"] = {
@@ -103,6 +130,26 @@ const createDependencies = (): ProjectServiceDependencies => {
 		deleteProject: mock(async () => {
 			throw new Error("deleteProject should not be called");
 		}),
+		listProjectSuggestions: mock(async () => ({ items: [], total: 0 })),
+		countProjectSuggestionStats: mock(async () => ({ pending: 0, accepted: 0 })),
+		findProjectSuggestion: mock(async () => null),
+		findProjectSuggestionsByIds: mock(async () => []),
+		updateSuggestionDecision: mock(async () => SUGGESTION_DETAIL),
+		updateSuggestionsDecision: mock(async () => undefined),
+		findProjectSuggestionTarget: mock(async () => ({
+			projectId: PROJECT_ID,
+			repositoryId: DOCS_REPOSITORY_ID,
+			repositoryFullName: "acme/docs",
+			baseBranch: "main",
+			provider: "github" as const,
+			providerInstallationId: "12345",
+		})),
+		listAcceptedSuggestionsForPr: mock(async () => []),
+		createSuggestionBatch: mock(async () => ({ id: "batch-1" })),
+		completeSuggestionBatch: mock(async () => undefined),
+		failSuggestionBatch: mock(async () => undefined),
+		markSuggestionsApplied: mock(async () => undefined),
+		markSuggestionsExcluded: mock(async () => undefined),
 	};
 
 	const dashboardRepository: ProjectServiceDependencies["dashboardRepository"] = {
@@ -119,6 +166,10 @@ const createDependencies = (): ProjectServiceDependencies => {
 		organizationRepository,
 		projectRepository,
 		dashboardRepository,
+		githubCredentials: {
+			appId: 1,
+			privateKey: "-----BEGIN PRIVATE KEY-----\\nabc\\n-----END PRIVATE KEY-----",
+		},
 	};
 };
 
@@ -597,5 +648,127 @@ describe("ProjectService.listProjectRuns", () => {
 
 		expect(deps.projectRepository.findProject).not.toHaveBeenCalled();
 		expect(deps.dashboardRepository.listRepositoryRuns).not.toHaveBeenCalled();
+	});
+});
+
+describe("ProjectService suggestion decisions", () => {
+	it("asserts project access when listing suggestions", async () => {
+		const deps = createDependencies();
+		const service = new ProjectService(deps);
+
+		await service.listProjectSuggestions({
+			userId: USER_ID,
+			projectId: PROJECT_ID,
+			filter: { page: 1, pageSize: 10 },
+		});
+
+		expect(deps.authorizationRepository.assertProjectAccess).toHaveBeenCalledWith({
+			projectId: PROJECT_ID,
+			userId: USER_ID,
+		});
+	});
+
+	it("returns 404 when deciding a missing suggestion", async () => {
+		const deps = createDependencies();
+		const service = new ProjectService(deps);
+
+		await expect(
+			service.decideProjectSuggestion({
+				userId: USER_ID,
+				projectId: PROJECT_ID,
+				suggestionId: "missing",
+				decision: "accept",
+			}),
+		).rejects.toMatchObject({ status: 404 } satisfies Pick<HTTPException, "status">);
+	});
+
+	it("returns suggestion stats for pending and accepted statuses", async () => {
+		const deps = createDependencies();
+		deps.projectRepository.countProjectSuggestionStats = mock(async () => ({
+			pending: 9,
+			accepted: 3,
+		}));
+		const service = new ProjectService(deps);
+
+		const result = await service.getProjectSuggestionStats({
+			userId: USER_ID,
+			projectId: PROJECT_ID,
+		});
+
+		expect(deps.authorizationRepository.assertProjectAccess).toHaveBeenCalledWith({
+			projectId: PROJECT_ID,
+			userId: USER_ID,
+		});
+		expect(deps.projectRepository.countProjectSuggestionStats).toHaveBeenCalledWith(PROJECT_ID);
+		expect(result).toEqual({ pending: 9, accepted: 3 });
+	});
+
+	it("rejects decision transitions for superseded suggestions", async () => {
+		const deps = createDependencies();
+		deps.projectRepository.findProjectSuggestion = mock(async () => ({
+			...SUGGESTION_DETAIL,
+			status: "superseded",
+		}));
+		const service = new ProjectService(deps);
+
+		await expect(
+			service.decideProjectSuggestion({
+				userId: USER_ID,
+				projectId: PROJECT_ID,
+				suggestionId: SUGGESTION_DETAIL.id,
+				decision: "accept",
+			}),
+		).rejects.toMatchObject({ status: 409 } satisfies Pick<HTTPException, "status">);
+		expect(deps.projectRepository.updateSuggestionDecision).not.toHaveBeenCalled();
+	});
+
+	it("applies bulk decisions to all matching suggestions", async () => {
+		const deps = createDependencies();
+		deps.projectRepository.findProjectSuggestionsByIds = mock(async () => [SUGGESTION_DETAIL]);
+		const service = new ProjectService(deps);
+
+		const result = await service.bulkDecideProjectSuggestions({
+			userId: USER_ID,
+			projectId: PROJECT_ID,
+			suggestionIds: [SUGGESTION_DETAIL.id],
+			decision: "decline",
+			note: "not needed",
+		});
+
+		expect(deps.projectRepository.updateSuggestionsDecision).toHaveBeenCalled();
+		expect(result).toHaveLength(1);
+	});
+
+	it("returns 409 when creating suggestion PR without accepted suggestions", async () => {
+		const deps = createDependencies();
+		deps.projectRepository.listAcceptedSuggestionsForPr = mock(async () => []);
+		const service = new ProjectService(deps);
+
+		await expect(
+			service.createProjectSuggestionsPr({
+				userId: USER_ID,
+				projectId: PROJECT_ID,
+			}),
+		).rejects.toMatchObject({ status: 409 } satisfies Pick<HTTPException, "status">);
+	});
+
+	it("returns 400 when creating suggestion PR for non-github repository", async () => {
+		const deps = createDependencies();
+		deps.projectRepository.findProjectSuggestionTarget = mock(async () => ({
+			projectId: PROJECT_ID,
+			repositoryId: DOCS_REPOSITORY_ID,
+			repositoryFullName: "acme/docs",
+			baseBranch: "main",
+			provider: "gitlab",
+			providerInstallationId: "12345",
+		}));
+		const service = new ProjectService(deps);
+
+		await expect(
+			service.createProjectSuggestionsPr({
+				userId: USER_ID,
+				projectId: PROJECT_ID,
+			}),
+		).rejects.toMatchObject({ status: 400 } satisfies Pick<HTTPException, "status">);
 	});
 });

@@ -28,36 +28,45 @@ const toErrorCode = (status: number): ErrorCode => {
 export const createErrorHandler =
 	(logger: Logger): ErrorHandler<AppEnv> =>
 	(err, c) => {
+		const requestLogger = c.get("logger") ?? logger;
+		const requestUrl = new URL(c.req.url);
+		const request = {
+			method: c.req.method,
+			path: c.req.path,
+			query: requestUrl.search,
+			requestId: c.get("requestId"),
+		};
+
 		if (err instanceof HTTPException) {
-			logger.warn({ status: err.status }, err.message);
+			requestLogger.warn({ request, status: err.status }, err.message);
 			return c.json<ErrorResponse>(
 				{ error: { code: toErrorCode(err.status), message: err.message } },
 				err.status,
 			);
 		}
 		if (err instanceof AccessDeniedError) {
-			logger.warn({ status: 403 }, err.message);
+			requestLogger.warn({ request, status: 403 }, err.message);
 			return c.json<ErrorResponse>(
 				{ error: { code: toErrorCode(403), message: err.message } },
 				403,
 			);
 		}
 		if (err instanceof InstallationStateError) {
-			logger.warn({ status: 422 }, err.message);
+			requestLogger.warn({ request, status: 422 }, err.message);
 			return c.json<ErrorResponse>(
 				{ error: { code: toErrorCode(422), message: err.message } },
 				422,
 			);
 		}
 		if (err instanceof OrganizationNotFoundError) {
-			logger.warn({ status: 404 }, err.message);
+			requestLogger.warn({ request, status: 404 }, err.message);
 			return c.json<ErrorResponse>(
 				{ error: { code: toErrorCode(404), message: err.message } },
 				404,
 			);
 		}
 
-		logger.error({ err }, "unhandled error");
+		requestLogger.error({ err, request, status: 500 }, "unhandled error");
 		return c.json<ErrorResponse>(
 			{ error: { code: ERROR_CODES.INTERNAL_ERROR, message: "An internal error occurred" } },
 			500,

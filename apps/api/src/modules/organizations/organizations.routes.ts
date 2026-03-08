@@ -50,6 +50,41 @@ export function createOrganizationsRoutes({
 			401: { description: "Unauthorized" },
 		},
 	});
+	const listUserProjectsByOrganizationRoute = createRoute({
+		method: "get",
+		path: "/projects",
+		tags: ["organizations", "projects"],
+		operationId: "listUserProjectsByOrganization",
+		security: [{ cookieAuth: [] }],
+		responses: {
+			200: {
+				description: "Projects grouped by organization for the authenticated user",
+				content: {
+					"application/json": {
+						schema: openApiZ.object({
+							data: openApiZ.array(
+								openApiZ.object({
+									organization: openApiZ.object({
+										id: openApiZ.string(),
+										name: openApiZ.string(),
+										slug: openApiZ.string(),
+										image: openApiZ.string().nullable(),
+									}),
+									projects: openApiZ.array(
+										openApiZ.object({
+											id: openApiZ.string(),
+											name: openApiZ.string(),
+										}),
+									),
+								}),
+							),
+						}),
+					},
+				},
+			},
+			401: { description: "Unauthorized" },
+		},
+	});
 	const setupRoute = createRoute({
 		method: "get",
 		path: "/{slugOrId}/setup",
@@ -164,6 +199,13 @@ export function createOrganizationsRoutes({
 	router.openapi(listOrganizationsRoute, async (ctx) => {
 		const userId = ctx.get("user").id;
 		const result = await dashboardService.listUserOrganizations(userId);
+
+		return ctx.json({ data: result });
+	});
+
+	router.openapi(listUserProjectsByOrganizationRoute, async (ctx) => {
+		const userId = ctx.get("user").id;
+		const result = await dashboardService.listUserProjectsByOrganization(userId);
 
 		return ctx.json({ data: result });
 	});

@@ -9,3 +9,15 @@ export type {
 	RunListFilter,
 	RunListItem,
 } from "./dashboard";
+export type {
+	CreateSuggestionsPrExcludedItem,
+	CreateSuggestionsPrExcludedReason,
+	CreateSuggestionsPrResult,
+	ProjectSuggestionTarget,
+	SuggestionDecision,
+	SuggestionCreatePrCandidate,
+	SuggestionDetail,
+	SuggestionListFilter,
+	SuggestionStats,
+	SuggestionSummary,
+} from "./suggestion";

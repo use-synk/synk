@@ -68,6 +68,102 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/projects/{projectId}/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listProjectSuggestions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{projectId}/suggestions/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getProjectSuggestionStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{projectId}/suggestions/{suggestionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getProjectSuggestion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{projectId}/suggestions/{suggestionId}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["decideProjectSuggestion"];
+        trace?: never;
+    };
+    "/api/v1/projects/{projectId}/suggestions/decisions/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["bulkDecideProjectSuggestions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/projects/{projectId}/suggestions/pr": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createProjectSuggestionsPr"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organizations": {
         parameters: {
             query?: never;
@@ -76,6 +172,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["listUserOrganizations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listUserProjectsByOrganization"];
         put?: never;
         post?: never;
         delete?: never;
@@ -374,6 +486,17 @@ export interface operations {
                             triggerType: string;
                             triggerRef: string;
                             triggerCommitSha: string;
+                            prNumber: number | null;
+                            prMessage: string | null;
+                            prAuthorName: string | null;
+                            prAuthorUsername: string | null;
+                            prAuthorAvatarUrl: string | null;
+                            sourceBranch: string | null;
+                            targetBranch: string | null;
+                            suggestionsDetected: boolean;
+                            suggestionsCount: number;
+                            errorCode: string | null;
+                            errorMessage: string | null;
                             docsAffected: boolean | null;
                             docPrUrl: string | null;
                             error: string | null;
@@ -490,6 +613,467 @@ export interface operations {
             };
         };
     };
+    listProjectSuggestions: {
+        parameters: {
+            query?: {
+                page?: number;
+                pageSize?: number;
+                status?: ("pending" | "accepted" | "declined" | "superseded" | "stale" | "applied") | ("pending" | "accepted" | "declined" | "superseded" | "stale" | "applied")[];
+                search?: string;
+            };
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Project suggestions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: string;
+                            readableId: number;
+                            projectId: string;
+                            repositoryId: string;
+                            runId: string;
+                            docPath: string;
+                            baseDocSha: string;
+                            /** @enum {string} */
+                            status: "pending" | "accepted" | "declined" | "superseded" | "stale" | "applied";
+                            title: string | null;
+                            reasoning: string | null;
+                            fingerprint: string;
+                            diffAdditions: number;
+                            diffDeletions: number;
+                            supersedesSuggestionId: string | null;
+                            decidedByUserId: string | null;
+                            decidedByUser: {
+                                id: string;
+                                name: string;
+                                email: string;
+                                image: string | null;
+                            } | null;
+                            decidedAt: string | null;
+                            decisionNote: string | null;
+                            createdAt: string;
+                            updatedAt: string;
+                        }[];
+                        pagination: {
+                            page: number;
+                            pageSize: number;
+                            total: number;
+                            totalPages: number;
+                        };
+                    };
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getProjectSuggestionStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Project suggestion stats */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            pending: number;
+                            accepted: number;
+                        };
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getProjectSuggestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                suggestionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Project suggestion detail */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: string;
+                            readableId: number;
+                            projectId: string;
+                            repositoryId: string;
+                            runId: string;
+                            docPath: string;
+                            baseDocSha: string;
+                            /** @enum {string} */
+                            status: "pending" | "accepted" | "declined" | "superseded" | "stale" | "applied";
+                            title: string | null;
+                            reasoning: string | null;
+                            fingerprint: string;
+                            diffAdditions: number;
+                            diffDeletions: number;
+                            supersedesSuggestionId: string | null;
+                            decidedByUserId: string | null;
+                            decidedByUser: {
+                                id: string;
+                                name: string;
+                                email: string;
+                                image: string | null;
+                            } | null;
+                            decidedAt: string | null;
+                            decisionNote: string | null;
+                            createdAt: string;
+                            updatedAt: string;
+                            beforeContent: string | null;
+                            proposedContent: string;
+                            appliedInBatchId: string | null;
+                        };
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Suggestion not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    decideProjectSuggestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+                suggestionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    decision: "accept" | "decline" | "reset";
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Updated suggestion */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: string;
+                            readableId: number;
+                            projectId: string;
+                            repositoryId: string;
+                            runId: string;
+                            docPath: string;
+                            baseDocSha: string;
+                            /** @enum {string} */
+                            status: "pending" | "accepted" | "declined" | "superseded" | "stale" | "applied";
+                            title: string | null;
+                            reasoning: string | null;
+                            fingerprint: string;
+                            diffAdditions: number;
+                            diffDeletions: number;
+                            supersedesSuggestionId: string | null;
+                            decidedByUserId: string | null;
+                            decidedByUser: {
+                                id: string;
+                                name: string;
+                                email: string;
+                                image: string | null;
+                            } | null;
+                            decidedAt: string | null;
+                            decisionNote: string | null;
+                            createdAt: string;
+                            updatedAt: string;
+                            beforeContent: string | null;
+                            proposedContent: string;
+                            appliedInBatchId: string | null;
+                        };
+                    };
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Suggestion not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid transition */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    bulkDecideProjectSuggestions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    suggestionIds: string[];
+                    /** @enum {string} */
+                    decision: "accept" | "decline" | "reset";
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Updated suggestions */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            id: string;
+                            readableId: number;
+                            projectId: string;
+                            repositoryId: string;
+                            runId: string;
+                            docPath: string;
+                            baseDocSha: string;
+                            /** @enum {string} */
+                            status: "pending" | "accepted" | "declined" | "superseded" | "stale" | "applied";
+                            title: string | null;
+                            reasoning: string | null;
+                            fingerprint: string;
+                            diffAdditions: number;
+                            diffDeletions: number;
+                            supersedesSuggestionId: string | null;
+                            decidedByUserId: string | null;
+                            decidedByUser: {
+                                id: string;
+                                name: string;
+                                email: string;
+                                image: string | null;
+                            } | null;
+                            decidedAt: string | null;
+                            decisionNote: string | null;
+                            createdAt: string;
+                            updatedAt: string;
+                            beforeContent: string | null;
+                            proposedContent: string;
+                            appliedInBatchId: string | null;
+                        }[];
+                    };
+                };
+            };
+            /** @description Bad request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Suggestion not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid transition */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createProjectSuggestionsPr: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created suggestions PR */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            batchId: string;
+                            /** @enum {string} */
+                            status: "completed" | "failed";
+                            prNumber: number | null;
+                            prUrl: string | null;
+                            includedSuggestionIds: string[];
+                            excluded: {
+                                suggestionId: string;
+                                docPath: string;
+                                /** @enum {string} */
+                                reason: "file-missing" | "base-sha-mismatch" | "already-applied";
+                            }[];
+                        };
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Project not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No accepted suggestions */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     listUserOrganizations: {
         parameters: {
             query?: never;
@@ -511,6 +1095,46 @@ export interface operations {
                             name: string;
                             slug: string;
                             logo: string | null;
+                        }[];
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listUserProjectsByOrganization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Projects grouped by organization for the authenticated user */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: {
+                            organization: {
+                                id: string;
+                                name: string;
+                                slug: string;
+                                image: string | null;
+                            };
+                            projects: {
+                                id: string;
+                                name: string;
+                            }[];
                         }[];
                     };
                 };
@@ -849,12 +1473,21 @@ export interface operations {
                             triggerRef: string;
                             triggerCommitSha: string;
                             triggerMergeRequestNumber: number | null;
+                            triggerPrTitle: string | null;
+                            triggerSourceBranch: string | null;
+                            triggerTargetBranch: string | null;
+                            triggerPrAuthorName: string | null;
+                            triggerPrAuthorUsername: string | null;
+                            triggerPrAuthorAvatarUrl: string | null;
                             triggerMeta?: unknown;
                             docsAffected: boolean | null;
+                            suggestionsCount: number;
                             docPrNumber: number | null;
                             docPrUrl: string | null;
                             prLink: string | null;
                             tokenUsage?: unknown;
+                            errorCode: string | null;
+                            errorMessage: string | null;
                             error: string | null;
                             attemptCount: number;
                             result?: unknown;
@@ -919,8 +1552,18 @@ export interface operations {
                             triggerType: string;
                             triggerRef: string;
                             triggerCommitSha: string;
+                            triggerMergeRequestNumber: number | null;
+                            triggerPrTitle: string | null;
+                            triggerSourceBranch: string | null;
+                            triggerTargetBranch: string | null;
+                            triggerPrAuthorName: string | null;
+                            triggerPrAuthorUsername: string | null;
+                            triggerPrAuthorAvatarUrl: string | null;
                             docsAffected: boolean | null;
+                            suggestionsCount: number;
                             docPrUrl: string | null;
+                            errorCode: string | null;
+                            errorMessage: string | null;
                             error: string | null;
                             createdAt: string;
                             startedAt: string | null;

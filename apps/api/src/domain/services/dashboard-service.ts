@@ -67,6 +67,19 @@ export type UserOrganization = {
 	logo: string | null;
 };
 
+export type UserProjectsByOrganization = {
+	organization: {
+		id: string;
+		name: string;
+		slug: string;
+		image: string | null;
+	};
+	projects: Array<{
+		id: string;
+		name: string;
+	}>;
+};
+
 export interface DashboardServiceContract {
 	patchRepository(input: PatchRepositoryInput): Promise<RepositoryDetail>;
 	listInstallationRepositories(
@@ -77,4 +90,5 @@ export interface DashboardServiceContract {
 	getRunDetail(runId: string, userId: string): Promise<RunDetail>;
 	getOrganizationSetupStatus(slugOrId: string, userId: string): Promise<OrganizationSetupStatus>;
 	listUserOrganizations(userId: string): Promise<UserOrganization[]>;
+	listUserProjectsByOrganization(userId: string): Promise<UserProjectsByOrganization[]>;
 }

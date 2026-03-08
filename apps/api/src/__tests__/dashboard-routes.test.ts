@@ -83,8 +83,18 @@ const createDashboardServiceMock = () => {
 				triggerType: "manual",
 				triggerRef: "refs/heads/main",
 				triggerCommitSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				triggerMergeRequestNumber: null,
+				triggerPrTitle: null,
+				triggerSourceBranch: null,
+				triggerTargetBranch: null,
+				triggerPrAuthorName: null,
+				triggerPrAuthorUsername: null,
+				triggerPrAuthorAvatarUrl: null,
 				docsAffected: true,
+				suggestionsCount: 0,
 				docPrUrl: "https://github.com/acme/docs/pull/12",
+				errorCode: null,
+				errorMessage: null,
 				error: null,
 				createdAt: NOW,
 				startedAt: NOW,
@@ -112,11 +122,20 @@ const createDashboardServiceMock = () => {
 		triggerRef: "refs/heads/main",
 		triggerCommitSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 		triggerMergeRequestNumber: null,
+		triggerPrTitle: null,
+		triggerSourceBranch: null,
+		triggerTargetBranch: null,
+		triggerPrAuthorName: null,
+		triggerPrAuthorUsername: null,
+		triggerPrAuthorAvatarUrl: null,
 		triggerMeta: {},
 		docsAffected: true,
+		suggestionsCount: 0,
 		docPrNumber: 12,
 		docPrUrl: "https://github.com/acme/docs/pull/12",
 		tokenUsage: { total: { prompt: 1, completion: 2, total: 3 } },
+		errorCode: null,
+		errorMessage: null,
 		error: null,
 		attemptCount: 1,
 		result: {
@@ -141,6 +160,20 @@ const createDashboardServiceMock = () => {
 			logo: null,
 		},
 	]);
+	const listUserProjectsByOrganization = mock(async () => [
+		{
+			organization: {
+				id: "org-1",
+				name: "Acme",
+				slug: "acme",
+				image: "https://example.com/acme.png",
+			},
+			projects: [
+				{ id: "project-1", name: "Docs" },
+				{ id: "project-2", name: "Website" },
+			],
+		},
+	]);
 
 	return {
 		patchRepository,
@@ -150,6 +183,7 @@ const createDashboardServiceMock = () => {
 		getRunDetail,
 		getOrganizationSetupStatus,
 		listUserOrganizations,
+		listUserProjectsByOrganization,
 	};
 };
 
@@ -256,6 +290,38 @@ describe("dashboard routes", () => {
 			},
 		]);
 		expect(dashboardService.listUserOrganizations).toHaveBeenCalledWith(USER_ID);
+	});
+
+	it("lists projects grouped by organization for the authenticated user", async () => {
+		const dashboardService = createDashboardServiceMock();
+		const app = createTestApp(dashboardService);
+
+		const response = await app.request("/api/v1/organizations/projects", {
+			headers: authHeaders(),
+		});
+
+		expect(response.status).toBe(200);
+		const body = (await response.json()) as {
+			data: Array<{
+				organization: { id: string; name: string; slug: string; image: string | null };
+				projects: Array<{ id: string; name: string }>;
+			}>;
+		};
+		expect(body.data).toEqual([
+			{
+				organization: {
+					id: "org-1",
+					name: "Acme",
+					slug: "acme",
+					image: "https://example.com/acme.png",
+				},
+				projects: [
+					{ id: "project-1", name: "Docs" },
+					{ id: "project-2", name: "Website" },
+				],
+			},
+		]);
+		expect(dashboardService.listUserProjectsByOrganization).toHaveBeenCalledWith(USER_ID);
 	});
 
 	it("coerces installation repository pagination query params from strings", async () => {

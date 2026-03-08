@@ -1,5 +1,5 @@
 import { githubEnvironmentSchema } from "@synk-ai/github";
-import { parseEnvironment } from "@synk-ai/shared";
+import { parseEnvironment, suggestionInboxFeatureFlagsSchema } from "@synk-ai/shared";
 import { z } from "zod";
 
 export const apiEnvironmentSchema = githubEnvironmentSchema.extend({
@@ -11,7 +11,7 @@ export const apiEnvironmentSchema = githubEnvironmentSchema.extend({
 	REDIS_URL: z.string().min(1),
 
 	GITHUB_APP_SLUG: z.string().min(1),
-});
+}).extend(suggestionInboxFeatureFlagsSchema.shape);
 
 export type ApiEnvironment = z.infer<typeof apiEnvironmentSchema>;
 

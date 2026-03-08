@@ -1,9 +1,16 @@
+import type { GitHubAppCredentials } from "@synk-ai/github";
 import type {
+	CreateSuggestionsPrResult,
 	PaginatedResult,
 	Pagination,
 	RepositoryListItem,
 	RunListFilter,
 	RunListItem,
+	SuggestionDecision,
+	SuggestionDetail,
+	SuggestionListFilter,
+	SuggestionStats,
+	SuggestionSummary,
 } from "../models";
 import type { Project, ProjectDetail } from "../models/project";
 import type { AuthorizationRepository, OrganizationRepository, ProjectRepository } from "../ports";
@@ -15,6 +22,7 @@ export type ProjectServiceDependencies = {
 	organizationRepository: OrganizationRepository;
 	projectRepository: ProjectRepository;
 	dashboardRepository: DashboardRepository;
+	githubCredentials: GitHubAppCredentials;
 };
 
 export type CreateProjectInput = {
@@ -67,6 +75,44 @@ export type ListOrganizationRepositoriesInput = {
 	pagination: Pagination;
 };
 
+export type ListProjectSuggestionsInput = {
+	userId: string;
+	projectId: string;
+	filter: SuggestionListFilter;
+};
+
+export type GetProjectSuggestionInput = {
+	userId: string;
+	projectId: string;
+	suggestionId: string;
+};
+
+export type GetProjectSuggestionStatsInput = {
+	userId: string;
+	projectId: string;
+};
+
+export type DecideProjectSuggestionInput = {
+	userId: string;
+	projectId: string;
+	suggestionId: string;
+	decision: SuggestionDecision;
+	note?: string;
+};
+
+export type BulkDecideProjectSuggestionsInput = {
+	userId: string;
+	projectId: string;
+	suggestionIds: string[];
+	decision: SuggestionDecision;
+	note?: string;
+};
+
+export type CreateProjectSuggestionsPrInput = {
+	userId: string;
+	projectId: string;
+};
+
 export interface ProjectServiceContract {
 	findProject(input: FindProjectInput): Promise<Project | null>;
 	getProjectDetail(input: GetProjectDetailInput): Promise<ProjectDetail>;
@@ -75,6 +121,18 @@ export interface ProjectServiceContract {
 		input: ListOrganizationRepositoriesInput,
 	): Promise<PaginatedResult<RepositoryListItem>>;
 	listProjectRuns(input: ListProjectRunsInput): Promise<PaginatedResult<RunListItem>>;
+	listProjectSuggestions(
+		input: ListProjectSuggestionsInput,
+	): Promise<PaginatedResult<SuggestionSummary>>;
+	getProjectSuggestionStats(input: GetProjectSuggestionStatsInput): Promise<SuggestionStats>;
+	getProjectSuggestion(input: GetProjectSuggestionInput): Promise<SuggestionDetail>;
+	decideProjectSuggestion(input: DecideProjectSuggestionInput): Promise<SuggestionDetail>;
+	bulkDecideProjectSuggestions(
+		input: BulkDecideProjectSuggestionsInput,
+	): Promise<SuggestionDetail[]>;
+	createProjectSuggestionsPr(
+		input: CreateProjectSuggestionsPrInput,
+	): Promise<CreateSuggestionsPrResult>;
 	createProject(input: CreateProjectInput): Promise<Project>;
 	updateProject(input: UpdateProjectInput): Promise<Project>;
 	deleteProject(input: DeleteProjectInput): Promise<void>;

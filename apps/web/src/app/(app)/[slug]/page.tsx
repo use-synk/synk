@@ -1,22 +1,39 @@
-import { getOrganizationSetupStatus } from "@/api/endpoints";
+import { getOrganizationSetupStatus, listUserOrganizations } from "@/api/endpoints";
+import { RequestError } from "@/api/errors";
 import { fetchQuery } from "@/api/server";
 import { PageDescription, PageTitle } from "@/components/typography";
-import { auth } from "@/server/better-auth";
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { OrganizationSetup } from "./_components/setup";
 
 export default async function Page(props: PageProps<"/[slug]">): Promise<React.ReactNode> {
 	const { slug } = await props.params;
-	const session = await auth.api.getSession({ headers: await headers() });
-	if (!session) {
+
+	let organizations: Array<{ id: string; slug: string }>;
+	try {
+		const organizationsResult = await fetchQuery(listUserOrganizations());
+		organizations = organizationsResult.data;
+	} catch (error) {
+		if (error instanceof RequestError && error.status === 401) {
+			redirect("/auth");
+		}
+		throw error;
+	}
+
+	const organization = organizations.find((item) => item.slug === slug);
+	if (!organization) {
 		redirect("/auth");
 	}
 
 	const { data: setupStatus } = await fetchQuery(getOrganizationSetupStatus({ slugOrId: slug }));
 
 	if (!setupStatus.hasInstallations || !setupStatus.hasRepositories || !setupStatus.hasProjects) {
-		return <OrganizationSetup setupStatus={setupStatus} organizationSlug={slug} />;
+		return (
+			<OrganizationSetup
+				setupStatus={setupStatus}
+				organizationSlug={slug}
+				organizationId={organization.id}
+			/>
+		);
 	}
 
 	return (

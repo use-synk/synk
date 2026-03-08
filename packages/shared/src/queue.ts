@@ -22,11 +22,17 @@ export type AnalyzeChangesJobPayload = {
 		ref: string;
 		commitSha: string;
 		prNumber?: number;
+		prTitle?: string;
+		sourceBranch?: string;
+		targetBranch?: string;
+		prAuthorName?: string;
+		prAuthorUsername?: string;
+		prAuthorAvatarUrl?: string;
 	};
 };
 
 export const buildAnalyzeChangesActiveJobId = (repositoryId: string): string =>
-	`${ANALYZE_CHANGES_QUEUE_NAME}:repo:${repositoryId}:active`;
+	`${ANALYZE_CHANGES_QUEUE_NAME}__repo__${repositoryId}__active`;
 
 export const buildAnalyzeChangesPendingPayloadKey = (repositoryId: string): string =>
 	`${ANALYZE_CHANGES_QUEUE_NAME}:repo:${repositoryId}:pending`;

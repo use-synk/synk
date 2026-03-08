@@ -1,4 +1,4 @@
-import { listOrganizationProjects } from "@/api/endpoints";
+import { listUserProjectsByOrganization } from "@/api/endpoints";
 import { prefetchQuery } from "@/api/server";
 import { HydrationBoundary, dehydrate } from "@tanstack/react-query";
 import { HomeIcon } from "lucide-react";
@@ -23,7 +23,7 @@ export async function AppSidebar({
 	activeOrganizationSlug: string;
 }) {
 	const { client } = await prefetchQuery(
-		listOrganizationProjects({ slugOrId: activeOrganizationSlug, page: 1, pageSize: 10 }),
+		listUserProjectsByOrganization(),
 	);
 
 	return (

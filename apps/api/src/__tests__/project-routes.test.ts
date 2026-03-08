@@ -79,15 +79,55 @@ const PROJECT_DETAIL = {
 const RUN_LIST_ITEM = {
 	id: "run-1",
 	status: "completed" as const,
-	triggerType: "push" as const,
+	triggerType: "merge" as const,
 	triggerRef: "refs/heads/main",
 	triggerCommitSha: "abc123",
+	triggerMergeRequestNumber: 42,
+	triggerPrTitle: "docs: update guides",
+	triggerSourceBranch: "feature/docs",
+	triggerTargetBranch: "main",
+	triggerPrAuthorName: "The Octocat",
+	triggerPrAuthorUsername: "octocat",
+	triggerPrAuthorAvatarUrl: "https://avatars.githubusercontent.com/u/583231?v=4",
 	docsAffected: true,
+	suggestionsCount: 3,
 	docPrUrl: null,
+	errorCode: null,
+	errorMessage: null,
 	error: null,
 	createdAt: NOW,
 	startedAt: NOW,
 	completedAt: NOW,
+};
+
+const SUGGESTION_SUMMARY_ITEM = {
+	id: "suggestion-1",
+	readableId: 1,
+	projectId: PROJECT_ID,
+	repositoryId: DOCS_REPOSITORY_ID,
+	runId: RUN_LIST_ITEM.id,
+	docPath: "docs/getting-started.md",
+	baseDocSha: "abc123",
+	status: "pending" as const,
+	title: null,
+	reasoning: "Docs should include the new setup step.",
+	fingerprint: "fp-1",
+	diffAdditions: 5,
+	diffDeletions: 2,
+	supersedesSuggestionId: null,
+	decidedByUserId: null,
+	decidedByUser: null,
+	decidedAt: null,
+	decisionNote: null,
+	createdAt: NOW,
+	updatedAt: NOW,
+};
+
+const SUGGESTION_DETAIL_ITEM = {
+	...SUGGESTION_SUMMARY_ITEM,
+	beforeContent: "# Old content",
+	proposedContent: "# New content",
+	appliedInBatchId: null,
 };
 
 const createProjectServiceMock = () => {
@@ -113,6 +153,19 @@ const createProjectServiceMock = () => {
 	const findProject = mock(async () => null);
 	const getProjectDetail = mock(async () => PROJECT_DETAIL);
 	const listProjectRuns = mock(async () => ({ items: [], total: 0 }));
+	const listProjectSuggestions = mock(async () => ({ items: [], total: 0 }));
+	const getProjectSuggestionStats = mock(async () => ({ pending: 1, accepted: 0 }));
+	const getProjectSuggestion = mock(async () => SUGGESTION_DETAIL_ITEM);
+	const decideProjectSuggestion = mock(async () => SUGGESTION_DETAIL_ITEM);
+	const bulkDecideProjectSuggestions = mock(async () => [SUGGESTION_DETAIL_ITEM]);
+	const createProjectSuggestionsPr = mock(async () => ({
+		batchId: "batch-1",
+		status: "completed" as const,
+		prNumber: 12,
+		prUrl: "https://github.com/acme/docs/pull/12",
+		includedSuggestionIds: [SUGGESTION_DETAIL_ITEM.id],
+		excluded: [],
+	}));
 	const updateProject = mock(async () => {
 		throw new Error("updateProject should not be called in repository listing tests");
 	});
@@ -125,6 +178,12 @@ const createProjectServiceMock = () => {
 		findProject,
 		getProjectDetail,
 		listProjectRuns,
+		listProjectSuggestions,
+		getProjectSuggestionStats,
+		getProjectSuggestion,
+		decideProjectSuggestion,
+		bulkDecideProjectSuggestions,
+		createProjectSuggestionsPr,
 		updateProject,
 		deleteProject,
 	};
@@ -149,6 +208,9 @@ const createTestApp = (projectService: ProjectServiceContract) => {
 				throw new Error("dashboardService should not be called in project tests");
 			}),
 			listUserOrganizations: mock(async () => {
+				throw new Error("dashboardService should not be called in project tests");
+			}),
+			listUserProjectsByOrganization: mock(async () => {
 				throw new Error("dashboardService should not be called in project tests");
 			}),
 		},
@@ -733,12 +795,24 @@ describe("project routes — GET /projects/:projectId/runs", () => {
 
 		expect(response.status).toBe(200);
 		const body = (await response.json()) as {
-			data: Array<{ id: string; status: string; createdAt: string }>;
+			data: Array<{
+				id: string;
+				status: string;
+				prNumber: number | null;
+				prAuthorUsername: string | null;
+				suggestionsDetected: boolean;
+				suggestionsCount: number;
+				createdAt: string;
+			}>;
 			pagination: { page: number; pageSize: number; total: number; totalPages: number };
 		};
 		expect(body.data).toHaveLength(1);
 		expect(body.data[0]?.id).toBe(RUN_LIST_ITEM.id);
 		expect(body.data[0]?.status).toBe("completed");
+		expect(body.data[0]?.prNumber).toBe(42);
+		expect(body.data[0]?.prAuthorUsername).toBe("octocat");
+		expect(body.data[0]?.suggestionsDetected).toBe(true);
+		expect(body.data[0]?.suggestionsCount).toBe(3);
 		expect(body.data[0]?.createdAt).toBe(NOW_ISO);
 		expect(body.pagination).toEqual({ page: 1, pageSize: 10, total: 1, totalPages: 1 });
 	});
@@ -820,5 +894,217 @@ describe("project routes — GET /projects/:projectId/runs", () => {
 
 		expect(response.status).toBe(400);
 		expect(projectService.listProjectRuns).not.toHaveBeenCalled();
+	});
+});
+
+describe("project routes — suggestion inbox endpoints", () => {
+	beforeEach(() => {
+		mock.restore();
+		getSessionMock.mockResolvedValue({
+			user: { id: USER_ID },
+			session: {
+				token: SESSION_TOKEN,
+				userId: USER_ID,
+				expiresAt: new Date("2099-01-01T00:00:00.000Z"),
+			},
+		});
+	});
+
+	it("returns paginated suggestions for GET /projects/:projectId/suggestions", async () => {
+		const projectService = createProjectServiceMock();
+		projectService.listProjectSuggestions.mockResolvedValueOnce({
+			items: [SUGGESTION_SUMMARY_ITEM],
+			total: 1,
+		});
+		const app = createTestApp(projectService);
+
+		const response = await app.request(`/api/v1/projects/${PROJECT_ID}/suggestions`, {
+			headers: authHeaders(),
+		});
+
+		expect(response.status).toBe(200);
+		expect(projectService.listProjectSuggestions).toHaveBeenCalledWith({
+			userId: USER_ID,
+			projectId: PROJECT_ID,
+			filter: { page: 1, pageSize: 10 },
+		});
+	});
+
+	it("accepts a single suggestion status query value", async () => {
+		const projectService = createProjectServiceMock();
+		projectService.listProjectSuggestions.mockResolvedValueOnce({
+			items: [SUGGESTION_SUMMARY_ITEM],
+			total: 1,
+		});
+		const app = createTestApp(projectService);
+
+		const response = await app.request(
+			`/api/v1/projects/${PROJECT_ID}/suggestions?status=accepted`,
+			{
+				headers: authHeaders(),
+			},
+		);
+
+		expect(response.status).toBe(200);
+		expect(projectService.listProjectSuggestions).toHaveBeenCalledWith({
+			userId: USER_ID,
+			projectId: PROJECT_ID,
+			filter: { page: 1, pageSize: 10, status: ["accepted"] },
+		});
+	});
+
+	it("returns suggestion stats for GET /projects/:projectId/suggestions/stats", async () => {
+		const projectService = createProjectServiceMock();
+		projectService.getProjectSuggestionStats.mockResolvedValueOnce({
+			pending: 11,
+			accepted: 4,
+		});
+		const app = createTestApp(projectService);
+
+		const response = await app.request(`/api/v1/projects/${PROJECT_ID}/suggestions/stats`, {
+			headers: authHeaders(),
+		});
+
+		expect(response.status).toBe(200);
+		expect(projectService.getProjectSuggestionStats).toHaveBeenCalledWith({
+			userId: USER_ID,
+			projectId: PROJECT_ID,
+		});
+
+		const body = (await response.json()) as {
+			data: { pending: number; accepted: number };
+		};
+		expect(body.data).toEqual({ pending: 11, accepted: 4 });
+	});
+
+	it("returns suggestion detail for GET /projects/:projectId/suggestions/:suggestionId", async () => {
+		const projectService = createProjectServiceMock();
+		const app = createTestApp(projectService);
+
+		const response = await app.request(
+			`/api/v1/projects/${PROJECT_ID}/suggestions/${SUGGESTION_DETAIL_ITEM.id}`,
+			{
+				headers: authHeaders(),
+			},
+		);
+
+		expect(response.status).toBe(200);
+		expect(projectService.getProjectSuggestion).toHaveBeenCalledWith({
+			userId: USER_ID,
+			projectId: PROJECT_ID,
+			suggestionId: SUGGESTION_DETAIL_ITEM.id,
+		});
+	});
+
+	it("validates decision payload and forwards PATCH decision", async () => {
+		const projectService = createProjectServiceMock();
+		const app = createTestApp(projectService);
+
+		const response = await app.request(
+			`/api/v1/projects/${PROJECT_ID}/suggestions/${SUGGESTION_DETAIL_ITEM.id}/decision`,
+			{
+				method: "PATCH",
+				headers: { ...authHeaders(), "Content-Type": "application/json" },
+				body: JSON.stringify({ decision: "accept", note: "Looks good" }),
+			},
+		);
+
+		expect(response.status).toBe(200);
+		expect(projectService.decideProjectSuggestion).toHaveBeenCalledWith({
+			userId: USER_ID,
+			projectId: PROJECT_ID,
+			suggestionId: SUGGESTION_DETAIL_ITEM.id,
+			decision: "accept",
+			note: "Looks good",
+		});
+	});
+
+	it("forwards bulk decision updates", async () => {
+		const projectService = createProjectServiceMock();
+		const app = createTestApp(projectService);
+
+		const response = await app.request(
+			`/api/v1/projects/${PROJECT_ID}/suggestions/decisions/bulk`,
+			{
+				method: "POST",
+				headers: { ...authHeaders(), "Content-Type": "application/json" },
+				body: JSON.stringify({
+					suggestionIds: [SUGGESTION_DETAIL_ITEM.id],
+					decision: "decline",
+					note: "Not now",
+				}),
+			},
+		);
+
+		expect(response.status).toBe(200);
+		expect(projectService.bulkDecideProjectSuggestions).toHaveBeenCalledWith({
+			userId: USER_ID,
+			projectId: PROJECT_ID,
+			suggestionIds: [SUGGESTION_DETAIL_ITEM.id],
+			decision: "decline",
+			note: "Not now",
+		});
+	});
+
+	it("returns 400 on invalid suggestion decision", async () => {
+		const projectService = createProjectServiceMock();
+		const app = createTestApp(projectService);
+
+		const response = await app.request(
+			`/api/v1/projects/${PROJECT_ID}/suggestions/${SUGGESTION_DETAIL_ITEM.id}/decision`,
+			{
+				method: "PATCH",
+				headers: { ...authHeaders(), "Content-Type": "application/json" },
+				body: JSON.stringify({ decision: "invalid" }),
+			},
+		);
+
+		expect(response.status).toBe(400);
+		expect(projectService.decideProjectSuggestion).not.toHaveBeenCalled();
+	});
+
+	it("returns 403 when suggestion endpoint service throws AccessDeniedError", async () => {
+		const projectService = createProjectServiceMock();
+		projectService.listProjectSuggestions.mockRejectedValueOnce(
+			new AccessDeniedError("You do not have access to this project"),
+		);
+		const app = createTestApp(projectService);
+
+		const response = await app.request(`/api/v1/projects/${PROJECT_ID}/suggestions`, {
+			headers: authHeaders(),
+		});
+
+		expect(response.status).toBe(403);
+	});
+
+	it("creates a PR from accepted suggestions", async () => {
+		const projectService = createProjectServiceMock();
+		const app = createTestApp(projectService);
+
+		const response = await app.request(`/api/v1/projects/${PROJECT_ID}/suggestions/pr`, {
+			method: "POST",
+			headers: authHeaders(),
+		});
+
+		expect(response.status).toBe(200);
+		expect(projectService.createProjectSuggestionsPr).toHaveBeenCalledWith({
+			userId: USER_ID,
+			projectId: PROJECT_ID,
+		});
+	});
+
+	it("returns 409 when no accepted suggestions are available for PR creation", async () => {
+		const projectService = createProjectServiceMock();
+		projectService.createProjectSuggestionsPr.mockRejectedValueOnce(
+			new HTTPException(409, { message: "No accepted suggestions available for PR creation" }),
+		);
+		const app = createTestApp(projectService);
+
+		const response = await app.request(`/api/v1/projects/${PROJECT_ID}/suggestions/pr`, {
+			method: "POST",
+			headers: authHeaders(),
+		});
+
+		expect(response.status).toBe(409);
 	});
 });

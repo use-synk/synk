@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import { diffLines } from "diff";
 import { type Prisma, db } from "@synk-ai/db";
 import {
 	type DocAdapter,
@@ -35,6 +37,9 @@ const RUN_STATUS_RUNNING = "running";
 const RUN_STATUS_SKIPPED = "skipped";
 const RUN_STATUS_COMPLETED = "completed";
 const RUN_STATUS_FAILED = "failed";
+const RUN_ERROR_CODE_UNKNOWN = "unknown";
+const RUN_ERROR_CODE_NON_RETRYABLE = "non_retryable";
+const RUN_ERROR_CODE_RETRYABLE = "retryable";
 
 type RepositoryWithInstallation = {
 	id: string;
@@ -42,6 +47,8 @@ type RepositoryWithInstallation = {
 	fullName: string;
 	defaultBranch: string;
 	projectId: string;
+	sourceRepositoryId: string;
+	docsRepositoryId: string | null;
 	projectConfig: unknown;
 	installation: {
 		id: string;
@@ -80,6 +87,9 @@ type TriageResult = {
 	needsUpdate: boolean;
 	affectedDocFiles: string[];
 	reasoning: string;
+	confidence?: number;
+	skippedByConfidence?: boolean;
+	rawAffectedDocFiles?: string[];
 	tokenUsage: TokenUsage;
 };
 
@@ -103,13 +113,54 @@ type PipelineContext = {
 	ref: string;
 };
 
+type SuggestionDraft = {
+	docPath: string;
+	baseDocSha: string;
+	beforeContent: string;
+	proposedContent: string;
+	reasoning?: string;
+	title: string | null;
+	diffAdditions: number;
+	diffDeletions: number;
+};
+
+type PersistedSuggestion = {
+	id: string;
+	docPath: string;
+	fingerprint: string;
+};
+
+type SkippedSuggestion = {
+	docPath: string;
+	fingerprint: string;
+	reason:
+		| "duplicate-run-fingerprint"
+		| "duplicate-pending-or-accepted"
+		| "declined-decision-memory";
+};
+
+type SuggestionPersistenceOutcome = {
+	persisted: readonly PersistedSuggestion[];
+	skipped: readonly SkippedSuggestion[];
+};
+
+type ExistingSuggestion = {
+	id: string;
+	status: "pending" | "accepted" | "declined" | "superseded" | "stale" | "applied";
+};
+
+type AnalyzeChangesOptions = {
+	autoPrEnabled: boolean;
+	decisionMemoryEnabled: boolean;
+};
+
 type RepoLocation = {
 	owner: string;
 	repo: string;
 	ref: string;
 };
 
-type AnalyzeChangesServices = {
+export type AnalyzeChangesServices = {
 	runTriage: (input: {
 		filteredDiff: readonly DiffFile[];
 		docTree: ReturnType<DocAdapter["parseStructure"]>;
@@ -122,6 +173,8 @@ type AnalyzeChangesServices = {
 		docFile: DocFile;
 		adapter: DocAdapter;
 		docsConfig: DocsConfig;
+		triageReasoning?: string;
+		mustApplyCodeChanges?: boolean;
 	}) => Promise<GenerationResult>;
 	createPullRequest: (input: {
 		octokit: ReturnType<typeof createInstallationOctokit>;
@@ -136,6 +189,12 @@ type AnalyzeChangesServices = {
 		};
 		config: PullRequestConfig;
 	}) => Promise<PullRequestResult>;
+	generateSuggestionTitle: (input: {
+		docPath: string;
+		reasoning: string | undefined;
+		beforeContent: string;
+		afterContent: string;
+	}) => Promise<string | null>;
 };
 
 /**
@@ -154,6 +213,21 @@ const parseCredentialsOrFail = (): ReturnType<typeof credentialsFromEnvironment>
 };
 
 // The following pure utility functions are exported for unit testing.
+
+export const computeDiffStats = (
+	before: string,
+	after: string,
+): { additions: number; deletions: number } => {
+	const hunks = diffLines(before, after);
+	let additions = 0;
+	let deletions = 0;
+	for (const hunk of hunks) {
+		const count = hunk.count ?? 0;
+		if (hunk.added) additions += count;
+		else if (hunk.removed) deletions += count;
+	}
+	return { additions, deletions };
+};
 // They are internal implementation details and not considered public API.
 
 export const normalizeTokenUsage = (value: Partial<TokenUsage> | undefined): TokenUsage => {
@@ -215,6 +289,30 @@ const isHttpNotFoundError = (error: unknown): boolean => {
 		return false;
 	}
 	return error.status === 404;
+};
+
+const resolveErrorCode = (
+	error: unknown,
+	classification: "retryable" | "non-retryable",
+): string => {
+	if (typeof error === "object" && error !== null) {
+		const record = error as Record<string, unknown>;
+		const status = record.status;
+		if (typeof status === "number" && Number.isInteger(status)) {
+			return `http_${status}`;
+		}
+		const statusCode = record.statusCode;
+		if (typeof statusCode === "number" && Number.isInteger(statusCode)) {
+			return `http_${statusCode}`;
+		}
+	}
+	if (classification === "non-retryable") {
+		return RUN_ERROR_CODE_NON_RETRYABLE;
+	}
+	if (classification === "retryable") {
+		return RUN_ERROR_CODE_RETRYABLE;
+	}
+	return RUN_ERROR_CODE_UNKNOWN;
 };
 
 const parseStringValue = (value: unknown): string | undefined =>
@@ -568,7 +666,12 @@ const collectDocFiles = async (
 	octokit: ReturnType<typeof createInstallationOctokit>,
 	adapter: DocAdapter,
 	options: CollectDocFilesOptions,
-): Promise<{ tree: readonly RepoTreeFile[]; docFiles: readonly DocFile[] }> => {
+): Promise<{
+	tree: readonly RepoTreeFile[];
+	docFiles: readonly DocFile[];
+	docShaByPath: ReadonlyMap<string, string>;
+	inferredDocsPath?: string;
+}> => {
 	const { docsConfig, location } = options;
 	const tree =
 		options.prefetchedTree ??
@@ -578,12 +681,51 @@ const collectDocFiles = async (
 			ref: location.ref,
 		}));
 	const globs = adapter.getDocPaths(docsConfig);
-	const docPaths = tree
+	const matchedDocPaths = tree
 		.map((entry) => entry.path)
-		.filter((path) => pathMatchesAnyGlob(path, globs))
-		.slice(0, 500);
+		.filter((path) => pathMatchesAnyGlob(path, globs));
+	const docsDirectoryCandidates = matchedDocPaths.filter((path) => path.startsWith("docs/"));
+	const docsMarkdownPathsInTree = tree
+		.map((entry) => entry.path)
+		.filter((path) => {
+			if (!path.startsWith("docs/")) {
+				return false;
+			}
+			const lowerPath = path.toLowerCase();
+			return lowerPath.endsWith(".md") || lowerPath.endsWith(".mdx");
+		});
+	const hasDocsMarkdownFileInTree = docsMarkdownPathsInTree.length > 0;
+	let docPaths =
+		options.docsConfig.path === undefined &&
+		adapter.frameworkId === "markdown" &&
+		docsDirectoryCandidates.length > 0
+			? docsDirectoryCandidates
+			: matchedDocPaths;
+	const inferredDocsPath =
+		options.docsConfig.path === undefined &&
+		adapter.frameworkId === "markdown" &&
+		(docsDirectoryCandidates.length > 0 || hasDocsMarkdownFileInTree)
+			? "docs"
+			: undefined;
+	if (
+		options.docsConfig.path === undefined &&
+		adapter.frameworkId === "markdown" &&
+		(docsDirectoryCandidates.length > 0 || hasDocsMarkdownFileInTree) &&
+		docPaths.includes("README.md")
+	) {
+		docPaths = docPaths.filter((path) => path !== "README.md");
+	}
+	if (
+		options.docsConfig.path === undefined &&
+		adapter.frameworkId === "markdown" &&
+		docPaths.length === 0 &&
+		hasDocsMarkdownFileInTree
+	) {
+		docPaths = docsMarkdownPathsInTree;
+	}
+	docPaths = docPaths.slice(0, 500);
 	if (docPaths.length === 0) {
-		return { tree, docFiles: [] };
+		return { tree, docFiles: [], docShaByPath: new Map<string, string>(), inferredDocsPath };
 	}
 
 	const files = await fetchMultipleFiles(octokit, {
@@ -592,9 +734,12 @@ const collectDocFiles = async (
 		paths: docPaths,
 		ref: location.ref,
 	});
+	const docShaByPath = new Map(files.map((file) => [file.path, file.sha]));
 	return {
 		tree,
 		docFiles: files.map((file) => ({ path: file.path, content: file.content })),
+		docShaByPath,
+		inferredDocsPath,
 	};
 };
 
@@ -635,10 +780,12 @@ const updateRunStatus = async (
 	runId: string,
 	status: "running" | "completed" | "skipped" | "failed",
 	data: {
-		error?: string;
+		errorCode?: string;
+		errorMessage?: string;
 		docsAffected?: boolean;
 		docPrUrl?: string;
 		docPrNumber?: number;
+		suggestionsCount?: number;
 		tokenUsage?: AggregatedTokenUsage;
 		result?: Record<string, unknown>;
 	},
@@ -647,15 +794,193 @@ const updateRunStatus = async (
 		where: { id: runId },
 		data: {
 			status,
-			error: data.error ?? null,
+			errorCode: data.errorCode ?? null,
+			errorMessage: data.errorMessage ?? null,
+			error: data.errorMessage ?? null,
 			docsAffected: data.docsAffected ?? null,
 			docPrUrl: data.docPrUrl ?? null,
 			docPrNumber: data.docPrNumber ?? null,
+			suggestionsCount: data.suggestionsCount ?? 0,
 			tokenUsage: data.tokenUsage ?? {},
 			result: (data.result ?? {}) as unknown as Prisma.InputJsonValue,
 			completedAt: status === RUN_STATUS_RUNNING ? null : new Date(),
 		},
 	});
+};
+
+const buildSuggestionFingerprint = (input: {
+	projectId: string;
+	repositoryId: string;
+	docPath: string;
+	baseDocSha: string;
+	proposedContent: string;
+}): string => {
+	const raw = [
+		input.projectId,
+		input.repositoryId,
+		input.docPath,
+		input.baseDocSha,
+		input.proposedContent,
+	].join(":");
+	return createHash("sha256").update(raw).digest("hex");
+};
+
+const shouldSkipEquivalentSuggestion = (
+	existing: ExistingSuggestion | null,
+	decisionMemoryEnabled: boolean,
+): SkippedSuggestion["reason"] | null => {
+	if (existing === null) {
+		return null;
+	}
+	if (existing.status === "pending" || existing.status === "accepted") {
+		return "duplicate-pending-or-accepted";
+	}
+	if (existing.status === "declined" && decisionMemoryEnabled) {
+		return "declined-decision-memory";
+	}
+	return null;
+};
+
+const persistSuggestions = async (input: {
+	projectId: string;
+	repositoryId: string;
+	runId: string;
+	suggestions: readonly SuggestionDraft[];
+	decisionMemoryEnabled: boolean;
+}): Promise<SuggestionPersistenceOutcome> =>
+	db.$transaction(async (tx) => {
+		const persisted: PersistedSuggestion[] = [];
+		const skipped: SkippedSuggestion[] = [];
+		const { _max } = await tx.suggestion.aggregate({
+			where: { projectId: input.projectId },
+			_max: { readableId: true },
+		});
+		let nextReadableId = (_max.readableId ?? 0) + 1;
+		for (const suggestion of input.suggestions) {
+			const fingerprint = buildSuggestionFingerprint({
+				projectId: input.projectId,
+				repositoryId: input.repositoryId,
+				docPath: suggestion.docPath,
+				baseDocSha: suggestion.baseDocSha,
+				proposedContent: suggestion.proposedContent,
+			});
+			const existingInRun = await tx.suggestion.findFirst({
+				where: {
+					runId: input.runId,
+					fingerprint,
+				},
+				select: {
+					id: true,
+				},
+			});
+			if (existingInRun !== null) {
+				skipped.push({
+					docPath: suggestion.docPath,
+					fingerprint,
+					reason: "duplicate-run-fingerprint",
+				});
+				continue;
+			}
+			const existingEquivalent = (await tx.suggestion.findFirst({
+				where: {
+					projectId: input.projectId,
+					repositoryId: input.repositoryId,
+					docPath: suggestion.docPath,
+					fingerprint,
+				},
+				orderBy: {
+					createdAt: "desc",
+				},
+				select: {
+					id: true,
+					status: true,
+				},
+			})) as ExistingSuggestion | null;
+			const skipReason = shouldSkipEquivalentSuggestion(
+				existingEquivalent,
+				input.decisionMemoryEnabled,
+			);
+			if (skipReason !== null) {
+				skipped.push({
+					docPath: suggestion.docPath,
+					fingerprint,
+					reason: skipReason,
+				});
+				continue;
+			}
+
+			const priorActiveSuggestions = await tx.suggestion.findMany({
+				where: {
+					projectId: input.projectId,
+					repositoryId: input.repositoryId,
+					docPath: suggestion.docPath,
+					status: {
+						in: ["pending", "accepted"],
+					},
+				},
+				orderBy: {
+					createdAt: "desc",
+				},
+				select: {
+					id: true,
+				},
+			});
+			const supersedesSuggestionId = priorActiveSuggestions[0]?.id ?? null;
+			const created = await tx.suggestion.create({
+				data: {
+					projectId: input.projectId,
+					repositoryId: input.repositoryId,
+					runId: input.runId,
+					docPath: suggestion.docPath,
+					baseDocSha: suggestion.baseDocSha,
+					beforeContent: suggestion.beforeContent,
+					proposedContent: suggestion.proposedContent,
+					reasoning: suggestion.reasoning,
+					title: suggestion.title,
+					diffAdditions: suggestion.diffAdditions,
+					diffDeletions: suggestion.diffDeletions,
+					fingerprint,
+					supersedesSuggestionId,
+					readableId: nextReadableId++,
+				},
+				select: {
+					id: true,
+					docPath: true,
+					fingerprint: true,
+				},
+			});
+			if (priorActiveSuggestions.length > 0) {
+				await tx.suggestion.updateMany({
+					where: {
+						id: {
+							in: priorActiveSuggestions.map((candidate) => candidate.id),
+						},
+					},
+					data: {
+						status: "superseded",
+					},
+				});
+			}
+			persisted.push(created);
+		}
+		return { persisted, skipped };
+	});
+
+const resolveSuggestionRepositoryId = (input: {
+	sourceRepository: RepositoryWithInstallation;
+	docsLocation: RepoLocation;
+	pipelineContext: PipelineContext;
+}): string => {
+	const docsTargetsSourceRepository =
+		input.docsLocation.owner === input.pipelineContext.owner &&
+		input.docsLocation.repo === input.pipelineContext.repo;
+	if (docsTargetsSourceRepository) {
+		return input.sourceRepository.id;
+	}
+	if (input.sourceRepository.docsRepositoryId !== null) {
+		return input.sourceRepository.docsRepositoryId;
+	}
+	return input.sourceRepository.id;
 };
 
 const defaultRunTriage: AnalyzeChangesServices["runTriage"] = async (input) => {
@@ -675,6 +1000,9 @@ const defaultRunTriage: AnalyzeChangesServices["runTriage"] = async (input) => {
 			affectedDocFiles: [],
 			reasoning:
 				"Fallback triage did not find direct markdown documentation file changes in the filtered diff.",
+			confidence: 1,
+			skippedByConfidence: false,
+			rawAffectedDocFiles: [],
 			tokenUsage: normalizeTokenUsage(undefined),
 		};
 	}
@@ -683,6 +1011,9 @@ const defaultRunTriage: AnalyzeChangesServices["runTriage"] = async (input) => {
 		needsUpdate: true,
 		affectedDocFiles,
 		reasoning: "Fallback triage found documentation files touched by the commit diff.",
+		confidence: 1,
+		skippedByConfidence: false,
+		rawAffectedDocFiles: affectedDocFiles,
 		tokenUsage: normalizeTokenUsage(undefined),
 	};
 };
@@ -773,6 +1104,8 @@ const loadRepository = async (
 		select: {
 			id: true,
 			config: true,
+			sourceRepositoryId: true,
+			docsRepositoryId: true,
 		},
 	});
 	if (project === null) {
@@ -781,6 +1114,8 @@ const loadRepository = async (
 	return {
 		...repository,
 		projectId: project.id,
+		sourceRepositoryId: project.sourceRepositoryId,
+		docsRepositoryId: project.docsRepositoryId,
 		projectConfig: project.config,
 	};
 };
@@ -818,6 +1153,12 @@ const upsertInitialRun = async (
 			triggerRef: job.data.trigger.ref,
 			triggerCommitSha: job.data.trigger.commitSha,
 			triggerMergeRequestNumber: job.data.trigger.prNumber ?? null,
+			triggerPrTitle: job.data.trigger.prTitle ?? null,
+			triggerSourceBranch: job.data.trigger.sourceBranch ?? null,
+			triggerTargetBranch: job.data.trigger.targetBranch ?? null,
+			triggerPrAuthorName: job.data.trigger.prAuthorName ?? null,
+			triggerPrAuthorUsername: job.data.trigger.prAuthorUsername ?? null,
+			triggerPrAuthorAvatarUrl: job.data.trigger.prAuthorAvatarUrl ?? null,
 			triggerMeta,
 			status: RUN_STATUS_RUNNING,
 			startedAt: new Date(),
@@ -835,6 +1176,15 @@ const upsertInitialRun = async (
 			docPrNumber: null,
 			tokenUsage: {},
 			result: {},
+			errorCode: null,
+			errorMessage: null,
+			suggestionsCount: 0,
+			triggerPrTitle: job.data.trigger.prTitle ?? null,
+			triggerSourceBranch: job.data.trigger.sourceBranch ?? null,
+			triggerTargetBranch: job.data.trigger.targetBranch ?? null,
+			triggerPrAuthorName: job.data.trigger.prAuthorName ?? null,
+			triggerPrAuthorUsername: job.data.trigger.prAuthorUsername ?? null,
+			triggerPrAuthorAvatarUrl: job.data.trigger.prAuthorAvatarUrl ?? null,
 			attemptCount: job.attemptsMade + 1,
 			triggerMeta,
 		},
@@ -863,19 +1213,44 @@ const defaultServices: AnalyzeChangesServices = {
 	runTriage: defaultRunTriage,
 	runGeneration: defaultRunGeneration,
 	createPullRequest: defaultCreatePullRequest,
+	generateSuggestionTitle: async () => null,
+};
+
+const defaultOptions: AnalyzeChangesOptions = {
+	autoPrEnabled: true,
+	decisionMemoryEnabled: true,
 };
 
 export const processAnalyzeChangesJob = async (
 	job: Job<AnalyzeChangesJobPayload>,
 	logger: Logger,
-	services: AnalyzeChangesServices = defaultServices,
+	servicesOverride?: Partial<AnalyzeChangesServices>,
+	options: AnalyzeChangesOptions = defaultOptions,
 ): Promise<void> => {
+	const services: AnalyzeChangesServices = { ...defaultServices, ...servicesOverride };
+	const usesFallbackTriage = services.runTriage === defaultRunTriage;
+	const usesFallbackGeneration = services.runGeneration === defaultRunGeneration;
+	const usesAiTitleGeneration = services.generateSuggestionTitle !== defaultServices.generateSuggestionTitle;
 	const jobLogger = logger.child({
 		jobId: job.id ?? "unknown",
 		attemptNumber: job.attemptsMade + 1,
 		queue: job.queueName,
 	});
 	jobLogger.info({ payload: job.data }, "processing analyze changes job");
+	jobLogger.info(
+		{
+			repositoryId: job.data.repositoryId,
+			installationId: job.data.installationId,
+			triggerType: job.data.trigger.type,
+			commitSha: job.data.trigger.commitSha,
+			ref: job.data.trigger.ref,
+			prNumber: job.data.trigger.type === "merge" ? job.data.trigger.prNumber : null,
+			usesFallbackTriage,
+			usesFallbackGeneration,
+			usesAiTitleGeneration,
+		},
+		"analyze-changes flow started",
+	);
 
 	const repository = await loadRepository(job.data);
 	// Credential parsing must succeed before we create the run record. A failure
@@ -883,6 +1258,15 @@ export const processAnalyzeChangesJob = async (
 	// and we should not produce a "failed" run entry for it.
 	const credentials = parseCredentialsOrFail();
 	const runId = await upsertInitialRun(job, repository);
+	jobLogger.info(
+		{
+			runId,
+			projectId: repository.projectId,
+			sourceRepositoryId: repository.sourceRepositoryId,
+			docsRepositoryId: repository.docsRepositoryId,
+		},
+		"analysis run record created",
+	);
 	const timings: Record<string, number> = {};
 	let triageUsage = normalizeTokenUsage(undefined);
 	const generationUsage: TokenUsage[] = [];
@@ -914,8 +1298,13 @@ export const processAnalyzeChangesJob = async (
 		);
 		timings.filterDiff = filterDiffDurationMs;
 		if (filteredDiff.length === 0) {
+			jobLogger.info(
+				{ runId, reason: "filtered diff empty after default ignore paths" },
+				"analyze-changes flow completed without docs impact",
+			);
 			await updateRunStatus(runId, RUN_STATUS_SKIPPED, {
 				docsAffected: false,
+				suggestionsCount: 0,
 				result: {
 					timingsMs: timings,
 					reason: "No relevant code changes after default ignore-path filtering.",
@@ -945,8 +1334,13 @@ export const processAnalyzeChangesJob = async (
 		timings.resolvePrConfig = resolvePrConfigDurationMs;
 		const filteredDiffWithProjectIgnores = filterDiff(filteredDiff, resolvedConfig.ignorePaths);
 		if (filteredDiffWithProjectIgnores.length === 0) {
+			jobLogger.info(
+				{ runId, reason: "filtered diff empty after project ignore paths" },
+				"analyze-changes flow completed without docs impact",
+			);
 			await updateRunStatus(runId, RUN_STATUS_SKIPPED, {
 				docsAffected: false,
+				suggestionsCount: 0,
 				result: {
 					timingsMs: timings,
 					reason: "No relevant code changes after repository-specific ignore-path filtering.",
@@ -972,19 +1366,12 @@ export const processAnalyzeChangesJob = async (
 			resolvedConfig.docs.framework === undefined || resolvedConfig.docs.framework === "auto"
 				? parseFramework(adapterResolution.adapter.frameworkId)
 				: resolvedConfig.docs.framework;
-		const docsConfig = createDocsConfig({
+		let docsConfig = createDocsConfig({
 			framework: resolvedFramework,
 			path: resolvedConfig.docs.path,
 			repo: resolvedConfig.docs.repo,
 			branch: resolvedConfig.docs.branch,
 		});
-
-		await storeResolvedDocsConfig(
-			repository.projectId,
-			docsConfig,
-			resolvedConfig.ignorePaths,
-			repository.projectConfig,
-		);
 
 		// Re-use the tree fetched during auto-detection when the docs repository
 		// is the same as the source repository to avoid a duplicate GitHub API call.
@@ -1002,6 +1389,35 @@ export const processAnalyzeChangesJob = async (
 				}),
 		);
 		timings.fetchDocTreeAndFiles = fetchDocsDurationMs;
+		if (docsConfig.path === undefined && docData.inferredDocsPath !== undefined) {
+			docsConfig = createDocsConfig({
+				framework: docsConfig.framework,
+				path: docData.inferredDocsPath,
+				repo: docsConfig.repo,
+				branch: docsConfig.branch,
+			});
+			jobLogger.info(
+				{ runId, inferredDocsPath: docData.inferredDocsPath },
+				"inferred docs path from repository structure",
+			);
+		}
+		await storeResolvedDocsConfig(
+			repository.projectId,
+			docsConfig,
+			resolvedConfig.ignorePaths,
+			repository.projectConfig,
+		);
+		jobLogger.info(
+			{
+				runId,
+				resolvedDocsFramework: docsConfig.framework,
+				docsPath: docsConfig.path ?? null,
+				docsRepo: docsConfig.repo ?? null,
+				docsBranch: docsConfig.branch ?? null,
+				ignorePathsCount: resolvedConfig.ignorePaths.length,
+			},
+			"resolved docs configuration",
+		);
 
 		const docTree = adapterResolution.adapter.parseStructure([...docData.docFiles]);
 		const { value: triageResult, durationMs: triageDurationMs } = await measureStep(
@@ -1019,9 +1435,27 @@ export const processAnalyzeChangesJob = async (
 		);
 		timings.runAiTriage = triageDurationMs;
 		triageUsage = normalizeTokenUsage(triageResult.tokenUsage);
+		jobLogger.info(
+			{
+				runId,
+				needsUpdate: triageResult.needsUpdate,
+				confidence: triageResult.confidence ?? null,
+				skippedByConfidence: triageResult.skippedByConfidence ?? null,
+				affectedDocFileCount: triageResult.affectedDocFiles.length,
+				affectedDocFiles: triageResult.affectedDocFiles,
+				rawAffectedDocFiles: triageResult.rawAffectedDocFiles ?? triageResult.affectedDocFiles,
+				reasoning: triageResult.reasoning,
+			},
+			"triage step finished",
+		);
 		if (!triageResult.needsUpdate) {
+			jobLogger.info(
+				{ runId, reason: "triage decided no docs update needed" },
+				"analyze-changes flow completed",
+			);
 			await updateRunStatus(runId, RUN_STATUS_COMPLETED, {
 				docsAffected: false,
+				suggestionsCount: 0,
 				tokenUsage: aggregateTokenUsage(triageUsage, generationUsage),
 				result: {
 					timingsMs: timings,
@@ -1045,13 +1479,26 @@ export const processAnalyzeChangesJob = async (
 				docFile,
 				adapter: adapterResolution.adapter,
 				docsConfig,
+				triageReasoning: triageResult.reasoning,
+				mustApplyCodeChanges: true,
 			});
 			generationOutputs.push(generationResult);
 			generationUsage.push(normalizeTokenUsage(generationResult.tokenUsage));
 		}
 		timings.runAiGeneration = Date.now() - generationStartedAt;
+		jobLogger.info(
+			{
+				runId,
+				generationOutputCount: generationOutputs.length,
+				generationOutputs: generationOutputs.map((output) => ({
+					path: output.path,
+					reasoning: output.reasoning,
+				})),
+			},
+			"generation step finished",
+		);
 
-		const meaningfulChanges: { path: string; content: string; reasoning?: string }[] = [];
+		const meaningfulChanges: SuggestionDraft[] = [];
 		for (const output of generationOutputs) {
 			const currentFile = docFileByPath.get(output.path);
 			if (currentFile === undefined) {
@@ -1060,15 +1507,64 @@ export const processAnalyzeChangesJob = async (
 			if (currentFile.content === output.content) {
 				continue;
 			}
+			const baseDocSha = docData.docShaByPath.get(output.path);
+			if (baseDocSha === undefined) {
+				jobLogger.warn(
+					{ runId, docPath: output.path },
+					"skipping suggestion because base document SHA is unavailable",
+				);
+				continue;
+			}
+			const { additions, deletions } = computeDiffStats(
+				currentFile.content,
+				output.content,
+			);
 			meaningfulChanges.push({
-				path: output.path,
-				content: output.content,
+				docPath: output.path,
+				baseDocSha,
+				beforeContent: currentFile.content,
+				proposedContent: output.content,
 				reasoning: output.reasoning,
+				title: null,
+				diffAdditions: additions,
+				diffDeletions: deletions,
 			});
 		}
-		if (meaningfulChanges.length === 0) {
+		jobLogger.info(
+			{
+				runId,
+				meaningfulChangeCount: meaningfulChanges.length,
+			},
+			"post-generation diff analysis finished",
+		);
+
+		const { value: titledChanges, durationMs: titleDurationMs } = await measureStep(
+			jobLogger,
+			runId,
+			"generate-suggestion-titles",
+			async () => {
+				const results: SuggestionDraft[] = [];
+				for (const change of meaningfulChanges) {
+					const title = await services.generateSuggestionTitle({
+						docPath: change.docPath,
+						reasoning: change.reasoning,
+						beforeContent: change.beforeContent,
+						afterContent: change.proposedContent,
+					}).catch(() => null);
+					results.push({ ...change, title });
+				}
+				return results;
+			},
+		);
+		timings.generateSuggestionTitles = titleDurationMs;
+		if (titledChanges.length === 0) {
+			jobLogger.info(
+				{ runId, reason: "no meaningful documentation changes after generation" },
+				"analyze-changes flow completed",
+			);
 			await updateRunStatus(runId, RUN_STATUS_COMPLETED, {
 				docsAffected: false,
+				suggestionsCount: 0,
 				tokenUsage: aggregateTokenUsage(triageUsage, generationUsage),
 				result: {
 					timingsMs: timings,
@@ -1077,6 +1573,58 @@ export const processAnalyzeChangesJob = async (
 						path: output.path,
 						reasoning: output.reasoning,
 					})),
+				},
+			});
+			return;
+		}
+
+		const runResultBase = {
+			timingsMs: timings,
+			triage: triageResult,
+			generation: generationOutputs.map((output) => ({
+				path: output.path,
+				reasoning: output.reasoning,
+			})),
+		};
+
+		if (!options.autoPrEnabled) {
+			const suggestionRepositoryId = resolveSuggestionRepositoryId({
+				sourceRepository: repository,
+				docsLocation,
+				pipelineContext: context,
+			});
+			const { value: suggestionPersistence, durationMs: persistSuggestionsDurationMs } =
+				await measureStep(jobLogger, runId, "persist-suggestions", async () =>
+					persistSuggestions({
+						projectId: repository.projectId,
+						repositoryId: suggestionRepositoryId,
+						runId,
+						suggestions: titledChanges,
+						decisionMemoryEnabled: options.decisionMemoryEnabled,
+					}),
+				);
+			timings.persistSuggestions = persistSuggestionsDurationMs;
+			jobLogger.info(
+				{
+					runId,
+					persistedSuggestions: suggestionPersistence.persisted.length,
+					skippedSuggestions: suggestionPersistence.skipped.length,
+				},
+				"suggestions persisted",
+			);
+
+			await updateRunStatus(runId, RUN_STATUS_COMPLETED, {
+				docsAffected: true,
+				suggestionsCount: suggestionPersistence.persisted.length,
+				tokenUsage: aggregateTokenUsage(triageUsage, generationUsage),
+				result: {
+					...runResultBase,
+					suggestions: suggestionPersistence.persisted.map((suggestion) => ({
+						id: suggestion.id,
+						path: suggestion.docPath,
+						fingerprint: suggestion.fingerprint,
+					})),
+					skippedSuggestions: suggestionPersistence.skipped,
 				},
 			});
 			return;
@@ -1092,7 +1640,11 @@ export const processAnalyzeChangesJob = async (
 					owner: docsLocation.owner,
 					repo: docsLocation.repo,
 					baseBranch: docsLocation.ref,
-					files: meaningfulChanges,
+					files: titledChanges.map((change) => ({
+						path: change.docPath,
+						content: change.proposedContent,
+						reasoning: change.reasoning,
+					})),
 					triggerInfo: {
 						...job.data.trigger,
 						sourceOwner: context.owner,
@@ -1102,24 +1654,35 @@ export const processAnalyzeChangesJob = async (
 				}),
 		);
 		timings.createPr = createPrDurationMs;
+		jobLogger.info(
+			{
+				runId,
+				docPrNumber: prResult.prNumber,
+				docPrUrl: prResult.prUrl,
+				suggestionCount: titledChanges.length,
+			},
+			"documentation pull request created",
+		);
 
 		await updateRunStatus(runId, RUN_STATUS_COMPLETED, {
 			docsAffected: true,
 			docPrNumber: prResult.prNumber,
 			docPrUrl: prResult.prUrl,
+			suggestionsCount: titledChanges.length,
 			tokenUsage: aggregateTokenUsage(triageUsage, generationUsage),
-			result: {
-				timingsMs: timings,
-				triage: triageResult,
-				generation: generationOutputs.map((output) => ({
-					path: output.path,
-					reasoning: output.reasoning,
-				})),
-			},
+			result: runResultBase,
 		});
+		jobLogger.info(
+			{
+				runId,
+				suggestionCount: titledChanges.length,
+			},
+			"analyze-changes flow completed successfully",
+		);
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : "Unknown analyze-changes failure";
 		const classification = classifyError(error);
+		const errorCode = resolveErrorCode(error, classification);
 		const maxAttempts = job.opts.attempts ?? 1;
 		const isFinalAttempt = job.attemptsMade + 1 >= maxAttempts;
 
@@ -1144,7 +1707,9 @@ export const processAnalyzeChangesJob = async (
 
 		try {
 			await updateRunStatus(runId, RUN_STATUS_FAILED, {
-				error: errorMessage,
+				errorCode,
+				errorMessage,
+				suggestionsCount: 0,
 				tokenUsage: aggregateTokenUsage(triageUsage, generationUsage),
 				result: {
 					timingsMs: timings,
