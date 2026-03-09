@@ -154,6 +154,8 @@ type AnalyzeChangesOptions = {
 	decisionMemoryEnabled: boolean;
 };
 
+type RunStepStatus = "running" | "completed" | "failed";
+
 type RepoLocation = {
 	owner: string;
 	repo: string;
@@ -1038,18 +1040,106 @@ const defaultCreatePullRequest: AnalyzeChangesServices["createPullRequest"] = as
 		config: input.config,
 	});
 
-const measureStep = async <TValue>(
-	logger: Logger,
-	runId: string,
-	step: string,
-	handler: () => Promise<TValue>,
-): Promise<{ value: TValue; durationMs: number }> => {
-	const startedAt = Date.now();
-	logger.info({ runId, step }, "starting pipeline step");
-	const value = await handler();
-	const durationMs = Date.now() - startedAt;
-	logger.info({ runId, step, durationMs }, "completed pipeline step");
-	return { value, durationMs };
+const persistRunStep = async (input: {
+	runId: string;
+	attemptNumber: number;
+	stepKey: string;
+	status: RunStepStatus;
+	result?: Record<string, unknown>;
+	errorCode?: string;
+	errorMessage?: string;
+	startedAt?: Date;
+	completedAt?: Date;
+	durationMs?: number;
+}): Promise<void> => {
+	await db.analysisRunStep.upsert({
+		where: {
+			runId_attemptNumber_stepKey: {
+				runId: input.runId,
+				attemptNumber: input.attemptNumber,
+				stepKey: input.stepKey,
+			},
+		},
+		create: {
+			runId: input.runId,
+			attemptNumber: input.attemptNumber,
+			stepKey: input.stepKey,
+			status: input.status,
+			result: (input.result ?? {}) as unknown as Prisma.InputJsonValue,
+			errorCode: input.errorCode ?? null,
+			errorMessage: input.errorMessage ?? null,
+			startedAt: input.startedAt ?? null,
+			completedAt: input.completedAt ?? null,
+			durationMs: input.durationMs ?? null,
+		},
+		update: {
+			status: input.status,
+			result: (input.result ?? {}) as unknown as Prisma.InputJsonValue,
+			errorCode: input.errorCode ?? null,
+			errorMessage: input.errorMessage ?? null,
+			startedAt: input.startedAt ?? null,
+			completedAt: input.completedAt ?? null,
+			durationMs: input.durationMs ?? null,
+		},
+	});
+};
+
+const errorMessageFromUnknown = (error: unknown): string =>
+	error instanceof Error ? error.message : "Unknown pipeline step failure";
+
+const measureStep = async <TValue>(input: {
+	logger: Logger;
+	runId: string;
+	attemptNumber: number;
+	stepKey: string;
+	handler: () => Promise<TValue>;
+	buildResult?: (value: TValue) => Record<string, unknown>;
+}): Promise<{ value: TValue; durationMs: number }> => {
+	const startedAt = new Date();
+	input.logger.info({ runId: input.runId, step: input.stepKey }, "starting pipeline step");
+	await persistRunStep({
+		runId: input.runId,
+		attemptNumber: input.attemptNumber,
+		stepKey: input.stepKey,
+		status: "running",
+		startedAt,
+	});
+	try {
+		const value = await input.handler();
+		const completedAt = new Date();
+		const durationMs = completedAt.getTime() - startedAt.getTime();
+		input.logger.info(
+			{ runId: input.runId, step: input.stepKey, durationMs },
+			"completed pipeline step",
+		);
+		await persistRunStep({
+			runId: input.runId,
+			attemptNumber: input.attemptNumber,
+			stepKey: input.stepKey,
+			status: "completed",
+			startedAt,
+			completedAt,
+			durationMs,
+			result: input.buildResult?.(value) ?? { ok: true },
+		});
+		return { value, durationMs };
+	} catch (error) {
+		const completedAt = new Date();
+		const durationMs = completedAt.getTime() - startedAt.getTime();
+		const classification = classifyError(error);
+		await persistRunStep({
+			runId: input.runId,
+			attemptNumber: input.attemptNumber,
+			stepKey: input.stepKey,
+			status: "failed",
+			startedAt,
+			completedAt,
+			durationMs,
+			errorCode: resolveErrorCode(error, classification),
+			errorMessage: errorMessageFromUnknown(error),
+		});
+		throw error;
+	}
 };
 
 const loadRepository = async (
@@ -1271,32 +1361,39 @@ export const processAnalyzeChangesJob = async (
 	const timings: Record<string, number> = {};
 	let triageUsage = normalizeTokenUsage(undefined);
 	const generationUsage: TokenUsage[] = [];
+	const attemptNumber = job.attemptsMade + 1;
 
 	try {
 		const context = buildPipelineContext(repository, job.data.trigger);
 		const installationId = parseInstallationId(repository.installation.providerInstallationId);
-		const { value: octokit, durationMs: createOctokitDurationMs } = await measureStep(
-			jobLogger,
+		const { value: octokit, durationMs: createOctokitDurationMs } = await measureStep({
+			logger: jobLogger,
 			runId,
-			"create-installation-octokit",
-			async () => createInstallationOctokit(installationId, credentials),
-		);
+			attemptNumber,
+			stepKey: "create-installation-octokit",
+			handler: async () => createInstallationOctokit(installationId, credentials),
+			buildResult: () => ({ installationId }),
+		});
 		timings.createInstallationOctokit = createOctokitDurationMs;
 
-		const { value: rawDiff, durationMs: fetchDiffDurationMs } = await measureStep(
-			jobLogger,
+		const { value: rawDiff, durationMs: fetchDiffDurationMs } = await measureStep({
+			logger: jobLogger,
 			runId,
-			"fetch-diff",
-			async () => fetchDiffForTrigger(octokit, context, job.data.trigger),
-		);
+			attemptNumber,
+			stepKey: "fetch-diff",
+			handler: async () => fetchDiffForTrigger(octokit, context, job.data.trigger),
+			buildResult: (diff) => ({ fileCount: diff.length }),
+		});
 		timings.fetchDiff = fetchDiffDurationMs;
 
-		const { value: filteredDiff, durationMs: filterDiffDurationMs } = await measureStep(
-			jobLogger,
+		const { value: filteredDiff, durationMs: filterDiffDurationMs } = await measureStep({
+			logger: jobLogger,
 			runId,
-			"filter-diff",
-			async () => filterDiff(rawDiff),
-		);
+			attemptNumber,
+			stepKey: "filter-diff",
+			handler: async () => filterDiff(rawDiff),
+			buildResult: (diff) => ({ fileCount: diff.length }),
+		});
 		timings.filterDiff = filterDiffDurationMs;
 		if (filteredDiff.length === 0) {
 			jobLogger.info(
@@ -1315,23 +1412,46 @@ export const processAnalyzeChangesJob = async (
 		}
 
 		const { value: synkAiFileConfig, durationMs: loadSynkAiFileConfigDurationMs } =
-			await measureStep(jobLogger, runId, "load-synk-ai-config", async () =>
-				readSynkAiConfigFromFile(octokit, context),
-			);
+			await measureStep({
+				logger: jobLogger,
+				runId,
+				attemptNumber,
+				stepKey: "load-synk-ai-config",
+				handler: async () => readSynkAiConfigFromFile(octokit, context),
+				buildResult: (config) => ({
+					found: config !== null,
+					ignorePathCount: config?.ignorePaths.length ?? 0,
+				}),
+			});
 		timings.loadSynkAiConfig = loadSynkAiFileConfigDurationMs;
-		const { value: resolvedConfig, durationMs: resolveConfigDurationMs } = await measureStep(
-			jobLogger,
+		const { value: resolvedConfig, durationMs: resolveConfigDurationMs } = await measureStep({
+			logger: jobLogger,
 			runId,
-			"resolve-docs-config",
-			async () => resolveDocsConfig(repository, synkAiFileConfig),
-		);
+			attemptNumber,
+			stepKey: "resolve-docs-config",
+			handler: async () => resolveDocsConfig(repository, synkAiFileConfig),
+			buildResult: (config) => ({
+				framework: config.docs.framework ?? null,
+				docsPath: config.docs.path ?? null,
+				docsRepo: config.docs.repo ?? null,
+				docsBranch: config.docs.branch ?? null,
+				ignorePathCount: config.ignorePaths.length,
+			}),
+		});
 		timings.resolveDocsConfig = resolveConfigDurationMs;
-		const { value: prConfig, durationMs: resolvePrConfigDurationMs } = await measureStep(
-			jobLogger,
+		const { value: prConfig, durationMs: resolvePrConfigDurationMs } = await measureStep({
+			logger: jobLogger,
 			runId,
-			"resolve-pr-config",
-			async () => resolvePrConfig(repository, synkAiFileConfig),
-		);
+			attemptNumber,
+			stepKey: "resolve-pr-config",
+			handler: async () => resolvePrConfig(repository, synkAiFileConfig),
+			buildResult: (config) => ({
+				labelsCount: config.labels.length,
+				assigneesCount: config.assignees.length,
+				reviewersCount: config.reviewers.length,
+				draft: config.draft,
+			}),
+		});
 		timings.resolvePrConfig = resolvePrConfigDurationMs;
 		const filteredDiffWithProjectIgnores = filterDiff(filteredDiff, resolvedConfig.ignorePaths);
 		if (filteredDiffWithProjectIgnores.length === 0) {
@@ -1356,12 +1476,17 @@ export const processAnalyzeChangesJob = async (
 			resolvedConfig.docs,
 		);
 		const detectionLocation = resolveDetectionLocation(context, docsLocation);
-		const { value: adapterResolution, durationMs: detectAdapterDurationMs } = await measureStep(
-			jobLogger,
+		const { value: adapterResolution, durationMs: detectAdapterDurationMs } = await measureStep({
+			logger: jobLogger,
 			runId,
-			"detect-doc-adapter",
-			async () => resolveAdapter(octokit, detectionLocation, resolvedConfig.docs),
-		);
+			attemptNumber,
+			stepKey: "detect-doc-adapter",
+			handler: async () => resolveAdapter(octokit, detectionLocation, resolvedConfig.docs),
+			buildResult: (resolution) => ({
+				frameworkId: resolution.adapter.frameworkId,
+				autoDetected: resolution.detectionTree !== undefined,
+			}),
+		});
 		timings.detectDocAdapter = detectAdapterDurationMs;
 		const resolvedFramework =
 			resolvedConfig.docs.framework === undefined || resolvedConfig.docs.framework === "auto"
@@ -1378,17 +1503,22 @@ export const processAnalyzeChangesJob = async (
 		// is the same as the source repository to avoid a duplicate GitHub API call.
 		const docsIsSameAsSourceRepo =
 			docsLocation.owner === context.owner && docsLocation.repo === context.repo;
-		const { value: docData, durationMs: fetchDocsDurationMs } = await measureStep(
-			jobLogger,
+		const { value: docData, durationMs: fetchDocsDurationMs } = await measureStep({
+			logger: jobLogger,
 			runId,
-			"fetch-doc-tree-and-files",
-			async () =>
+			attemptNumber,
+			stepKey: "fetch-doc-tree-and-files",
+			handler: async () =>
 				collectDocFiles(octokit, adapterResolution.adapter, {
 					docsConfig,
 					location: docsLocation,
 					prefetchedTree: docsIsSameAsSourceRepo ? adapterResolution.detectionTree : undefined,
 				}),
-		);
+			buildResult: (data) => ({
+				docFileCount: data.docFiles.length,
+				inferredDocsPath: data.inferredDocsPath ?? null,
+			}),
+		});
 		timings.fetchDocTreeAndFiles = fetchDocsDurationMs;
 		if (docsConfig.path === undefined && docData.inferredDocsPath !== undefined) {
 			docsConfig = createDocsConfig({
@@ -1421,11 +1551,12 @@ export const processAnalyzeChangesJob = async (
 		);
 
 		const docTree = adapterResolution.adapter.parseStructure([...docData.docFiles]);
-		const { value: triageResult, durationMs: triageDurationMs } = await measureStep(
-			jobLogger,
+		const { value: triageResult, durationMs: triageDurationMs } = await measureStep({
+			logger: jobLogger,
 			runId,
-			"run-ai-triage",
-			async () =>
+			attemptNumber,
+			stepKey: "run-ai-triage",
+			handler: async () =>
 				services.runTriage({
 					filteredDiff: filteredDiffWithProjectIgnores,
 					docTree,
@@ -1433,7 +1564,13 @@ export const processAnalyzeChangesJob = async (
 					adapter: adapterResolution.adapter,
 					docsConfig,
 				}),
-		);
+			buildResult: (triage) => ({
+				needsUpdate: triage.needsUpdate,
+				affectedDocFileCount: triage.affectedDocFiles.length,
+				confidence: triage.confidence ?? null,
+				skippedByConfidence: triage.skippedByConfidence ?? null,
+			}),
+		});
 		timings.runAiTriage = triageDurationMs;
 		triageUsage = normalizeTokenUsage(triageResult.tokenUsage);
 		jobLogger.info(
@@ -1467,26 +1604,37 @@ export const processAnalyzeChangesJob = async (
 		}
 
 		const docFileByPath = new Map(docData.docFiles.map((file) => [file.path, file]));
-		const generationOutputs: GenerationResult[] = [];
-		const generationStartedAt = Date.now();
-		for (const docPath of triageResult.affectedDocFiles) {
-			const docFile = docFileByPath.get(docPath);
-			if (docFile === undefined) {
-				continue;
-			}
-
-			const generationResult = await services.runGeneration({
-				filteredDiff: filteredDiffWithProjectIgnores,
-				docFile,
-				adapter: adapterResolution.adapter,
-				docsConfig,
-				triageReasoning: triageResult.reasoning,
-				mustApplyCodeChanges: true,
-			});
-			generationOutputs.push(generationResult);
-			generationUsage.push(normalizeTokenUsage(generationResult.tokenUsage));
-		}
-		timings.runAiGeneration = Date.now() - generationStartedAt;
+		const { value: generationOutputs, durationMs: runAiGenerationDurationMs } = await measureStep({
+			logger: jobLogger,
+			runId,
+			attemptNumber,
+			stepKey: "run-ai-generation",
+			handler: async () => {
+				const outputs: GenerationResult[] = [];
+				for (const docPath of triageResult.affectedDocFiles) {
+					const docFile = docFileByPath.get(docPath);
+					if (docFile === undefined) {
+						continue;
+					}
+					const generationResult = await services.runGeneration({
+						filteredDiff: filteredDiffWithProjectIgnores,
+						docFile,
+						adapter: adapterResolution.adapter,
+						docsConfig,
+						triageReasoning: triageResult.reasoning,
+						mustApplyCodeChanges: true,
+					});
+					outputs.push(generationResult);
+					generationUsage.push(normalizeTokenUsage(generationResult.tokenUsage));
+				}
+				return outputs;
+			},
+			buildResult: (outputs) => ({
+				generatedDocCount: outputs.length,
+				paths: outputs.map((output) => output.path),
+			}),
+		});
+		timings.runAiGeneration = runAiGenerationDurationMs;
 		jobLogger.info(
 			{
 				runId,
@@ -1536,11 +1684,12 @@ export const processAnalyzeChangesJob = async (
 			"post-generation diff analysis finished",
 		);
 
-		const { value: titledChanges, durationMs: titleDurationMs } = await measureStep(
-			jobLogger,
+		const { value: titledChanges, durationMs: titleDurationMs } = await measureStep({
+			logger: jobLogger,
 			runId,
-			"generate-suggestion-titles",
-			async () => {
+			attemptNumber,
+			stepKey: "generate-suggestion-titles",
+			handler: async () => {
 				const results: SuggestionDraft[] = [];
 				for (const change of meaningfulChanges) {
 					const title = await services
@@ -1555,7 +1704,11 @@ export const processAnalyzeChangesJob = async (
 				}
 				return results;
 			},
-		);
+			buildResult: (changes) => ({
+				titledChangeCount: changes.length,
+				titlesGeneratedCount: changes.filter((change) => change.title !== null).length,
+			}),
+		});
 		timings.generateSuggestionTitles = titleDurationMs;
 		if (titledChanges.length === 0) {
 			jobLogger.info(
@@ -1594,15 +1747,24 @@ export const processAnalyzeChangesJob = async (
 				pipelineContext: context,
 			});
 			const { value: suggestionPersistence, durationMs: persistSuggestionsDurationMs } =
-				await measureStep(jobLogger, runId, "persist-suggestions", async () =>
-					persistSuggestions({
-						projectId: repository.projectId,
-						repositoryId: suggestionRepositoryId,
-						runId,
-						suggestions: titledChanges,
-						decisionMemoryEnabled: options.decisionMemoryEnabled,
+				await measureStep({
+					logger: jobLogger,
+					runId,
+					attemptNumber,
+					stepKey: "persist-suggestions",
+					handler: async () =>
+						persistSuggestions({
+							projectId: repository.projectId,
+							repositoryId: suggestionRepositoryId,
+							runId,
+							suggestions: titledChanges,
+							decisionMemoryEnabled: options.decisionMemoryEnabled,
+						}),
+					buildResult: (result) => ({
+						persistedCount: result.persisted.length,
+						skippedCount: result.skipped.length,
 					}),
-				);
+				});
 			timings.persistSuggestions = persistSuggestionsDurationMs;
 			jobLogger.info(
 				{
@@ -1630,11 +1792,12 @@ export const processAnalyzeChangesJob = async (
 			return;
 		}
 
-		const { value: prResult, durationMs: createPrDurationMs } = await measureStep(
-			jobLogger,
+		const { value: prResult, durationMs: createPrDurationMs } = await measureStep({
+			logger: jobLogger,
 			runId,
-			"create-pr",
-			async () =>
+			attemptNumber,
+			stepKey: "create-pr",
+			handler: async () =>
 				services.createPullRequest({
 					octokit,
 					owner: docsLocation.owner,
@@ -1652,7 +1815,12 @@ export const processAnalyzeChangesJob = async (
 					},
 					config: prConfig,
 				}),
-		);
+			buildResult: (result) => ({
+				prNumber: result.prNumber,
+				prUrl: result.prUrl,
+				branchName: result.branchName,
+			}),
+		});
 		timings.createPr = createPrDurationMs;
 		jobLogger.info(
 			{

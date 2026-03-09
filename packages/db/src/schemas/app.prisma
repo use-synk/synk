@@ -72,6 +72,14 @@ enum AttemptStatus {
   @@map("attempt_status")
 }
 
+enum RunStepStatus {
+  running
+  failed
+  completed
+
+  @@map("run_step_status")
+}
+
 enum WebhookStatus {
   received
   processed
@@ -179,6 +187,7 @@ model AnalysisRun {
   createdAt                 DateTime             @default(now())
   updatedAt                 DateTime             @updatedAt
   attempts                  AnalysisRunAttempt[]
+  steps                     AnalysisRunStep[]
   suggestions               Suggestion[]
 
   @@unique([projectId, repositoryId, triggerCommitSha, triggerType])
@@ -188,6 +197,29 @@ model AnalysisRun {
   @@index([projectId, status, createdAt(sort: Desc)])
   @@index([provider, triggerCommitSha])
   @@map("analysis_runs")
+}
+
+model AnalysisRunStep {
+  id            String        @id @default(uuid())
+  runId         String
+  run           AnalysisRun   @relation(fields: [runId], references: [id], onDelete: Cascade)
+  attemptNumber Int
+  stepKey       String
+  status        RunStepStatus
+  result        Json          @default("{}")
+  errorCode     String?
+  errorMessage  String?
+  startedAt     DateTime?
+  completedAt   DateTime?
+  durationMs    Int?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@unique([runId, attemptNumber, stepKey])
+  @@index([runId, attemptNumber])
+  @@index([runId, status])
+  @@index([runId, createdAt(sort: Asc)])
+  @@map("analysis_run_steps")
 }
 
 model AnalysisRunAttempt {
