@@ -1,6 +1,6 @@
 import type { runDetailSchema } from "@/api/endpoints";
 import { cn } from "@/lib/utils";
-import { deriveRunStats } from "@/modules/runs/lib/derive-run-stats";
+import { deriveRunStats } from "@/modules/run/lib/derive-run-stats";
 import type z from "zod";
 
 function RunStats({

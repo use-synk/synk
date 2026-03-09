@@ -1,7 +1,7 @@
 import type { runDetailSchema } from "@/api/endpoints";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { getBranchNameFromGitReference } from "@/modules/runs/lib/get-branch-name-from-git-reference";
+import { getBranchNameFromGitReference } from "@/modules/run/lib/get-branch-name-from-git-reference";
 import type { runStatusSchema } from "@synk-ai/shared";
 import { format } from "date-fns";
 import {

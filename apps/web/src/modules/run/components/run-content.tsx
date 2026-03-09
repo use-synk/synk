@@ -1,7 +1,7 @@
 import type { runDetailSchema } from "@/api/endpoints";
 import { Header } from "@/components/header";
 import { cn } from "@/lib/utils";
-import { normalizeRunSteps } from "@/modules/runs/lib/normalize-run-steps";
+import { normalizeRunSteps } from "@/modules/run/lib/normalize-run-steps";
 import { ArrowLeftIcon } from "lucide-react";
 import Link from "next/link";
 import { Fragment } from "react";

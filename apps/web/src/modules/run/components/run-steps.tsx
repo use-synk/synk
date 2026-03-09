@@ -1,6 +1,6 @@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
-import type { NormalizedRunStep } from "@/modules/runs/lib/normalize-run-steps";
+import type { NormalizedRunStep } from "@/modules/run/lib/normalize-run-steps";
 import { type VariantProps, cva } from "class-variance-authority";
 import { format } from "date-fns";
 import {
