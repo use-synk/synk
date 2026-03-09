@@ -4,7 +4,7 @@ import { SuggestionContent } from "@/modules/suggestion";
 import { notFound } from "next/navigation";
 
 async function ServerPage(props: PageProps<"/[slug]/project/[project]/suggestions/[suggestion]">) {
-	const { project, suggestion: suggestionId } = await props.params;
+	const { project, suggestion: suggestionId, slug } = await props.params;
 
 	const suggestion = await fetchQuery(getProjectSuggestion({ projectId: project, suggestionId }));
 
@@ -12,7 +12,7 @@ async function ServerPage(props: PageProps<"/[slug]/project/[project]/suggestion
 		notFound();
 	}
 
-	return <SuggestionContent suggestion={suggestion.data} />;
+	return <SuggestionContent suggestion={suggestion.data} projectId={project} orgSlug={slug} />;
 }
 
 export default ServerPage;

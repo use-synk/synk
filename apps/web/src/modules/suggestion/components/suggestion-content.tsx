@@ -17,8 +17,14 @@ import { SuggestionSidebar } from "./suggestion-sidebar";
 function SuggestionContent({
 	suggestion,
 	className,
+	projectId,
+	orgSlug,
 	...props
-}: React.ComponentProps<"main"> & { suggestion: z.infer<typeof suggestionDetailSchema> }) {
+}: React.ComponentProps<"main"> & {
+	suggestion: z.infer<typeof suggestionDetailSchema>;
+	projectId: string;
+	orgSlug: string;
+}) {
 	return (
 		<Fragment>
 			<SuggestionNavbar projectId={suggestion.projectId} />
@@ -28,7 +34,7 @@ function SuggestionContent({
 						<div className="mb-10">
 							<Link
 								className="text-sm font-medium text-stone-700 flex justify-center items-center w-fit gap-1.5"
-								href={"#"}
+								href={`/${orgSlug}/project/${projectId}/suggestions`}
 							>
 								<ArrowLeftIcon className="size-3.5 text-stone-500" />
 								<span>Back to suggestions</span>
