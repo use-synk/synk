@@ -12,6 +12,8 @@
  *     incompatible; retrying wastes budget and delays dead-letter handling.
  */
 
+import { UnrecoverableError } from "bullmq";
+
 export type JobErrorClassification = "retryable" | "non-retryable";
 
 const HTTP_CLIENT_ERROR_MIN = 400;
@@ -37,6 +39,10 @@ const getHttpStatus = (error: unknown): number | null => {
 };
 
 export const classifyError = (error: unknown): JobErrorClassification => {
+	if (error instanceof UnrecoverableError) {
+		return "non-retryable";
+	}
+
 	const status = getHttpStatus(error);
 
 	if (status !== null) {

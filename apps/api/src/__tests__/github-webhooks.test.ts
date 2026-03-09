@@ -359,6 +359,31 @@ describe("POST /api/v1/webhooks/github", () => {
 		expect(enqueueMock).not.toHaveBeenCalled();
 	});
 
+	it("enqueues push when payload default branch matches but stored default branch is stale", async () => {
+		mockDb.providerRepository.findFirst.mockResolvedValueOnce({
+			id: "repo-1",
+			installationId: "installation-1",
+			defaultBranch: "master",
+		});
+		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
+		const payload = readFixture("push-main.json");
+		payload.ref = "refs/heads/main";
+		payload.repository.default_branch = "main";
+
+		const response = await dispatchWebhook(app, "push", payload);
+
+		expect(response.status).toBe(200);
+		expect(enqueueMock).toHaveBeenCalledWith({
+			installationId: "installation-1",
+			repositoryId: "repo-1",
+			trigger: {
+				type: "push",
+				ref: "refs/heads/main",
+				commitSha: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+			},
+		});
+	});
+
 	it("does not enqueue push events for deleted branches", async () => {
 		const app = makeApp(enqueueAnalyzeChanges, listInstallationRepositoriesMock);
 		const payload = readFixture("push-main.json");

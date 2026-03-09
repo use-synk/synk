@@ -31,22 +31,32 @@ function ProjectsSidebarMenu({ ...props }: React.ComponentProps<typeof SidebarMe
 	const basePath = useMemo(() => {
 		return `/${slug}/project/${project}`;
 	}, [slug, project]);
+	const normalizedPathname =
+		pathname.endsWith("/") && pathname.length > 1 ? pathname.slice(0, -1) : pathname;
 
 	return (
 		<SidebarMenu {...props}>
-			{items.map(({ label, icon: Icon, href }) => (
-				<SidebarMenuItem key={href}>
-					<SidebarMenuButton
-						isActive={pathname === `${basePath}${href === "/" ? "" : href}`}
-						render={
-							<Link href={`${basePath}${href}`}>
-								<Icon />
-								{label}
-							</Link>
-						}
-					/>
-				</SidebarMenuItem>
-			))}
+			{items.map(({ label, icon: Icon, href }) => {
+				const targetPath = `${basePath}${href === "/" ? "" : href}`;
+				const isHome = href === "/";
+				const isActive = isHome
+					? normalizedPathname === targetPath
+					: normalizedPathname === targetPath || normalizedPathname.startsWith(`${targetPath}/`);
+
+				return (
+					<SidebarMenuItem key={href}>
+						<SidebarMenuButton
+							isActive={isActive}
+							render={
+								<Link href={`${basePath}${href}`}>
+									<Icon />
+									{label}
+								</Link>
+							}
+						/>
+					</SidebarMenuItem>
+				);
+			})}
 		</SidebarMenu>
 	);
 }

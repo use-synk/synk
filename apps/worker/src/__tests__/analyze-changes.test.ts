@@ -13,6 +13,7 @@ const mockUpdateProject = mock();
 const mockUpdateProviderRepository = mock().mockResolvedValue({});
 const mockUpsertAnalysisRun = mock();
 const mockUpdateAnalysisRun = mock();
+const mockUpsertAnalysisRunStep = mock();
 const mockCreateSuggestion = mock();
 const mockAggregateSuggestion = mock();
 const mockDbTransaction = mock();
@@ -44,6 +45,9 @@ mock.module("@synk-ai/db", () => ({
 		analysisRun: {
 			upsert: mockUpsertAnalysisRun,
 			update: mockUpdateAnalysisRun,
+		},
+		analysisRunStep: {
+			upsert: mockUpsertAnalysisRunStep,
 		},
 		suggestion: {
 			create: mockCreateSuggestion,
@@ -458,6 +462,7 @@ describe("processAnalyzeChangesJob", () => {
 		mockUpdateProviderRepository.mockClear();
 		mockUpsertAnalysisRun.mockClear();
 		mockUpdateAnalysisRun.mockClear();
+		mockUpsertAnalysisRunStep.mockClear();
 		mockCreateSuggestion.mockClear();
 		mockDbTransaction.mockClear();
 		mockFindFirstSuggestion.mockClear();
@@ -493,6 +498,7 @@ describe("processAnalyzeChangesJob", () => {
 		mockUpdateProject.mockResolvedValue({});
 		mockUpsertAnalysisRun.mockResolvedValue({ id: "run-1" });
 		mockUpdateAnalysisRun.mockResolvedValue({});
+		mockUpsertAnalysisRunStep.mockResolvedValue({});
 		mockFindFirstSuggestion.mockResolvedValue(null);
 		mockFindManySuggestions.mockResolvedValue([]);
 		mockUpdateManySuggestions.mockResolvedValue({ count: 0 });
@@ -551,6 +557,22 @@ describe("processAnalyzeChangesJob", () => {
 		expect(mockUpdateAnalysisRun).toHaveBeenCalledWith(
 			expect.objectContaining({
 				data: expect.objectContaining({ status: "completed", docsAffected: false }),
+			}),
+		);
+		expect(mockUpsertAnalysisRunStep).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: expect.objectContaining({
+					runId_attemptNumber_stepKey: expect.objectContaining({
+						runId: "run-1",
+						attemptNumber: 1,
+						stepKey: "run-ai-triage",
+					}),
+				}),
+				update: expect.objectContaining({
+					status: "completed",
+					errorCode: null,
+					errorMessage: null,
+				}),
 			}),
 		);
 	});
@@ -1378,6 +1400,22 @@ describe("processAnalyzeChangesJob", () => {
 		expect(mockUpdateAnalysisRun).toHaveBeenCalledWith(
 			expect.objectContaining({
 				data: expect.objectContaining({ status: "failed" }),
+			}),
+		);
+		expect(mockUpsertAnalysisRunStep).toHaveBeenCalledWith(
+			expect.objectContaining({
+				where: expect.objectContaining({
+					runId_attemptNumber_stepKey: expect.objectContaining({
+						runId: "run-1",
+						attemptNumber: 1,
+						stepKey: "detect-doc-adapter",
+					}),
+				}),
+				update: expect.objectContaining({
+					status: "failed",
+					errorCode: "http_404",
+					errorMessage: "Not Found",
+				}),
 			}),
 		);
 	});

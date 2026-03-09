@@ -8,6 +8,7 @@ export type {
 	RunDetail,
 	RunListFilter,
 	RunListItem,
+	RunStepDetail,
 } from "./dashboard";
 export type {
 	CreateSuggestionsPrExcludedItem,

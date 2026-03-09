@@ -100,4 +100,21 @@ export type RunDetail = {
 	completedAt: Date | null;
 	createdAt: Date;
 	updatedAt: Date;
+	steps: readonly RunStepDetail[];
+};
+
+export type RunStepDetail = {
+	id: string;
+	runId: string;
+	attemptNumber: number;
+	stepKey: string;
+	status: "running" | "completed" | "failed";
+	result: unknown;
+	errorCode: string | null;
+	errorMessage: string | null;
+	startedAt: Date | null;
+	completedAt: Date | null;
+	durationMs: number | null;
+	createdAt: Date;
+	updatedAt: Date;
 };

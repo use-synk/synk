@@ -302,6 +302,7 @@ export class GitHubWebhookService {
 		const { installation, repository, ref, after: commitSha } = parseRes.data;
 		const providerInstallationId = this.getProviderInstallationId(installation);
 		const providerRepositoryId = this.getProviderRepositoryId(repository);
+		const payloadDefaultBranch = repository?.default_branch;
 
 		if (
 			providerInstallationId === null ||
@@ -335,7 +336,10 @@ export class GitHubWebhookService {
 			);
 			return { ok: true };
 		}
-		if (ref !== `refs/heads/${repo.defaultBranch}`) {
+		const refMatchesRepositoryDefaultBranch = ref === `refs/heads/${repo.defaultBranch}`;
+		const refMatchesPayloadDefaultBranch =
+			payloadDefaultBranch !== undefined && ref === `refs/heads/${payloadDefaultBranch}`;
+		if (!refMatchesRepositoryDefaultBranch && !refMatchesPayloadDefaultBranch) {
 			this.logInfo(
 				{
 					event: "push",
@@ -343,6 +347,7 @@ export class GitHubWebhookService {
 					commitSha,
 					ref,
 					defaultBranch: repo.defaultBranch,
+					payloadDefaultBranch: payloadDefaultBranch ?? null,
 				},
 				"github webhook push ignored: non-default branch",
 			);

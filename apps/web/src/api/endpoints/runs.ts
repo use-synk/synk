@@ -20,7 +20,7 @@ const runSummarySchema = z.object({
 	completedAt: z.string().nullable(),
 });
 
-const runDetailSchema = z.object({
+export const runDetailSchema = z.object({
 	id: z.string(),
 	repositoryId: z.string(),
 	status: runStatusSchema,
@@ -32,7 +32,7 @@ const runDetailSchema = z.object({
 	docsAffected: z.boolean().nullable(),
 	docPrNumber: z.number().nullable(),
 	docPrUrl: z.string().nullable(),
-	prLink: z.string().nullable(),
+	prLink: z.string().nullable().or(z.undefined()),
 	tokenUsage: z.unknown(),
 	error: z.string().nullable(),
 	attemptCount: z.number(),
@@ -43,6 +43,23 @@ const runDetailSchema = z.object({
 	completedAt: z.string().nullable(),
 	createdAt: z.string(),
 	updatedAt: z.string(),
+	steps: z.array(
+		z.object({
+			id: z.string(),
+			runId: z.string(),
+			attemptNumber: z.number().int().min(1),
+			stepKey: z.string(),
+			status: z.enum(["running", "completed", "failed"]),
+			result: z.unknown(),
+			errorCode: z.string().nullable(),
+			errorMessage: z.string().nullable(),
+			startedAt: z.string().nullable(),
+			completedAt: z.string().nullable(),
+			durationMs: z.number().int().nullable(),
+			createdAt: z.string(),
+			updatedAt: z.string(),
+		}),
+	),
 });
 
 export function getRunDetail({ runId }: { runId: string }) {

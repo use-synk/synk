@@ -58,6 +58,7 @@ export type MockDb = {
 	readonly providerRepository: MockPrismaDelegate;
 	readonly analysisRun: MockPrismaDelegate;
 	readonly analysisRunAttempt: MockPrismaDelegate;
+	readonly analysisRunStep: MockPrismaDelegate;
 	readonly webhookDelivery: MockPrismaDelegate;
 	// Auth domain models
 	readonly user: MockPrismaDelegate;
@@ -98,6 +99,7 @@ export const createMockDb = (): MockDb => ({
 	providerRepository: createMockDelegate(),
 	analysisRun: createMockDelegate(),
 	analysisRunAttempt: createMockDelegate(),
+	analysisRunStep: createMockDelegate(),
 	webhookDelivery: createMockDelegate(),
 	user: createMockDelegate(),
 	session: createMockDelegate(),
