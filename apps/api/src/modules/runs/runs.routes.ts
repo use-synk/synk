@@ -19,6 +19,21 @@ export function createRunsRoutes({
 		total: openApiZ.number().int().min(0),
 		totalPages: openApiZ.number().int().min(0),
 	});
+	const runStepSchema = openApiZ.object({
+		id: openApiZ.string(),
+		runId: openApiZ.string(),
+		attemptNumber: openApiZ.number().int().min(1),
+		stepKey: openApiZ.string(),
+		status: openApiZ.string(),
+		result: openApiZ.unknown(),
+		errorCode: openApiZ.string().nullable(),
+		errorMessage: openApiZ.string().nullable(),
+		startedAt: openApiZ.string().nullable(),
+		completedAt: openApiZ.string().nullable(),
+		durationMs: openApiZ.number().int().nullable(),
+		createdAt: openApiZ.string(),
+		updatedAt: openApiZ.string(),
+	});
 	const getRunRoute = createRoute({
 		method: "get",
 		path: "/{runId}",
@@ -64,6 +79,7 @@ export function createRunsRoutes({
 								completedAt: openApiZ.string().nullable(),
 								createdAt: openApiZ.string(),
 								updatedAt: openApiZ.string(),
+								steps: openApiZ.array(runStepSchema),
 							}),
 						}),
 					},
@@ -190,6 +206,13 @@ export function createRunsRoutes({
 				completedAt: result.completedAt?.toISOString() ?? null,
 				createdAt: result.createdAt.toISOString(),
 				updatedAt: result.updatedAt.toISOString(),
+				steps: result.steps.map((step) => ({
+					...step,
+					startedAt: step.startedAt?.toISOString() ?? null,
+					completedAt: step.completedAt?.toISOString() ?? null,
+					createdAt: step.createdAt.toISOString(),
+					updatedAt: step.updatedAt.toISOString(),
+				})),
 			},
 		});
 	});

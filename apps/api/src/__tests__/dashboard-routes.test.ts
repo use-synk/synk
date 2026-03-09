@@ -141,6 +141,7 @@ const createDashboardServiceMock = () => {
 		result: {
 			triage: { reasoning: "Docs are stale compared to code change" },
 		},
+		steps: [],
 		queuedAt: NOW,
 		startedAt: NOW,
 		completedAt: NOW,

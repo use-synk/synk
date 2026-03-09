@@ -111,6 +111,11 @@ export const createPrismaDashboardRepositories = (
 		findRunDetail: async (runId) =>
 			client.analysisRun.findUnique({
 				where: { id: runId },
+				include: {
+					steps: {
+						orderBy: [{ attemptNumber: "asc" }, { createdAt: "asc" }],
+					},
+				},
 			}),
 	};
 
