@@ -100,7 +100,7 @@ function formatHeaderTitle(run: z.infer<typeof runDetailSchema>) {
 }
 
 function RunStatusBadge({ status }: { status: z.infer<typeof runStatusSchema> }) {
-	let label = "unknown";
+	let label: string;
 
 	switch (status) {
 		case "completed":
