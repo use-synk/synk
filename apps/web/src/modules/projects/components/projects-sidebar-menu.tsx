@@ -31,7 +31,8 @@ function ProjectsSidebarMenu({ ...props }: React.ComponentProps<typeof SidebarMe
 	const basePath = useMemo(() => {
 		return `/${slug}/project/${project}`;
 	}, [slug, project]);
-	const normalizedPathname = pathname.endsWith("/") && pathname.length > 1 ? pathname.slice(0, -1) : pathname;
+	const normalizedPathname =
+		pathname.endsWith("/") && pathname.length > 1 ? pathname.slice(0, -1) : pathname;
 
 	return (
 		<SidebarMenu {...props}>

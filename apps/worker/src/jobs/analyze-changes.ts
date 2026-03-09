@@ -1052,11 +1052,13 @@ const persistRunStep = async (input: {
 	completedAt?: Date;
 	durationMs?: number;
 }): Promise<void> => {
-	const stepDelegate = (db as unknown as {
-		analysisRunStep?: {
-			upsert: (args: Prisma.AnalysisRunStepUpsertArgs) => Promise<unknown>;
-		};
-	}).analysisRunStep;
+	const stepDelegate = (
+		db as unknown as {
+			analysisRunStep?: {
+				upsert: (args: Prisma.AnalysisRunStepUpsertArgs) => Promise<unknown>;
+			};
+		}
+	).analysisRunStep;
 	if (stepDelegate === undefined || typeof stepDelegate.upsert !== "function") {
 		throw new UnrecoverableError(
 			"Prisma client does not expose analysisRunStep. Run `bun run --filter @synk-ai/db db:generate`, rebuild packages, and restart the worker.",

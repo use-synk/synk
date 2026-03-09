@@ -1,8 +1,6 @@
 const GIT_HEADS_PREFIX = "refs/heads/";
 
-export function getBranchNameFromGitReference(
-	gitReference: string | null | undefined,
-): string {
+export function getBranchNameFromGitReference(gitReference: string | null | undefined): string {
 	if (!gitReference) {
 		return "";
 	}
