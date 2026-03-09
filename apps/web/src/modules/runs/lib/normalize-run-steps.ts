@@ -9,6 +9,9 @@ export type NormalizedRunStep = {
 	key: RunStepKey;
 	title: string;
 	status: "completed" | "failed" | "running" | "skipped";
+	startedAt: string | null;
+	completedAt: string | null;
+	durationMs: number | null;
 	result: unknown | null;
 	resultValidationError: string | null;
 	errorCode: string | null;
@@ -58,6 +61,9 @@ function normalizeMissingStep(definition: (typeof runStepDefinitions)[number]): 
 		key: definition.key,
 		title: definition.title,
 		status: "skipped",
+		startedAt: null,
+		completedAt: null,
+		durationMs: null,
 		result: null,
 		resultValidationError: null,
 		errorCode: null,
@@ -74,6 +80,9 @@ function normalizeExecutedStep(
 		key: definition.key,
 		title: definition.title,
 		status: step.status,
+		startedAt: step.startedAt,
+		completedAt: step.completedAt,
+		durationMs: step.durationMs,
 		result: result.result,
 		resultValidationError: result.resultValidationError,
 		errorCode: step.status === "failed" ? step.errorCode : null,

@@ -32,7 +32,7 @@ export const runDetailSchema = z.object({
 	docsAffected: z.boolean().nullable(),
 	docPrNumber: z.number().nullable(),
 	docPrUrl: z.string().nullable(),
-	prLink: z.string().nullable(),
+	prLink: z.string().nullable().or(z.undefined()),
 	tokenUsage: z.unknown(),
 	error: z.string().nullable(),
 	attemptCount: z.number(),

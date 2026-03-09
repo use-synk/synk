@@ -2,6 +2,7 @@ import type { projectDetailSchema, runSummarySchema } from "@/api/endpoints";
 import { SuggestionStatsHeader } from "@/components/suggestions/suggestion-stats-header";
 import { cn } from "@/lib/utils";
 import { SuggestionsContent } from "@/modules/suggestions/components/suggestions-content";
+import { getBranchNameFromGitReference } from "@/modules/runs/lib/get-branch-name-from-git-reference";
 import type { runStatusSchema } from "@synk-ai/shared";
 import { format } from "date-fns";
 import {
@@ -175,11 +176,13 @@ function RunStatusIcon({
 
 function RunRow({ run }: { run: z.infer<typeof runSummarySchema> }) {
 	const title = useMemo(() => {
+		const branchName = getBranchNameFromGitReference(run.triggerRef);
+
 		if (run.triggerType === "manual") {
-			return `Manual run on ${run.triggerRef}`;
+			return `Manual run on ${branchName}`;
 		}
 		if (run.triggerType === "push") {
-			return `Push to ${run.triggerRef}`;
+			return `Push to ${branchName}`;
 		}
 		if (run.triggerType === "merge" && run.prMessage) {
 			return (
@@ -237,7 +240,7 @@ function RunRow({ run }: { run: z.infer<typeof runSummarySchema> }) {
 						{run.triggerRef && (
 							<div className="flex justify-center items-center text-sm text-stone-500 gap-1.5">
 								<GitBranchIcon className="size-3.5 text-stone-400" />
-								{run.triggerRef}
+								{getBranchNameFromGitReference(run.triggerRef)}
 							</div>
 						)}
 						{run.triggerCommitSha && (
