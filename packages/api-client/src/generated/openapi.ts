@@ -1497,6 +1497,21 @@ export interface operations {
                             completedAt: string | null;
                             createdAt: string;
                             updatedAt: string;
+                            steps: {
+                                id: string;
+                                runId: string;
+                                attemptNumber: number;
+                                stepKey: string;
+                                status: string;
+                                result?: unknown;
+                                errorCode: string | null;
+                                errorMessage: string | null;
+                                startedAt: string | null;
+                                completedAt: string | null;
+                                durationMs: number | null;
+                                createdAt: string;
+                                updatedAt: string;
+                            }[];
                         };
                     };
                 };

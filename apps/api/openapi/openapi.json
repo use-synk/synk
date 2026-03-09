@@ -2635,6 +2635,81 @@
                         },
                         "updatedAt": {
                           "type": "string"
+                        },
+                        "steps": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "runId": {
+                                "type": "string"
+                              },
+                              "attemptNumber": {
+                                "type": "integer",
+                                "minimum": 1
+                              },
+                              "stepKey": {
+                                "type": "string"
+                              },
+                              "status": {
+                                "type": "string"
+                              },
+                              "result": {},
+                              "errorCode": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "errorMessage": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "startedAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "completedAt": {
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "durationMs": {
+                                "type": [
+                                  "integer",
+                                  "null"
+                                ]
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              },
+                              "updatedAt": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "id",
+                              "runId",
+                              "attemptNumber",
+                              "stepKey",
+                              "status",
+                              "errorCode",
+                              "errorMessage",
+                              "startedAt",
+                              "completedAt",
+                              "durationMs",
+                              "createdAt",
+                              "updatedAt"
+                            ]
+                          }
                         }
                       },
                       "required": [
@@ -2664,7 +2739,8 @@
                         "startedAt",
                         "completedAt",
                         "createdAt",
-                        "updatedAt"
+                        "updatedAt",
+                        "steps"
                       ]
                     }
                   },
