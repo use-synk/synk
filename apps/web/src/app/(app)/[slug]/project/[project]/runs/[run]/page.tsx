@@ -1,6 +1,6 @@
 import { getRunDetail } from "@/api/endpoints";
 import { fetchQuery } from "@/api/server";
-import { RunContent } from "@/modules/runs/components/run-content";
+import { RunContent } from "@/modules/run/components/run-content";
 import { notFound } from "next/navigation";
 
 async function ServerPage(props: PageProps<"/[slug]/project/[project]/runs/[run]">) {

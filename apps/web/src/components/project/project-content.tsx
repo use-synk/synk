@@ -1,8 +1,8 @@
 import type { projectDetailSchema, runSummarySchema } from "@/api/endpoints";
 import { SuggestionStatsHeader } from "@/components/suggestions/suggestion-stats-header";
 import { cn } from "@/lib/utils";
+import { getBranchNameFromGitReference } from "@/modules/run/lib/get-branch-name-from-git-reference";
 import { SuggestionsContent } from "@/modules/suggestions/components/suggestions-content";
-import { getBranchNameFromGitReference } from "@/modules/runs/lib/get-branch-name-from-git-reference";
 import type { runStatusSchema } from "@synk-ai/shared";
 import { format } from "date-fns";
 import {
