@@ -20,7 +20,7 @@ const runSummarySchema = z.object({
 	completedAt: z.string().nullable(),
 });
 
-const runDetailSchema = z.object({
+export const runDetailSchema = z.object({
 	id: z.string(),
 	repositoryId: z.string(),
 	status: runStatusSchema,
