@@ -35,7 +35,12 @@ export const pushEventSchema = z.object({
 	ref: z.string().optional(),
 	after: z.string().optional(),
 	installation: z.object({ id: z.number().int().optional() }).optional(),
-	repository: z.object({ id: z.number().int().optional() }).optional(),
+	repository: z
+		.object({
+			id: z.number().int().optional(),
+			default_branch: z.string().optional(),
+		})
+		.optional(),
 });
 
 export const pullRequestEventSchema = z.object({
