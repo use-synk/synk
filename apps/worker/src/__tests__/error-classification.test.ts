@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { UnrecoverableError } from "bullmq";
 import { classifyError } from "../jobs/error-classification";
 
 const makeHttpError = (status: number): Error =>
@@ -52,6 +53,10 @@ describe("classifyError — retryable HTTP errors", () => {
 // ---------------------------------------------------------------------------
 
 describe("classifyError — non-HTTP errors are retryable", () => {
+	it("classifies UnrecoverableError as non-retryable", () => {
+		expect(classifyError(new UnrecoverableError("permanent failure"))).toBe("non-retryable");
+	});
+
 	it("classifies a plain Error (no status) as retryable", () => {
 		expect(classifyError(new Error("connection refused"))).toBe("retryable");
 	});
