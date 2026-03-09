@@ -1,7 +1,7 @@
 "use client";
 
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
-import { BrainIcon, HomeIcon, WorkflowIcon } from "lucide-react";
+import { BrainIcon, HomeIcon, SettingsIcon, WorkflowIcon } from "lucide-react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import type React from "react";
@@ -22,6 +22,11 @@ const items = [
 		label: "Suggestions",
 		icon: BrainIcon,
 		href: "/suggestions",
+	},
+	{
+		label: "Settings",
+		icon: SettingsIcon,
+		href: "/settings",
 	},
 ];
 
