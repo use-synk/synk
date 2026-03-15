@@ -19,6 +19,7 @@
 	},
 	"dependencies": {
 		"@base-ui/react": "^1.2.0",
+		"@prisma/client": "^7.4.0",
 		"@synk-ai/auth": "workspace:*",
 		"@synk-ai/db": "workspace:*",
 		"@synk-ai/shared": "workspace:*",
